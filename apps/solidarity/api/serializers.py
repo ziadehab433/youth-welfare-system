@@ -1,3 +1,5 @@
+
+
 from rest_framework import serializers
 from apps.solidarity.models import Solidarities
 
@@ -27,12 +29,13 @@ class SolidarityStatusSerializer(serializers.ModelSerializer):
         fields = ['solidarity_id', 'req_status', 'status_display', 'created_at', 'updated_at', 'approved_by_name']
 
     def get_status_display(self, obj):
-        return {
+        statuses = {
             'PENDING': 'Pending',
             'APPROVED': 'Approved',
             'REJECTED': 'Rejected',
             'IN_REVIEW': 'In Review',
-        }.get(obj.req_status, obj.req_status)
+        }
+        return statuses.get(obj.req_status, obj.req_status)
 
 class SolidarityListSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source='student.name', read_only=True)
@@ -41,7 +44,11 @@ class SolidarityListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Solidarities
-        fields = ['solidarity_id', 'student_name', 'student_uid', 'faculty_name', 'req_status', 'total_income', 'family_numbers', 'created_at']
+        fields = [
+            'solidarity_id', 'student_name', 'student_uid',
+            'faculty_name', 'req_status', 'total_income',
+            'family_numbers', 'created_at'
+        ]
 
 class SolidarityDetailSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source='student.name', read_only=True)

@@ -11,10 +11,13 @@ from apps.solidarity.api.serializers import (
 from rest_framework.permissions import AllowAny
 from apps.solidarity.api.utils import get_current_student, get_current_admin
 from apps.solidarity.services.solidarity_service import SolidarityService
+from drf_spectacular.utils import extend_schema
 
 class StudentSolidarityViewSet(viewsets.GenericViewSet):
     queryset = Solidarities.objects.none()
     permission_classes = [AllowAny]  # Allow any for testing
+    serializer_class = SolidarityApplySerializer   # ✅ Added for Swagger
+
 
     @action(detail=False, methods=['post'], url_path='apply')
     def apply(self, request):
@@ -41,6 +44,7 @@ class StudentSolidarityViewSet(viewsets.GenericViewSet):
 
 class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
     permission_classes = [AllowAny]
+    serializer_class = SolidarityListSerializer   # ✅ Added for Swagger
 
     @action(detail=False, methods=['get'])
     def list_applications(self, request):
@@ -57,28 +61,46 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         return Response(SolidarityDetailSerializer(solidarity).data)
         
 
-    @action(detail=True, methods=['post'], url_path='applications/(?P<pk>[^/.]+)/approve')
+    @extend_schema(request=None)  # hide request schema from docs
+    @action(
+        detail=True,
+        methods=['post'],
+        url_path='applications/(?P<pk>[^/.]+)/approve',
+        #serializer_class=ApprovalSerializer # tell Swagger what to expect
+    )
     def approve(self, request, pk=None):
         admin = get_current_admin(request)
         try:
             result = SolidarityService.approve_application(pk, admin)
             return Response({'message': result['message']})
         except DjangoValidationError as e:
+            print("VALIDATION ERROR:", e)  # optional for debugging
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            print("GENERAL ERROR:", e)  # optional for debugging
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=['post'], url_path='applications/(?P<pk>[^/.]+)/reject')
+
+    @extend_schema(request=None)  # hide request schema from docs
+    @action(
+        detail=True,
+        methods=['post'],
+        url_path='applications/(?P<pk>[^/.]+)/approve',
+        #serializer_class=ApprovalSerializer # tell Swagger what to expect
+    )
     def reject(self, request, pk=None):
         admin = get_current_admin(request)
-        ser = RejectionSerializer(data=request.data)
-        ser.is_valid(raise_exception=True)
+        # ser = RejectionSerializer(data=request.data)
+        # ser.is_valid(raise_exception=True)
         try:
-            result = SolidarityService.reject_application(pk, admin, ser.validated_data.get('rejection_reason'))
+            result = SolidarityService.reject_application(pk, admin)
             return Response({'message': result['message']})
         except DjangoValidationError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
     permission_classes = [AllowAny]  # Allow any for testing
+    serializer_class = SolidarityListSerializer   # ✅ Added for Swagger
 
     @action(detail=False, methods=['get'], url_path='all-applications')
     def all_applications(self, request):
