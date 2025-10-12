@@ -38,7 +38,12 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'drf_spectacular'
+    'drf_spectacular',
+    'youth_welfare',
+    'apps.event',
+    #'drf_yasg',
+    'apps.solidarity',
+    'apps.family'
 ]
 
 MIDDLEWARE = [
@@ -76,8 +81,12 @@ WSGI_APPLICATION = 'youth_welfare.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'GP',
+        'USER': 'postgres',
+        'PASSWORD': 'admin',
+        'HOST': 'localhost',
+        'PORT': '5432',
     }
 }
 
@@ -101,17 +110,27 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-# rest framework conf
 REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',
+    ],
 }
 
-# spectacular
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'my api',
-    'DESCRIPTION': 'api desc',
+    'TITLE': 'Youth Welfare API',
+    'DESCRIPTION': 'API documentation for the Solidarity Subsystem',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
+    'SWAGGER_UI_SETTINGS': {
+        'deepLinking': True,
+        'persistAuthorization': True,
+    },
+    # Define authentication
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SECURITY': [{
+        'BearerAuth': []
+    }],
 }
 
 # Internationalization
