@@ -3,6 +3,8 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 from apps.solidarity.models import Solidarities, Logs
 import logging
+from django.db.models import Q
+
 
 logger = logging.getLogger(__name__)
 
@@ -123,9 +125,7 @@ class SolidarityService:
 
         return queryset.order_by('-created_at')
 
-from django.db.models import Q
 
-class SolidarityService: 
     @staticmethod
     def get_all_applications(admin=None, filters=None):
         queryset = Solidarities.objects.select_related('student', 'faculty', 'approved_by').filter(req_status='approved')

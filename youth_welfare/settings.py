@@ -82,9 +82,9 @@ WSGI_APPLICATION = 'youth_welfare.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'Youth_welfare',
+        'NAME': 'GP',
         'USER': 'postgres',
-        'PASSWORD': '1111',
+        'PASSWORD': 'admin',
         'HOST': 'localhost',
         'PORT': '5432',
     }
