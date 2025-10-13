@@ -5,15 +5,9 @@ from apps.solidarity.api.views import (
     SuperDeptSolidarityViewSet,
 )
 
-
-##
-
-##
 # Students
 student_apply = StudentSolidarityViewSet.as_view({'post': 'apply'})
 student_status = StudentSolidarityViewSet.as_view({'get': 'status'})
-
-
 
 # Faculty Admin
 faculty_list = FacultyAdminSolidarityViewSet.as_view({'get': 'list_applications'})
