@@ -3,6 +3,7 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 from apps.solidarity.models import Solidarities, Logs
 import logging
+
 from django.db.models import Q
 
 
@@ -50,12 +51,36 @@ class SolidarityService:
     def has_pending_application(student):
         return Solidarities.objects.filter(student=student, req_status='pending').exists()
 
+
     @staticmethod
-    def get_student_applications(student, status=None):
-        queryset = Solidarities.objects.filter(student=student)
+    def get_student_applications(admin, status=None, filters=None):
+        queryset = Solidarities.objects.select_related('student', 'faculty', 'approved_by')
+
+        # Filter by faculty automatically if admin is faculty_admin
+        if admin.role.lower() == 'faculty_admin':
+            faculty_id = getattr(admin, 'faculty_id', None)
+            if faculty_id:
+                queryset = queryset.filter(faculty_id=faculty_id)
+            else:
+                # In case faculty is not linked properly, return empty queryset
+                return Solidarities.objects.none()
+
+        # could rem
         if status:
             queryset = queryset.filter(req_status=status)
-        return queryset.select_related('faculty', 'approved_by').order_by('-created_at')
+
+        if filters:
+            if filters.get('faculty_id'):
+                queryset = queryset.filter(faculty_id=filters['faculty_id'])
+            if filters.get('date_from'):
+                queryset = queryset.filter(created_at__gte=filters['date_from'])
+            if filters.get('date_to'):
+                queryset = queryset.filter(created_at__lte=filters['date_to'])
+
+        return queryset.order_by('-created_at')
+
+
+
 
     @staticmethod
     def get_application_detail(solidarity_id):

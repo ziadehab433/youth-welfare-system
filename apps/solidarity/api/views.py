@@ -8,6 +8,8 @@ from apps.solidarity.api.serializers import (
     SolidarityApplySerializer, SolidarityStatusSerializer,
     SolidarityListSerializer, SolidarityDetailSerializer
 )
+from drf_spectacular.utils import extend_schema
+
 from apps.solidarity.api.utils import get_current_student, get_current_admin
 from apps.solidarity.services.solidarity_service import SolidarityService
 from drf_yasg.utils import swagger_auto_schema
@@ -60,12 +62,17 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
     def get_application(self, request, pk=None):
         admin = get_current_admin(request)
         solidarity = SolidarityService.get_application_detail(pk)
-        if admin.role == 'FACULTY_ADMIN' and solidarity.faculty_id != admin.faculty_id:
+        if admin.role == 'faculty_admin' and solidarity.faculty_id != admin.faculty_id:
             return Response({'error': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
         return Response(SolidarityDetailSerializer(solidarity).data)
 
-    @swagger_auto_schema(responses={200: 'Application approved successfully'})
-    @action(detail=True, methods=['post'], url_path='applications/(?P<pk>[^/.]+)/approve')
+
+    @extend_schema(request=None)    
+    @action(
+    detail=True,
+    methods=['post'],
+    url_path='applications/(?P<pk>[^/.]+)/approve',
+    )
     def approve(self, request, pk=None):
         admin = get_current_admin(request)
         try:
@@ -74,8 +81,13 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         except DjangoValidationError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+    @extend_schema(request=None)    
+    @action(
+    detail=True,
+    methods=['post'],
+    url_path='applications/(?P<pk>[^/.]+)/reject',
+    )
     @swagger_auto_schema(responses={200: 'Application rejected successfully'})
-    @action(detail=True, methods=['post'], url_path='applications/(?P<pk>[^/.]+)/reject')
     def reject(self, request, pk=None):
         admin = get_current_admin(request)
         try:
@@ -83,6 +95,8 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
             return Response({'message': result['message']})
         except DjangoValidationError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
+        
 class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
     permission_classes = [AllowAny]
     serializer_class = SolidarityListSerializer
