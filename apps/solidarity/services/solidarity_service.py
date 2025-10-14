@@ -151,7 +151,6 @@ class SolidarityService:
         return queryset.order_by('-created_at')
 
 
-class SolidarityService:
     @staticmethod
     def get_all_applications(admin=None, filters=None):
         queryset = (
