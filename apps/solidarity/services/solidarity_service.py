@@ -151,43 +151,59 @@ class SolidarityService:
         return queryset.order_by('-created_at')
 
 
+class SolidarityService:
     @staticmethod
     def get_all_applications(admin=None, filters=None):
-        queryset = Solidarities.objects.select_related('student', 'faculty', 'approved_by').filter(req_status='approved')
+        queryset = (
+            Solidarities.objects
+            .select_related('student', 'faculty', 'approved_by')
+            .filter(req_status='approved')
+        )
+
         if admin and hasattr(admin, 'role'):
             if admin.role == 'department_manager' and getattr(admin, 'dept_id', None):
                 queryset = queryset.filter(faculty_id__in=[
                     f.faculty_id for f in admin.dept.faculties_set.all()
                 ])
 
-        # Apply filters
         if filters:
             if filters.get('faculty'):
                 queryset = queryset.filter(faculty_id=filters['faculty'])
-
             if filters.get('total_income'):
                 ti = filters['total_income'].lower()
                 if ti == 'low':
                     queryset = queryset.filter(total_income__lt=3000)
-                elif ti == 'medium':
-                    queryset = queryset.filter(total_income_gte=3000, total_income_lte=5000)
+                elif ti == 'moderate':
+                    queryset = queryset.filter(total_income__gte=3000, total_income__lte=5000)
                 elif ti == 'high':
                     queryset = queryset.filter(total_income__gt=5000)
 
             if filters.get('family_numbers'):
-                queryset = queryset.filter(family_numbers=filters['family_numbers'])
+                fn = str(filters['family_numbers']).lower()
+                if fn == 'few':
+                    queryset = queryset.filter(family_numbers__lt=3)
+                elif fn == 'moderate':
+                    queryset = queryset.filter(family_numbers__gte=3, family_numbers__lte=4)
+                elif fn == 'many':
+                    queryset = queryset.filter(family_numbers__gt=4)
+
             if filters.get('disabilities'):
                 queryset = queryset.filter(disabilities__icontains=filters['disabilities'])
+
             if filters.get('housing_status'):
                 queryset = queryset.filter(housing_status__iexact=filters['housing_status'])
+
             if filters.get('grade'):
                 queryset = queryset.filter(grade__icontains=filters['grade'])
+
             if filters.get('father_status'):
                 queryset = queryset.filter(father_status__icontains=filters['father_status'])
+
             if filters.get('mother_status'):
                 queryset = queryset.filter(mother_status__icontains=filters['mother_status'])
 
         return queryset.order_by('-created_at')
+
     @staticmethod
     def log_action(actor, action, solidarity):
         Logs.objects.create(actor=actor, action=action, solidarity=solidarity, target_type='solidarity')
