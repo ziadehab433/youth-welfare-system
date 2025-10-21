@@ -1,20 +1,42 @@
 /* ================================================================
    ENUM TYPES
    ================================================================ */
-CREATE TYPE admin_role AS ENUM (
-    'faculty_admin',
-    'faculty_head',
-    'department_manager',
-    'general_admin',
-    'super_admin'
+CREATE TYPE admin_role AS ENUM (                                        --تم تعريب
+    'faculty_admin',        -- مسؤل كلية
+    'faculty_head',         --مدير كلية
+    'department_manager',    -- مدير ادارة
+    'general_admin',        -- مدير عام 
+    'super_admin'           -- مشرف النظام
 );
 
-CREATE TYPE general_status AS ENUM ('pending','approved','rejected');
-CREATE TYPE event_type     AS ENUM ('faculty', 'university', 'global');
-CREATE TYPE actor_type     AS ENUM ('admin');                 -- extensible
+CREATE TYPE admin_role_ar AS ENUM (
+    'مسؤول كلية',
+    'مدير كلية',
+    'مدير إدارة',
+    'مدير عام',
+    'مشرف النظام'
+);
+
+
+CREATE TYPE general_status AS ENUM ('pending','approved','rejected');          --تم تعريب
+CREATE TYPE event_type     AS ENUM ('faculty', 'university', 'global');     --تم--      
+CREATE TYPE actor_type     AS ENUM ('admin');                 -- extensible   --تم
 CREATE TYPE target_type    AS ENUM ('event', 'solidarity','family');
-CREATE TYPE owner_type     AS ENUM ('student','event','solidarity','family');
-CREATE TYPE housing_status AS ENUM ('rent', 'owned');
+CREATE TYPE owner_type     AS ENUM ('student','event','solidarity','family'); --تم 
+CREATE TYPE housing_status AS ENUM ('rent', 'owned'); -----تم
+
+
+ALTER TYPE general_status RENAME TO general_status_old;
+
+CREATE TYPE general_status AS ENUM ('موافقة مبدئية', 'مقبول', 'منتظر', 'مرفوض');
+CREATE TYPE req_type_enum AS ENUM (
+    'مصاريف كتب',
+    'مصاريف انتساب',
+    'مصاريف انتظام',
+    'مصاريف كاملة',
+    'اخرى'
+);
+
 
 /* ================================================================
    CORE TABLES
@@ -499,3 +521,394 @@ EXECUTE FUNCTION log_solidarity_rejection();
 
 
 
+------------------------------------------Editing------------------------------
+
+
+
+---------------------------------------------------------------------------
+-- 1️⃣ Drop the triggers that depend on req_status
+DROP TRIGGER IF EXISTS trg_log_solidarity_approval ON solidarities;
+DROP TRIGGER IF EXISTS trg_log_solidarity_rejection ON solidarities;
+
+-- 2️⃣ Drop the default to avoid casting problems
+ALTER TABLE solidarities ALTER COLUMN req_status DROP DEFAULT;
+
+-- 3️⃣ Change the column type safely
+ALTER TABLE solidarities
+ALTER COLUMN req_status TYPE general_status
+USING req_status::text::general_status;
+
+-- 4️⃣ Re-add the default (if needed)
+ALTER TABLE solidarities ALTER COLUMN req_status SET DEFAULT 'منتظر';
+
+-- 5️⃣ Recreate the triggers (adjusted to Arabic enum values)
+CREATE OR REPLACE FUNCTION log_solidarity_approval()
+RETURNS trigger AS $$
+BEGIN
+    INSERT INTO logs (actor_id, action, target_type, solidarity_id, ip_address)
+    VALUES (NEW.approved_by, 'approve_solidarity', 'solidarity', NEW.solidarity_id, client_ip());
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_log_solidarity_approval
+AFTER UPDATE ON solidarities
+FOR EACH ROW
+WHEN (OLD.req_status IS DISTINCT FROM NEW.req_status AND NEW.req_status = 'مقبول')
+EXECUTE FUNCTION log_solidarity_approval();
+
+
+CREATE OR REPLACE FUNCTION log_solidarity_rejection()
+RETURNS trigger AS $$
+BEGIN
+    INSERT INTO logs (actor_id, action, target_type, solidarity_id, ip_address)
+    VALUES (NEW.approved_by, 'reject_solidarity', 'solidarity', NEW.solidarity_id, client_ip());
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_log_solidarity_rejection
+AFTER UPDATE ON solidarities
+FOR EACH ROW
+WHEN (OLD.req_status IS DISTINCT FROM NEW.req_status AND NEW.req_status = 'مرفوض')
+EXECUTE FUNCTION log_solidarity_rejection();
+------------------------------------------------------
+--1
+ALTER TABLE events ALTER COLUMN status DROP DEFAULT;
+ALTER TABLE families ALTER COLUMN status DROP DEFAULT;
+ALTER TABLE family_members ALTER COLUMN status DROP DEFAULT;
+ALTER TABLE prtcps ALTER COLUMN status DROP DEFAULT;
+
+--2
+ALTER TABLE events
+ALTER COLUMN status TYPE general_status
+USING status::text::general_status;
+
+ALTER TABLE families
+ALTER COLUMN status TYPE general_status
+USING status::text::general_status;
+
+ALTER TABLE family_members
+ALTER COLUMN status TYPE general_status
+USING status::text::general_status;
+
+ALTER TABLE prtcps
+ALTER COLUMN status TYPE general_status
+USING status::text::general_status;
+
+--3
+ALTER TABLE events ALTER COLUMN status SET DEFAULT 'منتظر';
+ALTER TABLE families ALTER COLUMN status SET DEFAULT 'منتظر';
+ALTER TABLE family_members ALTER COLUMN status SET DEFAULT 'منتظر';
+ALTER TABLE prtcps ALTER COLUMN status SET DEFAULT 'منتظر';
+
+
+DROP TYPE general_status_old;
+
+
+
+ALTER TABLE solidarities
+ADD COLUMN req_type req_type_enum;
+-------------------------
+
+ALTER TABLE admins
+ALTER COLUMN role DROP DEFAULT;
+
+
+ALTER TABLE admins
+ALTER COLUMN role TYPE admin_role_ar
+USING CASE role
+    WHEN 'faculty_admin' THEN 'مسؤول كلية'
+    WHEN 'faculty_head' THEN 'مدير كلية'
+    WHEN 'department_manager' THEN 'مدير إدارة'
+    WHEN 'general_admin' THEN 'مدير عام'
+    WHEN 'super_admin' THEN 'رئيس عظيم'
+END::admin_role_ar;
+
+
+
+
+-- 1️⃣ Create the new Arabic enum type
+CREATE TYPE actor_type_ar AS ENUM (
+    'مسؤول كلية',
+    'مدير كلية',
+    'مدير إدارة',
+    'مدير عام',
+    'مشرف النظام',
+    'طالب'
+);
+
+-- 2️⃣ Add a temporary text column to store mapped values
+ALTER TABLE logs ADD COLUMN actor_type_tmp text;
+
+-- 3️⃣ Migrate existing data (all old values to Arabic equivalents)
+UPDATE logs
+SET actor_type_tmp = CASE actor_type
+    WHEN 'admin' THEN 'مدير عام'
+END;
+
+-- 4️⃣ Drop the old actor_type column
+ALTER TABLE logs DROP COLUMN actor_type;
+
+-- 5️⃣ Add a new actor_type column using the new Arabic enum
+ALTER TABLE logs ADD COLUMN actor_type actor_type_ar;
+
+-- 6️⃣ Copy data from the temp text column → new enum column
+UPDATE logs
+SET actor_type = actor_type_tmp::actor_type_ar;
+
+-- 7️⃣ Drop the temporary column
+ALTER TABLE logs DROP COLUMN actor_type_tmp;
+
+-- 8️⃣ Drop the old enum type
+DROP TYPE actor_type;
+
+------------------------------------------
+
+-- 1️⃣ Create the new Arabic enum type
+CREATE TYPE owner_type_ar AS ENUM (
+    'نشاط',
+    'طالب',
+    'تكافل',
+    'اسر'
+);
+
+-- 2️⃣ Add a temporary text column to store mapped values
+ALTER TABLE documents ADD COLUMN owner_type_tmp text;
+
+-- 3️⃣ Migrate existing data (all old values to Arabic equivalents)
+UPDATE documents
+SET owner_type_tmp = CASE owner_type
+    WHEN 'student'     THEN 'طالب'
+    WHEN 'family'      THEN 'اسر'
+    WHEN 'event'       THEN 'نشاط'
+    WHEN 'solidarity'  THEN 'تكافل'
+END;
+
+-- 4️⃣ Drop the old column
+ALTER TABLE documents DROP COLUMN owner_type;
+
+-- 5️⃣ Drop the old enum type
+DROP TYPE owner_type;
+
+-- 6️⃣ Rename the new enum type to keep the same name
+ALTER TYPE owner_type_ar RENAME TO owner_type;
+
+-- 7️⃣ Recreate the column with the same name and new type
+ALTER TABLE documents ADD COLUMN owner_type owner_type;
+
+-- 8️⃣ Copy data from the temp column (text → enum)
+UPDATE documents
+SET owner_type = owner_type_tmp::owner_type;
+
+-- 9️⃣ Drop the temporary column
+ALTER TABLE documents DROP COLUMN owner_type_tmp;
+
+---------------------------
+
+
+BEGIN;
+
+-- 1️⃣ Create a temporary enum with the new Arabic values
+CREATE TYPE event_type_new AS ENUM ('داخلي', 'خارجي', 'اخر');
+
+-- 2️⃣ Add a temporary text column to store mapped Arabic values
+ALTER TABLE events ADD COLUMN type_tmp text;
+
+-- 3️⃣ Map old English enum values to new Arabic equivalents
+UPDATE events
+SET type_tmp = CASE type
+    WHEN 'faculty'     THEN 'داخلي'
+    WHEN 'university'  THEN 'خارجي'
+    WHEN 'global'      THEN 'اخر'
+END;
+
+-- 4️⃣ Drop the old column
+ALTER TABLE events DROP COLUMN type;
+
+-- 5️⃣ Drop the old enum type
+DROP TYPE event_type;
+
+-- 6️⃣ Rename the new enum type to keep the same name
+ALTER TYPE event_type_new RENAME TO event_type;
+
+-- 7️⃣ Recreate the column with the same name and new enum type
+ALTER TABLE events ADD COLUMN type event_type;
+
+-- 8️⃣ Copy data from the temp column (cast text → enum)
+UPDATE events
+SET type = type_tmp::event_type;
+
+-- 9️⃣ Drop the temporary column
+ALTER TABLE events DROP COLUMN type_tmp;
+
+COMMIT;
+
+
+-------------------------------------------
+
+BEGIN;
+
+-- 1️⃣ Create a new temporary enum type with Arabic values
+CREATE TYPE housing_status_new AS ENUM ('ايجار', 'ملك');
+
+-- 2️⃣ Add a temporary text column to store mapped Arabic values
+ALTER TABLE solidarities ADD COLUMN housing_status_tmp text;
+
+-- 3️⃣ Map old English enum values to new Arabic equivalents
+UPDATE solidarities
+SET housing_status_tmp = CASE housing_status
+    WHEN 'rent'  THEN 'ايجار'
+    WHEN 'owned' THEN 'ملك'
+END;
+
+-- 4️⃣ Drop the old column
+ALTER TABLE solidarities DROP COLUMN housing_status;
+
+-- 5️⃣ Drop the old enum type
+DROP TYPE housing_status;
+
+-- 6️⃣ Rename the new enum type to reuse the same name
+ALTER TYPE housing_status_new RENAME TO housing_status;
+
+-- 7️⃣ Recreate the column using the same name and the new enum type
+ALTER TABLE solidarities ADD COLUMN housing_status housing_status;
+
+-- 8️⃣ Copy data from the temporary text column (text → enum)
+UPDATE solidarities
+SET housing_status = housing_status_tmp::housing_status;
+
+-- 9️⃣ Remove the temporary column
+ALTER TABLE solidarities DROP COLUMN housing_status_tmp;
+
+COMMIT;
+
+
+
+----------------------------------------
+
+
+BEGIN;
+
+-- 1️⃣ Drop dependent triggers and functions temporarily
+DROP FUNCTION IF EXISTS log_event_insert() CASCADE;
+DROP FUNCTION IF EXISTS log_solidarity_approval() CASCADE;
+DROP FUNCTION IF EXISTS log_solidarity_rejection() CASCADE;
+
+-- 2️⃣ Drop the dependent CHECK constraint
+ALTER TABLE logs DROP CONSTRAINT IF EXISTS logs_single_target_check;
+
+-- 3️⃣ Create the new Arabic enum type
+CREATE TYPE target_type_new AS ENUM ('نشاط', 'تكافل', 'اسر', 'اخر');
+
+-- 4️⃣ Add a temporary text column for migration
+ALTER TABLE logs ADD COLUMN target_type_tmp text;
+
+-- 5️⃣ Map old English enum values → Arabic equivalents
+UPDATE logs
+SET target_type_tmp = CASE target_type
+    WHEN 'event'       THEN 'نشاط'
+    WHEN 'solidarity'  THEN 'تكافل'
+    WHEN 'family'      THEN 'اسر'
+END;
+
+-- 6️⃣ Drop the old enum column
+ALTER TABLE logs DROP COLUMN target_type;
+
+-- 7️⃣ Drop the old enum type
+DROP TYPE target_type;
+
+-- 8️⃣ Rename the new Arabic type to keep the same name
+ALTER TYPE target_type_new RENAME TO target_type;
+
+-- 9️⃣ Recreate the column using the same name and new enum type
+ALTER TABLE logs ADD COLUMN target_type target_type NOT NULL;
+
+-- 🔟 Copy data back from the temporary column (text → enum)
+UPDATE logs
+SET target_type = target_type_tmp::target_type;
+
+-- 1️⃣1️⃣ Drop the temporary column
+ALTER TABLE logs DROP COLUMN target_type_tmp;
+
+-- 1️⃣2️⃣ Recreate the CHECK constraint (Arabic version)
+ALTER TABLE logs
+ADD CONSTRAINT logs_single_target_check
+CHECK (
+    (target_type = 'نشاط' AND event_id IS NOT NULL AND solidarity_id IS NULL AND family_id IS NULL) OR
+    (target_type = 'تكافل' AND solidarity_id IS NOT NULL AND event_id IS NULL AND family_id IS NULL) OR
+    (target_type = 'اسر' AND family_id IS NOT NULL AND event_id IS NULL AND solidarity_id IS NULL)
+);
+
+-- 1️⃣3️⃣ Recreate all dependent functions (Arabic-compatible)
+CREATE OR REPLACE FUNCTION log_event_insert()
+RETURNS trigger AS $$
+BEGIN
+    INSERT INTO logs (actor_id,
+                      action,
+                      target_type,
+                      event_id,
+                      ip_address)
+    VALUES (NEW.created_by,
+            'انشاء نشاط',
+            'نشاط',
+            NEW.event_id,
+            client_ip());
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION log_solidarity_approval()
+RETURNS trigger AS $$
+BEGIN
+    INSERT INTO logs (actor_id,
+                      action,
+                      target_type,
+                      solidarity_id,
+                      ip_address)
+    VALUES (NEW.approved_by,
+            'موافقة طلب',
+            'تكافل',
+            NEW.solidarity_id,
+            client_ip());
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION log_solidarity_rejection()
+RETURNS trigger AS $$
+BEGIN
+    INSERT INTO logs (actor_id,
+                      action,
+                      target_type,
+                      solidarity_id,
+                      ip_address)
+    VALUES (NEW.approved_by,  
+            'رفض طلب',
+            'تكافل',
+            NEW.solidarity_id,
+            client_ip());
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+
+CREATE OR REPLACE FUNCTION log_family_insert()
+RETURNS trigger AS $$
+BEGIN
+    INSERT INTO logs (actor_id,
+                      action,
+                      target_type,
+                      family_id,
+                      ip_address)
+    VALUES (NEW.created_by,
+            'انشاء اسر',
+            'اسر',
+            NEW.event_id,
+            client_ip());
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMIT;
+-------------------------------------------
