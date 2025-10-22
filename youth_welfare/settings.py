@@ -82,9 +82,9 @@ WSGI_APPLICATION = 'youth_welfare.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'Youth_welfare',
+        'NAME': 'GP',
         'USER': 'postgres',
-        'PASSWORD': '1111',
+        'PASSWORD': 'admin',
         'HOST': 'localhost',
         'PORT': '5432',
     }
@@ -154,3 +154,10 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+#####################################################
+#to ignore migrations
+MIGRATION_MODULES = {
+    'event': None,
+    'family': None,
+    'solidarity': None,
+}

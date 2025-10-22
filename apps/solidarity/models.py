@@ -42,14 +42,17 @@ class Logs(models.Model):
     log_id = models.AutoField(primary_key=True)
     actor = models.ForeignKey('Admins', models.DO_NOTHING)
     action = models.CharField(max_length=100)
-    event = models.ForeignKey('Events', models.DO_NOTHING, blank=True, null=True)
+    #event = models.ForeignKey('Events', models.DO_NOTHING, blank=True, null=True)
     solidarity = models.ForeignKey(Solidarities, models.DO_NOTHING, blank=True, null=True)
-    family = models.ForeignKey('Families', models.DO_NOTHING, blank=True, null=True)
+    #family = models.ForeignKey('Families', models.DO_NOTHING, blank=True, null=True)
     ip_address = models.GenericIPAddressField(blank=True, null=True)
     logged_at = models.DateTimeField(blank=True, null=True)
     actor_type = models.TextField(blank=True, null=True)  # This field type is a guess.
     target_type = models.TextField()  # This field type is a guess.
-
+    event  = models.ForeignKey('event.Events',     models.DO_NOTHING,
+                               blank=True, null=True)
+    family = models.ForeignKey('family.Families', models.DO_NOTHING,
+                               blank=True, null=True)
     class Meta:
         managed = False
         db_table = 'logs'
@@ -70,6 +73,15 @@ class SolidarityDocs(models.Model):
         db_table = 'solidarity_docs'
         unique_together = (('solidarity', 'doc_type'),)
 
+class Departments(models.Model):
+    dept_id = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = 'departments'
 
 class Students(models.Model):
     student_id = models.AutoField(primary_key=True)
@@ -111,7 +123,7 @@ class Admins(models.Model):
     email = models.CharField(unique=True, max_length=100)
     password = models.BinaryField()
     faculty = models.ForeignKey(Faculties, models.DO_NOTHING, blank=True, null=True)
-    dept = models.ForeignKey('Departments', models.DO_NOTHING, blank=True, null=True)
+    dept = models.ForeignKey(Departments, models.DO_NOTHING, blank=True, null=True)
     created_at = models.DateTimeField(blank=True, null=True)
     can_create = models.BooleanField(blank=True, null=True)
     can_update = models.BooleanField(blank=True, null=True)
@@ -123,3 +135,8 @@ class Admins(models.Model):
     class Meta:
         managed = False
         db_table = 'admins'
+
+
+#not needed tables (models) just quick fix
+
+

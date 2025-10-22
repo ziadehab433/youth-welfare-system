@@ -10,6 +10,6 @@ def get_current_student(request):
 def get_current_admin(request):
     admin_id = request.headers.get('X-Admin-Id')
     if not admin_id:
-        admin_id=5                                             #just for testing
+        admin_id=7                                            #just for testing
         #raise ValueError("X-Admin-Id header is required for admin endpoints") 
     return get_object_or_404(Admins, pk=admin_id)

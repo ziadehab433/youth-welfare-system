@@ -1,0 +1,494 @@
+openapi: 3.0.3
+info:
+  title: Youth Welfare API
+  version: 1.0.0
+  description: API documentation for the Solidarity Subsystem
+paths:
+  /api/solidarity/all-applications/:
+    get:
+      operationId: api_solidarity_all_applications_list
+      description: Retrieve all solidarity applications with optional filters
+      parameters:
+      - in: query
+        name: date_from
+        schema:
+          type: string
+        description: Filter by start date (YYYY-MM-DD)
+      - in: query
+        name: date_to
+        schema:
+          type: string
+        description: Filter by end date (YYYY-MM-DD)
+      - in: query
+        name: faculty
+        schema:
+          type: string
+        description: Filter by faculty ID
+      - in: query
+        name: family_numbers
+        schema:
+          type: string
+        description: Filter by number of family members
+      - in: query
+        name: father_status
+        schema:
+          type: string
+        description: Filter by father’s status
+      - in: query
+        name: grade
+        schema:
+          type: string
+        description: Filter by grade
+      - in: query
+        name: housing_status
+        schema:
+          type: string
+        description: Filter by housing status
+      - in: query
+        name: mother_status
+        schema:
+          type: string
+        description: Filter by mother’s status
+      - in: query
+        name: status
+        schema:
+          type: string
+        description: Filter by request status
+      - in: query
+        name: student_id
+        schema:
+          type: string
+        description: Filter by student ID
+      - in: query
+        name: total_income
+        schema:
+          type: string
+        description: Filter by total income
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - BearerAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SolidarityList'
+          description: ''
+  /api/solidarity/applications/:
+    get:
+      operationId: api_solidarity_applications_list
+      description: List all solidarity applications available for the current faculty
+        admin
+      tags:
+      - Faculty Admin APIs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - BearerAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SolidarityList'
+          description: ''
+  /api/solidarity/applications/{id}/:
+    get:
+      operationId: api_solidarity_applications_retrieve
+      description: Retrieve details of a specific solidarity application
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Faculty Admin APIs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - BearerAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SolidarityDetail'
+          description: ''
+        '403':
+          description: Forbidden
+        '404':
+          description: Not found
+  /api/solidarity/applications/{id}/approve/:
+    post:
+      operationId: api_solidarity_applications_approve_create
+      description: Approve a solidarity application
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Faculty Admin APIs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - BearerAuth: []
+      - {}
+      responses:
+        '200':
+          description: Application approved successfully
+        '400':
+          description: Validation error
+  /api/solidarity/applications/{id}/reject/:
+    post:
+      operationId: api_solidarity_applications_reject_create
+      description: Reject a solidarity application
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Faculty Admin APIs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - BearerAuth: []
+      - {}
+      responses:
+        '200':
+          description: Application rejected successfully
+        '400':
+          description: Validation error
+  /api/solidarity/apply/:
+    post:
+      operationId: api_solidarity_apply_create
+      description: Submit a new solidarity application by a student
+      tags:
+      - Student APIs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SolidarityApplyRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SolidarityApplyRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SolidarityApplyRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - BearerAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SolidarityDetail'
+          description: ''
+        '400':
+          description: Validation error
+  /api/solidarity/status/:
+    get:
+      operationId: api_solidarity_status_list
+      description: Get the list of solidarity applications for the logged-in student
+      tags:
+      - Student APIs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - BearerAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SolidarityStatus'
+          description: ''
+  /api/solidarity/student/{solidarity_id}/:
+    get:
+      operationId: api_solidarity_student_retrieve
+      description: Retrieve detailed application data for a specific student
+      parameters:
+      - in: path
+        name: solidarity_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this solidarities.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - BearerAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SolidarityDetail'
+          description: ''
+        '404':
+          description: Not found
+components:
+  schemas:
+    SolidarityApplyRequest:
+      type: object
+      properties:
+        family_numbers:
+          type: integer
+          minimum: 1
+        father_status:
+          type: string
+          nullable: true
+        mother_status:
+          type: string
+          nullable: true
+        father_income:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+        mother_income:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+        arrange_of_brothers:
+          type: integer
+          minimum: 1
+          nullable: true
+        m_phone_num:
+          type: string
+          nullable: true
+        f_phone_num:
+          type: string
+          nullable: true
+        reason:
+          type: string
+          minLength: 1
+        docs:
+          type: string
+          nullable: true
+        disabilities:
+          type: string
+          nullable: true
+        housing_status:
+          type: string
+          nullable: true
+        grade:
+          type: string
+          nullable: true
+        acd_status:
+          type: string
+          nullable: true
+        address:
+          type: string
+          minLength: 1
+      required:
+      - address
+      - family_numbers
+      - reason
+    SolidarityDetail:
+      type: object
+      properties:
+        solidarity_id:
+          type: integer
+          readOnly: true
+        student_name:
+          type: string
+          readOnly: true
+        student_uid:
+          type: string
+          readOnly: true
+        faculty_name:
+          type: string
+          readOnly: true
+        approved_by_name:
+          type: string
+          readOnly: true
+          nullable: true
+        req_status:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        family_numbers:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+        father_status:
+          type: string
+          nullable: true
+          maxLength: 50
+        mother_status:
+          type: string
+          nullable: true
+          maxLength: 50
+        father_income:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+        mother_income:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+        total_income:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+        arrange_of_brothers:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+        m_phone_num:
+          type: string
+          nullable: true
+        f_phone_num:
+          type: string
+          nullable: true
+        reason:
+          type: string
+        disabilities:
+          type: string
+          nullable: true
+        grade:
+          type: string
+          nullable: true
+          maxLength: 50
+        acd_status:
+          type: string
+          nullable: true
+          maxLength: 50
+        address:
+          type: string
+          maxLength: 255
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        req_type:
+          type: string
+          nullable: true
+        housing_status:
+          type: string
+          nullable: true
+        student:
+          type: integer
+          nullable: true
+        faculty:
+          type: integer
+          nullable: true
+        approved_by:
+          type: integer
+          nullable: true
+      required:
+      - address
+      - approved_by_name
+      - faculty_name
+      - family_numbers
+      - reason
+      - solidarity_id
+      - student_name
+      - student_uid
+    SolidarityList:
+      type: object
+      properties:
+        solidarity_id:
+          type: integer
+          readOnly: true
+        student_name:
+          type: string
+          readOnly: true
+        student_uid:
+          type: string
+          readOnly: true
+        faculty_name:
+          type: string
+          readOnly: true
+        req_status:
+          type: string
+          nullable: true
+        total_income:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+        family_numbers:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - faculty_name
+      - family_numbers
+      - solidarity_id
+      - student_name
+      - student_uid
+    SolidarityStatus:
+      type: object
+      properties:
+        solidarity_id:
+          type: integer
+          readOnly: true
+        req_status:
+          type: string
+          nullable: true
+        status_display:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        approved_by_name:
+          type: string
+          readOnly: true
+          nullable: true
+      required:
+      - approved_by_name
+      - solidarity_id
+      - status_display
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid

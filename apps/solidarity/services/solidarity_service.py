@@ -49,7 +49,7 @@ class SolidarityService:
 
     @staticmethod
     def has_pending_application(student):
-        return Solidarities.objects.filter(student=student, req_status='pending').exists()
+        return Solidarities.objects.filter(student=student, req_status='منتظر').exists()
 
 
     @staticmethod
@@ -57,7 +57,7 @@ class SolidarityService:
         queryset = Solidarities.objects.select_related('student', 'faculty', 'approved_by')
 
         # Filter by faculty automatically if admin is faculty_admin
-        if admin.role.lower() == 'faculty_admin':
+        if admin.role.lower() == 'مسؤول كلية':
             faculty_id = getattr(admin, 'faculty_id', None)
             if faculty_id:
                 queryset = queryset.filter(faculty_id=faculty_id)
@@ -85,7 +85,7 @@ class SolidarityService:
     @staticmethod
     def get_application_detail(solidarity_id):
         try:
-            return Solidarities.objects.select_related('student', 'faculty', 'approved_by').get(solidarity_id=solidarity_id)
+            return Solidarities.objects.select_related('student', 'faculty', 'approved_by').get(pk=solidarity_id)
         except Solidarities.DoesNotExist:
             raise ValidationError("Application not found.")
 
@@ -98,17 +98,37 @@ class SolidarityService:
         except Solidarities.DoesNotExist:
             raise ValidationError("Application not found.")
 
-        if solidarity.req_status.lower() != 'pending':
+        if admin.role == 'مسؤول كلية' and solidarity.faculty != admin.faculty:
+            raise ValidationError("You can only approve applications from your faculty.")
+        if solidarity.req_status.lower() == 'مرفوض' :
             raise ValidationError(f"Cannot approve application with status: {solidarity.req_status}")
 
-        if admin.role == 'faculty_admin' and solidarity.faculty != admin.faculty:
-            raise ValidationError("You can only approve applications from your faculty.")
-
-        solidarity.req_status = 'approved'
+        solidarity.req_status = 'مقبول'
         solidarity.approved_by = admin
         solidarity.updated_at = timezone.now()
         solidarity.save()
         return {'success': True, 'message': 'Application approved successfully', 'solidarity': solidarity}
+    
+
+    @staticmethod
+    @transaction.atomic
+    def pre_approve_application(solidarity_id, admin):
+        try:
+            solidarity = Solidarities.objects.select_for_update().get(solidarity_id=solidarity_id)
+            logger.info(f"Attempting to pre approve application ID {solidarity_id} with current status: {solidarity.req_status}")
+        except Solidarities.DoesNotExist:
+            raise ValidationError("Application not found.")
+
+        if admin.role == 'مسؤول كلية' and solidarity.faculty != admin.faculty:
+            raise ValidationError("You can only pre approve applications from your faculty.")
+        if solidarity.req_status.lower() != 'منتظر' :
+            raise ValidationError(f"Cannot pre approve application with status: {solidarity.req_status}")
+
+        solidarity.req_status = 'موافقة مبدئية'
+        solidarity.approved_by = admin
+        solidarity.updated_at = timezone.now()
+        solidarity.save()
+        return {'success': True, 'message': 'Application pre approved successfully', 'solidarity': solidarity}
 
     @staticmethod
     @transaction.atomic
@@ -117,14 +137,14 @@ class SolidarityService:
             solidarity = Solidarities.objects.select_for_update().get(solidarity_id=solidarity_id)
         except Solidarities.DoesNotExist:
             raise ValidationError("Application not found.")
-
-        if solidarity.req_status.lower() != 'pending':
+        if admin.role == 'مسؤول كلية' and solidarity.faculty != admin.faculty:
+            raise ValidationError("You can only reject applications from your faculty.")
+        if solidarity.req_status.lower() == 'مقبول' :
             raise ValidationError(f"Cannot reject application with status: {solidarity.req_status}")
 
-        if admin.role == 'faculty_admin' and solidarity.faculty != admin.faculty:
-            raise ValidationError("You can only reject applications from your faculty.")
 
-        solidarity.req_status = 'rejected'
+
+        solidarity.req_status = 'مرفوض'
         solidarity.approved_by = admin
         solidarity.updated_at = timezone.now()
         solidarity.save()
@@ -134,7 +154,7 @@ class SolidarityService:
     @staticmethod
     def get_applications_for_review(admin, status=None, filters=None):
         queryset = Solidarities.objects.select_related('student', 'faculty', 'approved_by')
-        if admin.role == 'faculty_admin' and hasattr(admin, 'faculty'):
+        if admin.role == 'مسؤول كلية' and hasattr(admin, 'faculty'):
             queryset = queryset.filter(faculty=admin.faculty)
 
         if status:
@@ -156,11 +176,11 @@ class SolidarityService:
         queryset = (
             Solidarities.objects
             .select_related('student', 'faculty', 'approved_by')
-            .filter(req_status='approved')
+            .filter(req_status='مقبول')
         )
 
         if admin and hasattr(admin, 'role'):
-            if admin.role == 'department_manager' and getattr(admin, 'dept_id', None):
+            if admin.role == 'مدير ادارة' and getattr(admin, 'dept_id', None):
                 queryset = queryset.filter(faculty_id__in=[
                     f.faculty_id for f in admin.dept.faculties_set.all()
                 ])
@@ -206,3 +226,43 @@ class SolidarityService:
     @staticmethod
     def log_action(actor, action, solidarity):
         Logs.objects.create(actor=actor, action=action, solidarity=solidarity, target_type='solidarity')
+
+
+    @staticmethod
+    @transaction.atomic
+    def change_to_approve(solidarity_id, admin):
+        solidarity = Solidarities.objects.select_for_update().get(solidarity_id=solidarity_id)
+
+        if admin.role != 'مشرف النظام':
+            raise ValidationError("Only system supervisors can approve applications.")
+
+        if solidarity.req_status == 'مقبول':
+            raise ValidationError("Application is already approved.")
+
+        solidarity.req_status = 'مقبول'
+        solidarity.approved_by = admin
+        solidarity.updated_at = timezone.now()
+        solidarity.save()
+
+        logger.info(f"Super admin {admin.name} approved application {solidarity_id}.")
+        return {'message': 'Application approved successfully.'}
+
+
+    @staticmethod
+    @transaction.atomic
+    def change_to_reject(solidarity_id, admin):
+        solidarity = Solidarities.objects.select_for_update().get(solidarity_id=solidarity_id)
+
+        if admin.role != 'مشرف النظام':
+            raise ValidationError("Only system supervisors can reject applications.")
+
+        if solidarity.req_status == 'مرفوض':
+            raise ValidationError("Application is already rejected.")
+
+        solidarity.req_status = 'مرفوض'
+        solidarity.approved_by = admin
+        solidarity.updated_at = timezone.now()
+        solidarity.save()
+
+        logger.info(f"Super admin {admin.name} rejected application {solidarity_id}.")
+        return {'message': 'Application rejected successfully.'}

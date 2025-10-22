@@ -1,4 +1,5 @@
 
+from drf_spectacular.utils import extend_schema_field
 
 from rest_framework import serializers
 from apps.solidarity.models import Solidarities
@@ -27,6 +28,7 @@ class SolidarityStatusSerializer(serializers.ModelSerializer):
     class Meta:
         model = Solidarities
         fields = ['solidarity_id', 'req_status', 'status_display', 'created_at', 'updated_at', 'approved_by_name']
+    @extend_schema_field(serializers.CharField())
 
     def get_status_display(self, obj):
         statuses = {
