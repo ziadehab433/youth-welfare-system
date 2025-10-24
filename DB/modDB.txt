@@ -1,0 +1,71 @@
+/* ──────────────────────────────────────────────── *
+ * 1.  Function                                    *
+ * ──────────────────────────────────────────────── */
+
+CREATE OR REPLACE FUNCTION public.log_solidarity_pre_approval()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    INSERT INTO logs (
+        actor_id,
+        action,
+        target_type,
+        solidarity_id,
+        ip_address
+    )
+    VALUES (
+        NEW.approved_by,           -- the admin who set the status
+        'موافقة مبدئية',           -- log text – change if you like
+        'تكافل',                   -- target_type enum value
+        NEW.solidarity_id,
+        client_ip()                -- helper you already defined
+    );
+
+    RETURN NEW;
+END;
+$$;
+
+
+/* ──────────────────────────────────────────────── *
+ * 2.  Trigger                                     *
+ * ──────────────────────────────────────────────── */
+
+-- drop the trigger first if you re-run this script
+DROP TRIGGER IF EXISTS trg_log_solidarity_pre_approval
+    ON public.solidarities;
+
+CREATE TRIGGER trg_log_solidarity_pre_approval
+AFTER UPDATE ON public.solidarities
+FOR EACH ROW
+WHEN (
+       OLD.req_status IS DISTINCT FROM NEW.req_status
+   AND NEW.req_status = 'موافقة مبدئية'::public.general_status
+)
+EXECUTE FUNCTION public.log_solidarity_pre_approval();
+--------------------------------------------------------------------------------------- 
+
+/* 
+alter solidarities table to add a new column (total_discount)
+*/
+
+ALTER TABLE solidarities
+ADD COLUMN total_discount FLOAT;
+
+
+-------------------------------------------------------------------------------
+/* 
+	Adding four types of discount at the faculties table 
+*/
+
+
+ALTER TABLE faculties
+ADD COLUMN aff_discount FLOAT,
+ADD COLUMN reg_discount FLOAT,
+ADD COLUMN bk_discount FLOAT,
+ADD COLUMN full_discount FLOAT;
+
+------------------------------------------------------------------------------
+
+
+

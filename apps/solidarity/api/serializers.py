@@ -25,22 +25,22 @@ class SolidarityApplySerializer(serializers.Serializer):
     land_ownership_file = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
 class SolidarityStatusSerializer(serializers.ModelSerializer):
-    status_display = serializers.SerializerMethodField()
+    #status_display = serializers.SerializerMethodField()
     approved_by_name = serializers.CharField(source='approved_by.name', read_only=True, allow_null=True)
 
     class Meta:
         model = Solidarities
-        fields = ['solidarity_id', 'req_status', 'status_display', 'created_at', 'updated_at', 'approved_by_name']
+        fields = ['solidarity_id', 'req_status', 'created_at', 'updated_at', 'approved_by_name' , 'approved_by']
 
-    @extend_schema_field(serializers.CharField())
-    def get_status_display(self, obj):
-        statuses = {
-            'منتظر': 'In Review',
-            'موافقة مبدئية': 'Pre-Approved',
-            'مقبول': 'Approved',
-            'مرفوض': 'Rejected',
-        }
-        return statuses.get(obj.req_status, obj.req_status)
+    # @extend_schema_field(serializers.CharField())
+    # def get_status_display(self, obj):
+    #     statuses = {
+    #         'منتظر': 'In Review',
+    #         'موافقة مبدئية': 'Pre-Approved',
+    #         'مقبول': 'Approved',
+    #         'مرفوض': 'Rejected',
+    #     }
+    #     return statuses.get(obj.req_status, obj.req_status)
 
 class SolidarityListSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source='student.name', read_only=True)
@@ -60,6 +60,7 @@ class SolidarityDetailSerializer(serializers.ModelSerializer):
     student_uid = serializers.CharField(source='student.uid', read_only=True)
     faculty_name = serializers.CharField(source='faculty.name', read_only=True)
     approved_by_name = serializers.CharField(source='approved_by.name', read_only=True, allow_null=True)
+    app_or_rej_by_aid =serializers.CharField(source='approved_by' ,read_only=True, allow_null=False )
 
     class Meta:
         model = Solidarities

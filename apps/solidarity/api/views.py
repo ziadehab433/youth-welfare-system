@@ -89,14 +89,19 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
     def get_application(self, request, pk=None):
         admin = get_current_admin(request)
         try:
-            solidarity = SolidarityService.get_application_detail(pk)
+            solidarity = SolidarityService.get_application_detail(pk, admin)
         except ValidationError as e:
-            return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
-
-        if admin.role == 'مسؤول كلية' and solidarity.faculty_id != admin.faculty_id:
-            return Response({'error': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+            error_msg = str(e)
+            if "from your faculty" in error_msg:
+                return Response({'error': error_msg}, status=status.HTTP_403_FORBIDDEN)
+            elif "not found" in error_msg.lower():
+                return Response({'error': error_msg}, status=status.HTTP_404_NOT_FOUND)
+            else:
+                return Response({'error': error_msg}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(SolidarityDetailSerializer(solidarity).data)
+
+
 
     @extend_schema(
                 tags=["Faculty Admin APIs"],

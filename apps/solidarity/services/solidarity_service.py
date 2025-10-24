@@ -1,10 +1,14 @@
+import os
 from django.db import transaction
 from django.core.exceptions import ValidationError
 from django.utils import timezone
-from apps.solidarity.models import Solidarities, Logs
+from apps.solidarity.models import Solidarities, Logs, SolidarityDocs
 import logging
+from rest_framework.exceptions import PermissionDenied, NotFound
 
 from django.db.models import Q
+
+from youth_welfare import settings
 
 
 logger = logging.getLogger(__name__)
@@ -63,15 +67,19 @@ class SolidarityService:
     @staticmethod
     def has_pending_application(student):
         return Solidarities.objects.filter(student=student, req_status='منتظر').exists()
+    
+
+
     @staticmethod
     def get_student_applications(admin, status=None, filters=None):
+        solidarity = Solidarities.objects
         queryset = Solidarities.objects.select_related('student', 'faculty', 'approved_by')
 
         # Filter by faculty automatically if admin is faculty_admin
-        if admin.role.lower() == 'مسؤول كلية':
+        if admin.role.lower() == 'مسؤول كلية' :
             faculty_id = getattr(admin, 'faculty_id', None)
-            if faculty_id:
-                queryset = queryset.filter(faculty_id=faculty_id)
+            if admin.faculty_id:
+                queryset = queryset.filter(faculty_id=admin.faculty_id)
             else:
                 # In case faculty is not linked properly, return empty queryset
                 return Solidarities.objects.none()
@@ -94,11 +102,32 @@ class SolidarityService:
 
 
     @staticmethod
-    def get_application_detail(solidarity_id):
+    def get_application_detail(solidarity_id, admin):
+        if admin.role != 'مسؤول كلية' :
+            raise PermissionDenied("You can not view applications .")
         try:
-            return Solidarities.objects.select_related('student', 'faculty', 'approved_by').get(pk=solidarity_id)
+            solidarity = (
+                Solidarities.objects
+                .select_related('student', 'faculty', 'approved_by')
+                .get(pk=solidarity_id)
+            )
         except Solidarities.DoesNotExist:
-            raise ValidationError("Application not found.")
+            raise NotFound("Application not found.")
+
+        print(f"Admin faculty_id: {admin.faculty_id}, Admin faculty: {admin.faculty}")
+        print(f"Solidarity faculty_id: {solidarity.faculty_id}, Solidarity faculty: {solidarity.faculty}")
+
+        # Restriction for faculty admin
+        if admin.role == 'مسؤول كلية':
+            admin_faculty_id = getattr(admin.faculty, 'faculty_id', None) or getattr(admin, 'faculty_id', None)
+            solidarity_faculty_id = getattr(solidarity.faculty, 'faculty_id', None) or getattr(solidarity, 'faculty_id', None)
+
+            if admin_faculty_id != solidarity_faculty_id:
+                raise PermissionDenied("You can only view applications from your faculty.")
+
+        return solidarity
+
+
 
     @staticmethod
     @transaction.atomic
@@ -109,7 +138,7 @@ class SolidarityService:
         except Solidarities.DoesNotExist:
             raise ValidationError("Application not found.")
 
-        if admin.role == 'مسؤول كلية' and solidarity.faculty != admin.faculty:
+        if admin.role == 'مسؤول كلية' and solidarity.faculty_id != admin.faculty_id:
             raise ValidationError("You can only approve applications from your faculty.")
         if solidarity.req_status.lower() == 'مرفوض' :
             raise ValidationError(f"Cannot approve application with status: {solidarity.req_status}")
@@ -130,7 +159,7 @@ class SolidarityService:
         except Solidarities.DoesNotExist:
             raise ValidationError("Application not found.")
 
-        if admin.role == 'مسؤول كلية' and solidarity.faculty != admin.faculty:
+        if admin.role == 'مسؤول كلية' and solidarity.faculty_id != admin.faculty_id:
             raise ValidationError("You can only pre approve applications from your faculty.")
         if solidarity.req_status.lower() != 'منتظر' :
             raise ValidationError(f"Cannot pre approve application with status: {solidarity.req_status}")
@@ -148,7 +177,7 @@ class SolidarityService:
             solidarity = Solidarities.objects.select_for_update().get(solidarity_id=solidarity_id)
         except Solidarities.DoesNotExist:
             raise ValidationError("Application not found.")
-        if admin.role == 'مسؤول كلية' and solidarity.faculty != admin.faculty:
+        if admin.role == 'مسؤول كلية' and solidarity.faculty_id != admin.faculty_id:
             raise ValidationError("You can only reject applications from your faculty.")
         if solidarity.req_status.lower() == 'مقبول' :
             raise ValidationError(f"Cannot reject application with status: {solidarity.req_status}")
@@ -162,24 +191,31 @@ class SolidarityService:
 
         return {'success': True, 'message': 'Application rejected', 'solidarity': solidarity}
 
-    @staticmethod
+    @staticmethod ##############3
     def get_applications_for_review(admin, status=None, filters=None):
         queryset = Solidarities.objects.select_related('student', 'faculty', 'approved_by')
-        if admin.role == 'مسؤول كلية' and hasattr(admin, 'faculty'):
-            queryset = queryset.filter(faculty=admin.faculty)
+        if admin.role !='مسؤول كلية' :
+            raise PermissionDenied("You can not view applications.")
+        if admin.role.strip().lower() == 'مسؤول كلية':
+            faculty = getattr(admin, 'faculty', None)
+            if faculty:
+                queryset = queryset.filter(faculty=admin.faculty)
+            else:
+                return Solidarities.objects.none()
 
         if status:
             queryset = queryset.filter(req_status=status)
 
         if filters:
-            if 'faculty_id' in filters and filters['faculty_id']:
+            if filters.get('faculty_id'):
                 queryset = queryset.filter(faculty_id=filters['faculty_id'])
-            if 'date_from' in filters and filters['date_from']:
+            if filters.get('date_from'):
                 queryset = queryset.filter(created_at__gte=filters['date_from'])
-            if 'date_to' in filters and filters['date_to']:
+            if filters.get('date_to'):
                 queryset = queryset.filter(created_at__lte=filters['date_to'])
 
         return queryset.order_by('-created_at')
+
 
 
     @staticmethod
@@ -187,7 +223,7 @@ class SolidarityService:
         queryset = (
             Solidarities.objects
             .select_related('student', 'faculty', 'approved_by')
-            .filter(req_status='مقبول')
+            #.filter(req_status='مقبول')
         )
 
         if admin and hasattr(admin, 'role'):

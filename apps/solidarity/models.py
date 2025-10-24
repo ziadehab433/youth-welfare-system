@@ -32,6 +32,8 @@ class Solidarities(models.Model):
     updated_at = models.DateTimeField(blank=True, null=True)
     req_type = models.TextField(blank=True, null=True)  # This field type is a guess.
     housing_status = models.TextField(blank=True, null=True)  # This field type is a guess.
+    total_discount = models.FloatField(blank=True, null=True)
+
 
     class Meta:
         managed = False
@@ -111,6 +113,10 @@ class Faculties(models.Model):
     name = models.CharField(max_length=100)
     major = models.CharField(max_length=255)
     created_at = models.DateTimeField()
+    aff_discount = models.FloatField(blank=True, null=True)
+    reg_discount = models.FloatField(blank=True, null=True)
+    bk_discount = models.FloatField(blank=True, null=True)
+    full_discount = models.FloatField(blank=True, null=True)
 
     class Meta:
         managed = False
