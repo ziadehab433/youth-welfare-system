@@ -10,16 +10,14 @@ from django.db.models import Q
 logger = logging.getLogger(__name__)
 
 class SolidarityService:
-    """ Business logic for solidarity operations """
-
     @staticmethod
     @transaction.atomic
-    def create_application(student, application_data):
+    def create_application(student, application_data, uploaded_docs=None):
         if SolidarityService.has_pending_application(student):
-            raise ValidationError("You already have a pending application. Please wait for review.")
+            raise ValidationError("لديك طلب معلق بالفعل. يرجى الانتظار للمراجعة.")
 
-        father_income = application_data.get('father_income', 0) or 0
-        mother_income = application_data.get('mother_income', 0) or 0
+        father_income = application_data.get('father_income') or 0
+        mother_income = application_data.get('mother_income') or 0
         total_income = father_income + mother_income
 
         solidarity = Solidarities.objects.create(
@@ -35,23 +33,36 @@ class SolidarityService:
             m_phone_num=application_data.get('m_phone_num'),
             f_phone_num=application_data.get('f_phone_num'),
             reason=application_data['reason'],
-            docs=application_data.get('docs'),
             disabilities=application_data.get('disabilities'),
             housing_status=application_data.get('housing_status'),
             grade=application_data.get('grade'),
             acd_status=application_data.get('acd_status'),
             address=application_data['address'],
-            req_status='pending'
+            req_status='منتظر'
         )
 
-        SolidarityService.log_action(actor=None, action='create_application', solidarity=solidarity)
+        if uploaded_docs:
+            upload_dir = f"uploads/solidarity/{solidarity.solidarity_id}/"
+            os.makedirs(os.path.join(settings.MEDIA_ROOT, upload_dir), exist_ok=True)
+            
+            for doc_type, file_info in uploaded_docs.items():
+                full_path = os.path.join(settings.MEDIA_ROOT, file_info['file_path'])
+                SolidarityDocs.objects.create(
+                    solidarity=solidarity,
+                    doc_type=doc_type,
+                    file_name=file_info['file_name'],
+                    file_path=file_info['file_path'],
+                    mime_type=file_info['mime_type'],
+                    file_size=file_info['file_size'],
+                    uploaded_at=timezone.now()
+                )
+
+        logger.info(f"Application {solidarity.solidarity_id} created for {student.name}")
         return solidarity
 
     @staticmethod
     def has_pending_application(student):
         return Solidarities.objects.filter(student=student, req_status='منتظر').exists()
-
-
     @staticmethod
     def get_student_applications(admin, status=None, filters=None):
         queryset = Solidarities.objects.select_related('student', 'faculty', 'approved_by')

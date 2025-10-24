@@ -19,13 +19,10 @@ from apps.solidarity.services.solidarity_service import SolidarityService
 # STUDENT VIEWSET
 # ============================================================
 class StudentSolidarityViewSet(viewsets.GenericViewSet):
-    queryset = Solidarities.objects.none()
     permission_classes = [AllowAny]
-    serializer_class = SolidarityApplySerializer
 
     @extend_schema(
-            tags=["Student APIs"],
-
+        tags=["Student APIs"],
         description="Submit a new solidarity application by a student",
         request=SolidarityApplySerializer,
         responses={201: SolidarityDetailSerializer, 400: OpenApiResponse(description="Validation error")}
@@ -36,14 +33,21 @@ class StudentSolidarityViewSet(viewsets.GenericViewSet):
         serializer.is_valid(raise_exception=True)
         try:
             student = get_current_student(request)
-            solidarity = SolidarityService.create_application(student, serializer.validated_data)
+            data = serializer.validated_data
+            docs = {}
+            for field in ['social_research_file', 'salary_proof_file', 'father_id_file', 'student_id_file', 'land_ownership_file']:
+                if field in request.FILES:
+                    docs[field] = request.FILES[field].name 
+            if docs:
+                data['docs'] = docs
+
+            solidarity = SolidarityService.create_application(student, data)
             return Response(SolidarityDetailSerializer(solidarity).data, status=status.HTTP_201_CREATED)
         except (DjangoValidationError, ValueError) as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     @extend_schema(
-                tags=["Student APIs"],
-
+        tags=["Student APIs"],
         description="Get the list of solidarity applications for the logged-in student",
         responses={200: SolidarityStatusSerializer(many=True)}
     )
@@ -51,11 +55,10 @@ class StudentSolidarityViewSet(viewsets.GenericViewSet):
     def status(self, request):
         try:
             student = get_current_student(request)
-            qs = SolidarityService.get_student_applications(student)
+            qs = Solidarities.objects.filter(student=student).order_by('-created_at')
             return Response(SolidarityStatusSerializer(qs, many=True).data)
         except ValueError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
 
 # ============================================================
 # FACULTY ADMIN VIEWSET

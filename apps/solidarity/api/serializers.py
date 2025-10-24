@@ -1,6 +1,4 @@
-
 from drf_spectacular.utils import extend_schema_field
-
 from rest_framework import serializers
 from apps.solidarity.models import Solidarities
 
@@ -20,6 +18,11 @@ class SolidarityApplySerializer(serializers.Serializer):
     grade = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     acd_status = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     address = serializers.CharField()
+    social_research_file = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    salary_proof_file = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    father_id_file = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    student_id_file = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    land_ownership_file = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
 class SolidarityStatusSerializer(serializers.ModelSerializer):
     status_display = serializers.SerializerMethodField()
@@ -28,14 +31,14 @@ class SolidarityStatusSerializer(serializers.ModelSerializer):
     class Meta:
         model = Solidarities
         fields = ['solidarity_id', 'req_status', 'status_display', 'created_at', 'updated_at', 'approved_by_name']
-    @extend_schema_field(serializers.CharField())
 
+    @extend_schema_field(serializers.CharField())
     def get_status_display(self, obj):
         statuses = {
-            'PENDING': 'Pending',
-            'APPROVED': 'Approved',
-            'REJECTED': 'Rejected',
-            'IN_REVIEW': 'In Review',
+            'منتظر': 'In Review',
+            'موافقة مبدئية': 'Pre-Approved',
+            'مقبول': 'Approved',
+            'مرفوض': 'Rejected',
         }
         return statuses.get(obj.req_status, obj.req_status)
 
