@@ -217,6 +217,32 @@ class SolidarityService:
         return queryset.order_by('-created_at')
 
 
+    @staticmethod
+    @transaction.atomic
+    def assign_discounts(admin, solidarity, discount_types):
+       faculty = solidarity.faculty
+       total_discount = 0
+       for discount_type in discount_types:
+        discount_value = getattr(faculty, discount_type, 0) or 0 
+        total_discount += discount_value
+
+        solidarity.total_discount = total_discount
+        solidarity.approved_by = admin  
+        solidarity.updated_at = timezone.now()
+        solidarity.save()
+
+        return solidarity
+
+    @staticmethod
+    @transaction.atomic
+    def update_faculty_discounts(admin, data):
+        faculty = admin.faculty  # كلية الأدمن الحالي
+        for field, value in data.items():
+           setattr(faculty, field, value)
+    
+        faculty.save()
+        return faculty
+
 
     @staticmethod
     def get_all_applications(admin=None, filters=None):

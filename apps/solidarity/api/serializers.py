@@ -55,6 +55,26 @@ class SolidarityListSerializer(serializers.ModelSerializer):
             'family_numbers', 'created_at'
         ]
 
+class DiscountAssignSerializer(serializers.Serializer):
+    discount_types = serializers.ListField(
+        child=serializers.ChoiceField(
+            choices=[
+                ('aff_discount', 'خصم انتساب'),
+                ('reg_discount', 'خصم انتظام'),
+                ('bk_discount', 'خصم الكتب'),
+                ('full_discount', 'خصم كامل'),
+            ]
+        ),
+        help_text="اختر نوع أو أكثر من أنواع الخصم"
+    )
+
+class FacultyDiscountUpdateSerializer(serializers.Serializer):
+    aff_discount = serializers.FloatField(required=False, help_text="خصم انتساب")
+    reg_discount = serializers.FloatField(required=False, help_text="خصم انتظام")
+    bk_discount = serializers.FloatField(required=False, help_text="خصم الكتب")
+    full_discount = serializers.FloatField(required=False, help_text="خصم كامل")
+
+
 class SolidarityDetailSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source='student.name', read_only=True)
     student_uid = serializers.CharField(source='student.uid', read_only=True)

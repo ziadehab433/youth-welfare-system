@@ -13,7 +13,8 @@ from apps.solidarity.api.serializers import (
 )
 from apps.solidarity.api.utils import get_current_student, get_current_admin
 from apps.solidarity.services.solidarity_service import SolidarityService
-
+from .serializers import DiscountAssignSerializer
+from apps.solidarity.api.serializers import FacultyDiscountUpdateSerializer
 
 # ============================================================
 # STUDENT VIEWSET
@@ -68,8 +69,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
     serializer_class = SolidarityListSerializer
 
     @extend_schema(
-                tags=["Faculty Admin APIs"],
-
+        tags=["Faculty Admin APIs"],
         description="List all solidarity applications available for the current faculty admin",
         responses={200: SolidarityListSerializer(many=True)}
     )
@@ -80,8 +80,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         return Response(SolidarityListSerializer(qs, many=True).data)
 
     @extend_schema(
-                tags=["Faculty Admin APIs"],
-
+        tags=["Faculty Admin APIs"],
         description="Retrieve details of a specific solidarity application",
         responses={200: SolidarityDetailSerializer, 403: OpenApiResponse(description="Forbidden"), 404: OpenApiResponse(description="Not found")}
     )
@@ -97,15 +96,11 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
             elif "not found" in error_msg.lower():
                 return Response({'error': error_msg}, status=status.HTTP_404_NOT_FOUND)
             else:
-                return Response({'error': error_msg}, status=status.HTTP_400_BAD_REQUEST)
-
+                Response({'error': error_msg}, status=status.HTTP_400_BAD_REQUEST)
         return Response(SolidarityDetailSerializer(solidarity).data)
 
-
-
     @extend_schema(
-                tags=["Faculty Admin APIs"],
-
+        tags=["Faculty Admin APIs"],
         description="Approve a solidarity application",
         request=None,
         responses={200: OpenApiResponse(description="Application approved successfully"), 400: OpenApiResponse(description="Validation error")}
@@ -133,11 +128,8 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         except DjangoValidationError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-
-
     @extend_schema(
-                tags=["Faculty Admin APIs"],
-
+        tags=["Faculty Admin APIs"],
         description="Reject a solidarity application",
         request=None,
         responses={200: OpenApiResponse(description="Application rejected successfully"), 400: OpenApiResponse(description="Validation error")}
@@ -151,7 +143,78 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         except DjangoValidationError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+    
+    @extend_schema(
+        tags=["Faculty Admin APIs"],
+        description="Assign discount(s) to a solidarity application based on faculty discount values",
+        request=DiscountAssignSerializer,
+        responses={200: OpenApiResponse(description="Discount assigned successfully")}
+    )
+    @action(detail=True, methods=['patch'], url_path='assign-discount')
+    def assign_discount(self, request, pk=None):
+        admin = get_current_admin(request)
+        serializer = DiscountAssignSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
+        discount_types = serializer.validated_data['discount_types']
+
+        try:
+            solidarity = SolidarityService.get_application_detail(pk, admin)
+            updated_solidarity = SolidarityService.assign_discounts(admin, solidarity, discount_types)
+            return Response({
+                "message": "تم تطبيق الخصم بنجاح",
+                "total_discount": updated_solidarity.total_discount
+            }, status=status.HTTP_200_OK)
+        except DjangoValidationError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @extend_schema(
+        tags=["Faculty Admin APIs"],
+        description="Update faculty discount values for the current faculty",
+        request=FacultyDiscountUpdateSerializer,
+        responses={200: OpenApiResponse(description="Faculty discounts updated successfully")}
+    )
+    @action(detail=False, methods=['patch'], url_path='update-faculty-discounts')
+    def update_faculty_discounts(self, request):
+        admin = get_current_admin(request)
+        serializer = FacultyDiscountUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            updated_faculty = SolidarityService.update_faculty_discounts(admin, serializer.validated_data)
+            return Response({
+                "message": "تم تحديث خصومات الكلية بنجاح",
+                "faculty_discounts": {
+                    "aff_discount": updated_faculty.aff_discount,
+                    "reg_discount": updated_faculty.reg_discount,
+                    "bk_discount": updated_faculty.bk_discount,
+                    "full_discount": updated_faculty.full_discount,
+                }
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @extend_schema(
+        tags=["Faculty Admin APIs"],
+        description="Get current faculty discount values",
+        responses={200: OpenApiResponse(description="Faculty discounts retrieved successfully")}
+    )
+    @action(detail=False, methods=['get'], url_path='faculty/discounts')
+    def get_faculty_discounts(self, request):
+        admin = get_current_admin(request)
+        faculty = admin.faculty 
+
+        data = {
+            "aff_discount": faculty.aff_discount,
+            "reg_discount": faculty.reg_discount,
+            "bk_discount": faculty.bk_discount,
+            "full_discount": faculty.full_discount
+        }
+
+        return Response({
+            "message": "تم جلب خصومات الكلية بنجاح",
+            "discounts": data
+        }, status=status.HTTP_200_OK)
 # ============================================================
 # SUPER/DEPT ADMIN VIEWSET
 # ============================================================
