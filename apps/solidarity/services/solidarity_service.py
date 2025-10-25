@@ -5,15 +5,31 @@ from django.utils import timezone
 from apps.solidarity.models import Solidarities, Logs, SolidarityDocs
 import logging
 from rest_framework.exceptions import PermissionDenied, NotFound
-
+from django.conf import settings
+from apps.solidarity.api.utils import save_uploaded_file
 from django.db.models import Q
+from apps.solidarity.models import Solidarities, SolidarityDocs
 
 from youth_welfare import settings
 
 
 logger = logging.getLogger(__name__)
+DOC_TYPE_MAP = {
+    'social_research_file': 'بحث احتماعي',
+    'salary_proof_file': 'اثبات دخل',
+    'father_id_file': 'ص.ب ولي امر',
+    'student_id_file': 'ص.ب شخصية',
+    'land_ownership_file': 'حبازة زراعية',
+}
 
 class SolidarityService:
+
+
+    @staticmethod
+    def has_pending_application(student):
+              return Solidarities.objects.filter(student=student, req_status='منتظر').exists()
+
+
     @staticmethod
     @transaction.atomic
     def create_application(student, application_data, uploaded_docs=None):
@@ -45,28 +61,35 @@ class SolidarityService:
             req_status='منتظر'
         )
 
+        # Handle files
         if uploaded_docs:
-            upload_dir = f"uploads/solidarity/{solidarity.solidarity_id}/"
-            os.makedirs(os.path.join(settings.MEDIA_ROOT, upload_dir), exist_ok=True)
-            
-            for doc_type, file_info in uploaded_docs.items():
-                full_path = os.path.join(settings.MEDIA_ROOT, file_info['file_path'])
+            upload_dir = os.path.join(settings.MEDIA_ROOT, f"uploads/solidarity/{solidarity.solidarity_id}/")
+            os.makedirs(upload_dir, exist_ok=True)
+
+            for doc_type_key, file_obj in uploaded_docs.items():
+                arabic_doc_type = DOC_TYPE_MAP.get(doc_type_key)
+                if not arabic_doc_type:
+                    raise ValidationError(f"Invalid document type: {doc_type_key}")
+
+                file_path = os.path.join(upload_dir, file_obj.name)
+
+                with open(file_path, 'wb+') as destination:
+                    for chunk in file_obj.chunks():
+                        destination.write(chunk)
+
                 SolidarityDocs.objects.create(
                     solidarity=solidarity,
-                    doc_type=doc_type,
-                    file_name=file_info['file_name'],
-                    file_path=file_info['file_path'],
-                    mime_type=file_info['mime_type'],
-                    file_size=file_info['file_size'],
+                    doc_type=arabic_doc_type,
+                    file_name=file_obj.name,
+                    file_path=file_path.replace(settings.MEDIA_ROOT + '/', ''),  # relative path
+                    mime_type=file_obj.content_type,
+                    file_size=file_obj.size,
                     uploaded_at=timezone.now()
                 )
 
         logger.info(f"Application {solidarity.solidarity_id} created for {student.name}")
         return solidarity
 
-    @staticmethod
-    def has_pending_application(student):
-        return Solidarities.objects.filter(student=student, req_status='منتظر').exists()
     
 
 
@@ -223,15 +246,15 @@ class SolidarityService:
        faculty = solidarity.faculty
        total_discount = 0
        for discount_type in discount_types:
-        discount_value = getattr(faculty, discount_type, 0) or 0 
-        total_discount += discount_value
+          discount_value = getattr(faculty, discount_type, 0) or 0 
+          total_discount += discount_value
 
-        solidarity.total_discount = total_discount
-        solidarity.approved_by = admin  
-        solidarity.updated_at = timezone.now()
-        solidarity.save()
+       solidarity.total_discount = total_discount
+       solidarity.approved_by = admin  
+       solidarity.updated_at = timezone.now()
+       solidarity.save()
 
-        return solidarity
+       return solidarity
 
     @staticmethod
     @transaction.atomic

@@ -63,7 +63,13 @@ class Logs(models.Model):
 class SolidarityDocs(models.Model):
     doc_id = models.AutoField(primary_key=True)
     solidarity = models.ForeignKey(Solidarities, models.DO_NOTHING)
-    doc_type = models.TextField(blank=True, null=True)  # This field type is a guess.
+    doc_type = models.CharField(max_length=50, choices=[
+        ('بحث احتماعي', 'بحث احتماعي'),
+        ('اثبات دخل', 'اثبات دخل'),
+        ('ص.ب ولي امر', 'ص.ب ولي امر'),
+        ('ص.ب شخصية', 'ص.ب شخصية'),
+        ('حبازة زراعية', 'حبازة زراعية'),
+    ])
     file_name = models.CharField(max_length=255)
     file_path = models.CharField(max_length=255)
     mime_type = models.CharField(max_length=80)

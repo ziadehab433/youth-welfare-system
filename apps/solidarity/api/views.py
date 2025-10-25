@@ -15,16 +15,20 @@ from apps.solidarity.api.utils import get_current_student, get_current_admin
 from apps.solidarity.services.solidarity_service import SolidarityService
 from .serializers import DiscountAssignSerializer
 from apps.solidarity.api.serializers import FacultyDiscountUpdateSerializer
+from rest_framework.parsers import MultiPartParser, FormParser
 
 # ============================================================
 # STUDENT VIEWSET
 # ============================================================
+
+
 class StudentSolidarityViewSet(viewsets.GenericViewSet):
     permission_classes = [AllowAny]
+    parser_classes = [MultiPartParser, FormParser]
 
     @extend_schema(
         tags=["Student APIs"],
-        description="Submit a new solidarity application by a student",
+        description="Submit a new solidarity application (multipart/form-data). Upload optional documents.",
         request=SolidarityApplySerializer,
         responses={201: SolidarityDetailSerializer, 400: OpenApiResponse(description="Validation error")}
     )
@@ -35,14 +39,14 @@ class StudentSolidarityViewSet(viewsets.GenericViewSet):
         try:
             student = get_current_student(request)
             data = serializer.validated_data
-            docs = {}
+
+            # Build uploaded_docs dict for the service: key -> InMemoryUploadedFile
+            uploaded_docs = {}
             for field in ['social_research_file', 'salary_proof_file', 'father_id_file', 'student_id_file', 'land_ownership_file']:
                 if field in request.FILES:
-                    docs[field] = request.FILES[field].name 
-            if docs:
-                data['docs'] = docs
+                    uploaded_docs[field] = request.FILES[field]
 
-            solidarity = SolidarityService.create_application(student, data)
+            solidarity = SolidarityService.create_application(student, data, uploaded_docs=uploaded_docs)
             return Response(SolidarityDetailSerializer(solidarity).data, status=status.HTTP_201_CREATED)
         except (DjangoValidationError, ValueError) as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)

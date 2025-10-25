@@ -1,6 +1,6 @@
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
-from apps.solidarity.models import Solidarities
+from apps.solidarity.models import Solidarities, SolidarityDocs
 
 class SolidarityApplySerializer(serializers.Serializer):
     family_numbers = serializers.IntegerField(min_value=1)
@@ -18,12 +18,11 @@ class SolidarityApplySerializer(serializers.Serializer):
     grade = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     acd_status = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     address = serializers.CharField()
-    social_research_file = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    salary_proof_file = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    father_id_file = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    student_id_file = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    land_ownership_file = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-
+    social_research_file = serializers.FileField(required=False, allow_null=True)
+    salary_proof_file = serializers.FileField(required=False, allow_null=True)
+    father_id_file = serializers.FileField(required=False, allow_null=True)
+    student_id_file = serializers.FileField(required=False, allow_null=True)
+    land_ownership_file = serializers.FileField(required=False, allow_null=True)
 class SolidarityStatusSerializer(serializers.ModelSerializer):
     #status_display = serializers.SerializerMethodField()
     approved_by_name = serializers.CharField(source='approved_by.name', read_only=True, allow_null=True)
@@ -91,3 +90,9 @@ class ApprovalSerializer(serializers.Serializer):
 
 class RejectionSerializer(serializers.Serializer):
     rejection_reason = serializers.CharField(required=False, allow_blank=True)
+
+
+class SolidarityDocsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SolidarityDocs
+        fields = '__all__'

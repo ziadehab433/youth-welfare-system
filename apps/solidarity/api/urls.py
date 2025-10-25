@@ -5,6 +5,9 @@ from apps.solidarity.api.views import (
     SuperDeptSolidarityViewSet,
 )
 
+
+from django.conf import settings
+from django.conf.urls.static import static
 # Students
 student_apply = StudentSolidarityViewSet.as_view({'post': 'apply'})
 student_status = StudentSolidarityViewSet.as_view({'get': 'status'})
@@ -49,3 +52,10 @@ path('solidarity/faculty/discounts/', faculty_get_discounts),
     path('solidarity/<int:pk>/change_to_approve',super_approve),
     path('solidarity/<int:pk>/change_to_reject',super_reject),
 ]
+
+
+# we will need for nginx for doc on production 
+
+#this only just for dev and test
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
