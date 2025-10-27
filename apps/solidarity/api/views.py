@@ -269,9 +269,10 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
         description="Retrieve detailed application data for a specific student",
         responses={200: SolidarityDetailSerializer, 404: OpenApiResponse(description="Not found")}
     )
-    @action(detail=True, methods=['get'], url_path='student/(?P<pk>[^/.]+)')
+    @action(detail=True, methods=['get'], url_path='applications')
     def student_application_detail(self, request, pk=None):
-        solidarity = SolidarityService.get_application_detail(pk)
+        admin = get_current_admin(request)
+        solidarity = SolidarityService.get_app_dtl(pk,admin)
         return Response(SolidarityDetailSerializer(solidarity).data)
 
 

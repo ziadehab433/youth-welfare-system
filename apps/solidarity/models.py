@@ -13,7 +13,7 @@ class Solidarities(models.Model):
     student = models.ForeignKey('Students', models.DO_NOTHING, blank=True, null=True)
     faculty = models.ForeignKey('Faculties', models.DO_NOTHING, blank=True, null=True)
     req_status = models.TextField(blank=True, null=True)  # This field type is a guess.
-    created_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(blank=True, null=True , auto_now_add=True)
     family_numbers = models.IntegerField()
     father_status = models.CharField(max_length=50, blank=True, null=True)
     mother_status = models.CharField(max_length=50, blank=True, null=True)

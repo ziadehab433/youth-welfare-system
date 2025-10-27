@@ -151,6 +151,36 @@ class SolidarityService:
         return solidarity
 
 
+    #for super & dept admins
+    @staticmethod
+    def get_app_dtl(solidarity_id, admin):
+        print(f"admin id : {admin.admin_id}")
+        print(f"admin role is : {admin.role}")
+        if admin.role not in ['مشرف النظام', 'مدير ادارة']:
+            raise PermissionDenied("You can not view applications .")
+        try:
+            solidarity = (
+                Solidarities.objects
+                .select_related('student', 'faculty', 'approved_by')
+                .get(pk=solidarity_id)
+            )
+        except Solidarities.DoesNotExist:
+            raise NotFound("Application not found.")
+
+        # print(f"Admin faculty_id: {admin.faculty_id}, Admin faculty: {admin.faculty}")
+        # print(f"Solidarity faculty_id: {solidarity.faculty_id}, Solidarity faculty: {solidarity.faculty}")
+
+        # # Restriction for faculty admin
+        # if admin.role == 'مسؤول كلية':
+        #     admin_faculty_id = getattr(admin.faculty, 'faculty_id', None) or getattr(admin, 'faculty_id', None)
+        #     solidarity_faculty_id = getattr(solidarity.faculty, 'faculty_id', None) or getattr(solidarity, 'faculty_id', None)
+
+        #     if admin_faculty_id != solidarity_faculty_id:
+        #         raise PermissionDenied("You can only view applications from your faculty.")
+
+        return solidarity
+
+
 
     @staticmethod
     @transaction.atomic

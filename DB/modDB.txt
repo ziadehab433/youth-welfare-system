@@ -68,4 +68,122 @@ ADD COLUMN full_discount FLOAT;
 ------------------------------------------------------------------------------
 
 
+---------------------------------
+
+/*
+ Update triggers to put the actor_type in logs table (solidarity)
+
+*/
+
+--appr
+CREATE OR REPLACE FUNCTION public.log_solidarity_approval()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    admin_role actor_type ;
+BEGIN
+    -- Get the role of the admin who approved the solidarity
+    SELECT role INTO admin_role FROM admins WHERE admin_id = NEW.approved_by;
+
+    -- Insert log entry with correct field order
+    INSERT INTO logs (
+        actor_id,
+        actor_type,
+        action,
+        target_type,
+        solidarity_id,
+        ip_address
+    )
+    VALUES (
+        NEW.approved_by,
+        admin_role,         
+        'موافقة طلب',       
+        'تكافل',             
+        NEW.solidarity_id,
+        client_ip()
+    );
+
+    RETURN NEW;
+END;
+$$;
+ ------------------------------------
+
+--rej
+
+
+CREATE OR REPLACE FUNCTION public.log_solidarity_rejection()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    admin_role actor_type;
+BEGIN
+    -- Fetch the admin's role from the admins table
+    SELECT role INTO admin_role FROM admins WHERE admin_id = NEW.approved_by;
+
+    -- Insert log entry for rejection
+    INSERT INTO logs (
+        actor_id,
+        actor_type,
+        action,
+        target_type,
+        solidarity_id,
+        ip_address
+    )
+    VALUES (
+        NEW.approved_by,     
+        admin_role,        
+        'رفض طلب',           
+        'تكافل',            
+        NEW.solidarity_id,
+        client_ip()
+    );
+
+    RETURN NEW;
+END;
+$$;
+----------------------------
+
+--log_solidarity_pre_approval
+
+
+CREATE OR REPLACE FUNCTION public.log_solidarity_pre_approval()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    admin_role actor_type;
+BEGIN
+    -- Fetch the admin's role from the admins table
+    SELECT role INTO admin_role FROM admins WHERE admin_id = NEW.approved_by;
+
+    -- Insert log entry for pre-approval
+    INSERT INTO logs (
+        actor_id,
+        actor_type,
+        action,
+        target_type,
+        solidarity_id,
+        ip_address
+    )
+    VALUES (
+        NEW.approved_by,    
+        admin_role,         
+        'موافقة مبدئية',     
+        'تكافل',             
+        NEW.solidarity_id,
+        client_ip()          
+    );
+
+    RETURN NEW;
+END;
+$$;
+
+
+
+------------------------------------------
+-----------------------------------------
+-----------------------------------------
+------------------------------------------
 
