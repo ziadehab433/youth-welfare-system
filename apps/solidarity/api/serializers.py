@@ -12,7 +12,8 @@ class SolidarityApplySerializer(serializers.Serializer):
     m_phone_num = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     f_phone_num = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     reason = serializers.CharField()
-    docs = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    #docs = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    sd = serializers.CharField()
     disabilities = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     housing_status = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     grade = serializers.CharField(required=False, allow_blank=True, allow_null=True)
@@ -23,6 +24,8 @@ class SolidarityApplySerializer(serializers.Serializer):
     father_id_file = serializers.FileField(required=False, allow_null=True)
     student_id_file = serializers.FileField(required=False, allow_null=True)
     land_ownership_file = serializers.FileField(required=False, allow_null=True)
+    sd_file = serializers.FileField(required=False, allow_null=True)
+    
 class SolidarityStatusSerializer(serializers.ModelSerializer):
     #status_display = serializers.SerializerMethodField()
     approved_by_name = serializers.CharField(source='approved_by.name', read_only=True, allow_null=True)

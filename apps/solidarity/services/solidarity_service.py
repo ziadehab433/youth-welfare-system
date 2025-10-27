@@ -20,6 +20,7 @@ DOC_TYPE_MAP = {
     'father_id_file': 'ص.ب ولي امر',
     'student_id_file': 'ص.ب شخصية',
     'land_ownership_file': 'حبازة زراعية',
+    'sd_file' : 'تكافل و كرامة'
 }
 
 class SolidarityService:
@@ -29,11 +30,15 @@ class SolidarityService:
     def has_pending_application(student):
               return Solidarities.objects.filter(student=student, req_status='منتظر').exists()
 
+    @staticmethod
+    def has_application(student):
+              return Solidarities.objects.filter(student=student, req_status='مقبول').exists()
+    
 
     @staticmethod
     @transaction.atomic
     def create_application(student, application_data, uploaded_docs=None):
-        if SolidarityService.has_pending_application(student):
+        if SolidarityService.has_pending_application(student) or SolidarityService.has_application(student):
             raise ValidationError("لديك طلب معلق بالفعل. يرجى الانتظار للمراجعة.")
 
         father_income = application_data.get('father_income') or 0

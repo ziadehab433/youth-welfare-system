@@ -187,3 +187,25 @@ $$;
 -----------------------------------------
 ------------------------------------------
 
+/*
+ add solidarity and dignity coulmn with t or faculties
+
+*/
+
+ALTER TABLE solidarities
+ADD COLUMN sd CHAR(1)
+             DEFAULT 'f'
+             NOT NULL
+             CHECK (sd IN ('t', 'f'));
+
+
+--------------------------------------------------------
+
+/*
+ alter the enum with new value تكافل و كرامة" 
+*/
+
+ALTER TYPE sol_doc_type
+ADD VALUE 'تكافل و كرامة';
+---------------------------------------------------
+

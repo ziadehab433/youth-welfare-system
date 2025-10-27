@@ -42,8 +42,8 @@ urlpatterns = [
      path('solidarity/applications/<int:pk>/pre_approve/', faculty_pre_approve),
     path('solidarity/applications/<int:pk>/approve/', faculty_approve),
     path('solidarity/applications/<int:pk>/reject/', faculty_reject),
-    path('solidarity/applications/<int:pk>/assign-discount/', faculty_assign_discount),
-    path('solidarity/faculty/update-discounts/', faculty_update_discounts),
+    path('solidarity/applications/<int:pk>/assign_discount/', faculty_assign_discount),
+    path('solidarity/faculty/update_discounts/', faculty_update_discounts),
 path('solidarity/faculty/discounts/', faculty_get_discounts),
 
     # Super Admin & Dept Admin

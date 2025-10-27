@@ -42,7 +42,7 @@ class StudentSolidarityViewSet(viewsets.GenericViewSet):
 
             # Build uploaded_docs dict for the service: key -> InMemoryUploadedFile
             uploaded_docs = {}
-            for field in ['social_research_file', 'salary_proof_file', 'father_id_file', 'student_id_file', 'land_ownership_file']:
+            for field in ['social_research_file', 'salary_proof_file', 'father_id_file', 'student_id_file', 'land_ownership_file' , 'sd_file']:
                 if field in request.FILES:
                     uploaded_docs[field] = request.FILES[field]
 
