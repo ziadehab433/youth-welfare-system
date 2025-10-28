@@ -234,10 +234,9 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
             OpenApiParameter('faculty', str, description="Filter by faculty ID"),
             OpenApiParameter('status', str, description="Filter by request status"),
             OpenApiParameter('student_id', str, description="Filter by student ID"),
-            OpenApiParameter('date_from', str, description="Filter by start date (YYYY-MM-DD)"),
-            OpenApiParameter('date_to', str, description="Filter by end date (YYYY-MM-DD)"),
             OpenApiParameter('housing_status', str, description="Filter by housing status"),
             OpenApiParameter('grade', str, description="Filter by grade"),
+            OpenApiParameter('disabilities', str, description="Filter by disabilities"),
             OpenApiParameter('father_status', str, description="Filter by father’s status"),
             OpenApiParameter('mother_status', str, description="Filter by mother’s status"),
             OpenApiParameter('total_income', str, description="Filter by total income"),
@@ -245,7 +244,7 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
         ],
         responses={200: SolidarityListSerializer(many=True)}
     )
-    @action(detail=False, methods=['get'], url_path='all-applications')
+    @action(detail=False, methods=['get'], url_path='all_applications')
     def all_applications(self, request):
         filters = {
             'faculty': request.query_params.get('faculty'),
@@ -259,6 +258,7 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
             'mother_status': request.query_params.get('mother_status'),
             'total_income': request.query_params.get('total_income'),
             'family_numbers': request.query_params.get('family_numbers'),
+            'disabilities': request.query_params.get('disabilities'),
         }
         queryset = SolidarityService.get_all_applications(filters=filters)
         serializer = SolidarityListSerializer(queryset, many=True)
