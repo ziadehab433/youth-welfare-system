@@ -29,11 +29,21 @@ DEBUG = True
 ALLOWED_HOSTS = []
 
 
+AUTHENTICATION_BACKENDS = [
+    'apps.accounts.auth_backends.AdminsBackend',
+    'django.contrib.auth.backends.ModelBackend',  # keep default for Django superusers
+]
+
+
+
+AUTH_USER_MODEL = 'accounts.AdminsUser'
+
 # Application definition
 
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
+    'rest_framework_simplejwt',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
@@ -44,7 +54,9 @@ INSTALLED_APPS = [
     'apps.event',
     #'drf_yasg',
     'apps.solidarity',
-    'apps.family'
+    'apps.family',
+    'apps.accounts',
+    'apps.accounts.schema'
 ]
 
 MIDDLEWARE = [
@@ -83,13 +95,16 @@ WSGI_APPLICATION = 'youth_welfare.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'youth_db',
+        'NAME': 'GP',
         'USER': 'postgres',
-        'PASSWORD': '1111',
+        'PASSWORD': 'admin',
         'HOST': 'localhost',
         'PORT': '5432',
     }
 }
+
+
+
 
 
 # Password validation
@@ -111,28 +126,133 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
+# REST_FRAMEWORK = {
+#     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+#     'DEFAULT_PERMISSION_CLASSES': [
+#         'rest_framework.permissions.AllowAny',
+#     ],
+# }
+
+# REST_FRAMEWORK = {
+#     'DEFAULT_AUTHENTICATION_CLASSES': (
+#         'rest_framework_simplejwt.authentication.JWTAuthentication',
+#     ),
+#     'DEFAULT_PERMISSION_CLASSES': (
+#         'rest_framework.permissions.IsAuthenticated',
+#     ),
+#     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+# }
+
+# REST_FRAMEWORK = {
+#     "DEFAULT_AUTHENTICATION_CLASSES": (
+#         "apps.accounts.authentication.CustomJWTAuthentication",
+#     ),
+#     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+# }
+
+
 REST_FRAMEWORK = {
-    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
-    ],
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "apps.accounts.authentication.CustomJWTAuthentication",
+    ),
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.IsAuthenticated",
+    ),
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
+
+# SPECTACULAR_SETTINGS = {
+#     'TITLE': 'Youth Welfare API',
+#     'DESCRIPTION': 'API documentation for the Solidarity Subsystem',
+#     'VERSION': '1.0.0',
+#     'SERVE_INCLUDE_SCHEMA': False,
+#     'SWAGGER_UI_SETTINGS': {
+#         'deepLinking': True,
+#         'persistAuthorization': True,
+#     },
+#    'COMPONENT_SPLIT_REQUEST': True,  # ✅ helps drf-spectacular separate file upload fields
+
+#     # Define authentication
+#     'SWAGGER_UI_SETTINGS': {'persistAuthorization': True},
+
+# }
+
+
+# ## almost done
+
+# SPECTACULAR_SETTINGS = {
+#     'TITLE': 'Youth Welfare API',
+#     'DESCRIPTION': 'API documentation for the Solidarity Subsystem',
+#     'VERSION': '1.0.0',
+#     'SERVE_INCLUDE_SCHEMA': False,
+
+#     # ✅ Make Swagger show the "Authorize" button for JWT tokens
+#     'SECURITY_SCHEMES': {
+#         'BearerAuth': {
+#             'type': 'http',
+#             'scheme': 'bearer',
+#             'bearerFormat': 'JWT',
+#         },
+#     },
+    
+#     "SCHEMA_AUTHENTICATION_CLASSES": (
+#         "apps.accounts.authentication.CustomJWTAuthentication",
+#         "rest_framework_simplejwt.authentication.JWTAuthentication",     ),
+
+#     # ✅ Split file upload fields properly
+#     'COMPONENT_SPLIT_REQUEST': True,
+
+#     # ✅ Configure UI
+#     'SWAGGER_UI_SETTINGS': {
+#         'deepLinking': True,
+#         'persistAuthorization': True,
+#         'displayRequestDuration': True,
+#     },
+# }
+
+
+###############################
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Youth Welfare API',
     'DESCRIPTION': 'API documentation for the Solidarity Subsystem',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
+
+    # ---- ONLY the name changed here ↓ -------------------------------
+    'SECURITY_SCHEMES': {
+        'Bearer': {                         #  <-- must be “Bearer”
+            'type': 'http',
+            'scheme': 'bearer',
+            'bearerFormat': 'JWT',
+        },
+    },
+
+    "SCHEMA_AUTHENTICATION_CLASSES": (
+        "apps.accounts.authentication.CustomJWTAuthentication",
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+
+    'COMPONENT_SPLIT_REQUEST': True,
     'SWAGGER_UI_SETTINGS': {
         'deepLinking': True,
         'persistAuthorization': True,
+        'displayRequestDuration': True,
     },
-    # Define authentication
-    'COMPONENT_SPLIT_REQUEST': True,
-    'SECURITY': [{
-        'BearerAuth': []
-    }],
 }
+##################
+
+
+
+# SPECTACULAR_SETTINGS = {
+#     'TITLE': 'Youth Welfare API',
+#     'DESCRIPTION': 'API documentation for the Solidarity Subsystem',
+#     'VERSION': '1.0.0',
+#     'SERVE_INCLUDE_SCHEMA': False,
+#     'SWAGGER_UI_SETTINGS': {'persistAuthorization': True},
+#     'COMPONENT_SPLIT_REQUEST': True,  # ✅ helps drf-spectacular separate file upload fields
+# }
+
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
@@ -163,6 +283,30 @@ MIGRATION_MODULES = {
     'solidarity': None,
 }
 
+
+
+PASSWORD_HASHERS = [
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher',          # ❬default❭
+    'django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher',
+    'django.contrib.auth.hashers.BCryptSHA256PasswordHasher',]
+
+
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "ROTATE_REFRESH_TOKENS": False,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "ALGORITHM": "HS256",
+    "SIGNING_KEY": SECRET_KEY,
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "USER_ID_FIELD": "admin_id",  # 👈 tell SimpleJWT which field to use
+    "USER_ID_CLAIM": "admin_id",  # 👈 claim name in token
+}
+
+#"DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.AllowAny",)
+# if i want to test whole apis once 
 
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 MEDIA_URL = '/media/'

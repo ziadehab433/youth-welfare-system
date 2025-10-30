@@ -1,29 +1,35 @@
+# apps/solidarity/api/views.py
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import IsAuthenticated
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework.exceptions import ValidationError
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse
+from rest_framework.parsers import MultiPartParser, FormParser
 
+# fixed import — use IsRole, IsStudent, and IsFacultyAdmin
+from apps.accounts.permissions import IsRole, IsStudent, IsFacultyAdmin
 from apps.solidarity.models import Solidarities
 from apps.solidarity.api.serializers import (
-    SolidarityApplySerializer, SolidarityStatusSerializer,
-    SolidarityListSerializer, SolidarityDetailSerializer
+    SolidarityApplySerializer,
+    SolidarityStatusSerializer,
+    SolidarityListSerializer,
+    SolidarityDetailSerializer,
+    FacultyDiscountUpdateSerializer,
 )
+from .serializers import DiscountAssignSerializer
 from apps.solidarity.api.utils import get_current_student, get_current_admin
 from apps.solidarity.services.solidarity_service import SolidarityService
-from .serializers import DiscountAssignSerializer
-from apps.solidarity.api.serializers import FacultyDiscountUpdateSerializer
-from rest_framework.parsers import MultiPartParser, FormParser
+
 
 # ============================================================
 # STUDENT VIEWSET
 # ============================================================
 
-
 class StudentSolidarityViewSet(viewsets.GenericViewSet):
-    permission_classes = [AllowAny]
+    permission_classes = [ IsRole]
+    allowed_roles = ['student']
     parser_classes = [MultiPartParser, FormParser]
 
     @extend_schema(
@@ -32,22 +38,28 @@ class StudentSolidarityViewSet(viewsets.GenericViewSet):
         request=SolidarityApplySerializer,
         responses={201: SolidarityDetailSerializer, 400: OpenApiResponse(description="Validation error")}
     )
+    
     @action(detail=False, methods=['post'], url_path='apply')
     def apply(self, request):
+        student = get_current_student(request)
         serializer = SolidarityApplySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        try:
-            student = get_current_student(request)
-            data = serializer.validated_data
 
-            # Build uploaded_docs dict for the service: key -> InMemoryUploadedFile
-            uploaded_docs = {}
-            for field in ['social_research_file', 'salary_proof_file', 'father_id_file', 'student_id_file', 'land_ownership_file' , 'sd_file']:
-                if field in request.FILES:
-                    uploaded_docs[field] = request.FILES[field]
+        try:
+            data = serializer.validated_data
+            uploaded_docs = {
+                field: request.FILES[field]
+                for field in [
+                    'social_research_file', 'salary_proof_file',
+                    'father_id_file', 'student_id_file',
+                    'land_ownership_file', 'sd_file'
+                ]
+                if field in request.FILES
+            }
 
             solidarity = SolidarityService.create_application(student, data, uploaded_docs=uploaded_docs)
             return Response(SolidarityDetailSerializer(solidarity).data, status=status.HTTP_201_CREATED)
+
         except (DjangoValidationError, ValueError) as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -58,23 +70,23 @@ class StudentSolidarityViewSet(viewsets.GenericViewSet):
     )
     @action(detail=False, methods=['get'], url_path='status')
     def status(self, request):
-        try:
-            student = get_current_student(request)
-            qs = Solidarities.objects.filter(student=student).order_by('-created_at')
-            return Response(SolidarityStatusSerializer(qs, many=True).data)
-        except ValueError as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        student = get_current_student(request)
+        qs = Solidarities.objects.filter(student=student).order_by('-created_at')
+        return Response(SolidarityStatusSerializer(qs, many=True).data)
+
 
 # ============================================================
 # FACULTY ADMIN VIEWSET
 # ============================================================
+
 class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
-    permission_classes = [AllowAny]
+    permission_classes = [ IsRole]
+    allowed_roles = ['مسؤول كلية']
     serializer_class = SolidarityListSerializer
 
     @extend_schema(
         tags=["Faculty Admin APIs"],
-        description="List all solidarity applications available for the current faculty admin",
+        description="List all solidarity applications for the current faculty admin",
         responses={200: SolidarityListSerializer(many=True)}
     )
     @action(detail=False, methods=['get'], url_path='applications')
@@ -94,63 +106,50 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         try:
             solidarity = SolidarityService.get_application_detail(pk, admin)
         except ValidationError as e:
-            error_msg = str(e)
-            if "from your faculty" in error_msg:
-                return Response({'error': error_msg}, status=status.HTTP_403_FORBIDDEN)
-            elif "not found" in error_msg.lower():
-                return Response({'error': error_msg}, status=status.HTTP_404_NOT_FOUND)
-            else:
-                Response({'error': error_msg}, status=status.HTTP_400_BAD_REQUEST)
+            msg = str(e)
+            if "from your faculty" in msg:
+                return Response({'error': msg}, status=status.HTTP_403_FORBIDDEN)
+            elif "not found" in msg.lower():
+                return Response({'error': msg}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'error': msg}, status=status.HTTP_400_BAD_REQUEST)
         return Response(SolidarityDetailSerializer(solidarity).data)
 
     @extend_schema(
         tags=["Faculty Admin APIs"],
         description="Approve a solidarity application",
-        request=None,
-        responses={200: OpenApiResponse(description="Application approved successfully"), 400: OpenApiResponse(description="Validation error")}
+        responses={200: OpenApiResponse(description="Application approved successfully")}
     )
     @action(detail=True, methods=['post'], url_path='approve')
     def approve(self, request, pk=None):
         admin = get_current_admin(request)
-        try:
-            result = SolidarityService.approve_application(pk, admin)
-            return Response({'message': result['message']})
-        except DjangoValidationError as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        result = SolidarityService.approve_application(pk, admin)
+        return Response({'message': result['message']})
 
     @extend_schema(
         tags=["Faculty Admin APIs"],
         description="Pre-approve a solidarity application before final approval",
-        responses={200: OpenApiResponse(description="Application pre-approved successfully")},
+        responses={200: OpenApiResponse(description="Application pre-approved successfully")}
     )
     @action(detail=True, methods=['post'], url_path='pre_approve')
     def pre_approve(self, request, pk=None):
         admin = get_current_admin(request)
-        try:
-            result = SolidarityService.pre_approve_application(pk, admin)
-            return Response({'message': result['message']})
-        except DjangoValidationError as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        result = SolidarityService.pre_approve_application(pk, admin)
+        return Response({'message': result['message']})
 
     @extend_schema(
         tags=["Faculty Admin APIs"],
         description="Reject a solidarity application",
-        request=None,
-        responses={200: OpenApiResponse(description="Application rejected successfully"), 400: OpenApiResponse(description="Validation error")}
+        responses={200: OpenApiResponse(description="Application rejected successfully")}
     )
     @action(detail=True, methods=['post'], url_path='reject')
     def reject(self, request, pk=None):
         admin = get_current_admin(request)
-        try:
-            result = SolidarityService.reject_application(pk, admin)
-            return Response({'message': result['message']})
-        except DjangoValidationError as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        result = SolidarityService.reject_application(pk, admin)
+        return Response({'message': result['message']})
 
-    
     @extend_schema(
         tags=["Faculty Admin APIs"],
-        description="Assign discount(s) to a solidarity application based on faculty discount values",
+        description="Assign discount(s) to a solidarity application",
         request=DiscountAssignSerializer,
         responses={200: OpenApiResponse(description="Discount assigned successfully")}
     )
@@ -161,16 +160,13 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         serializer.is_valid(raise_exception=True)
 
         discount_types = serializer.validated_data['discount_types']
+        solidarity = SolidarityService.get_application_detail(pk, admin)
+        updated_solidarity = SolidarityService.assign_discounts(admin, solidarity, discount_types)
 
-        try:
-            solidarity = SolidarityService.get_application_detail(pk, admin)
-            updated_solidarity = SolidarityService.assign_discounts(admin, solidarity, discount_types)
-            return Response({
-                "message": "تم تطبيق الخصم بنجاح",
-                "total_discount": updated_solidarity.total_discount
-            }, status=status.HTTP_200_OK)
-        except DjangoValidationError as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({
+            "message": "تم تطبيق الخصم بنجاح",
+            "total_discount": updated_solidarity.total_discount
+        })
 
     @extend_schema(
         tags=["Faculty Admin APIs"],
@@ -184,19 +180,16 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         serializer = FacultyDiscountUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        try:
-            updated_faculty = SolidarityService.update_faculty_discounts(admin, serializer.validated_data)
-            return Response({
-                "message": "تم تحديث خصومات الكلية بنجاح",
-                "faculty_discounts": {
-                    "aff_discount": updated_faculty.aff_discount,
-                    "reg_discount": updated_faculty.reg_discount,
-                    "bk_discount": updated_faculty.bk_discount,
-                    "full_discount": updated_faculty.full_discount,
-                }
-            }, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        updated_faculty = SolidarityService.update_faculty_discounts(admin, serializer.validated_data)
+        return Response({
+            "message": "تم تحديث خصومات الكلية بنجاح",
+            "faculty_discounts": {
+                "aff_discount": updated_faculty.aff_discount,
+                "reg_discount": updated_faculty.reg_discount,
+                "bk_discount": updated_faculty.bk_discount,
+                "full_discount": updated_faculty.full_discount,
+            }
+        })
 
     @extend_schema(
         tags=["Faculty Admin APIs"],
@@ -206,29 +199,31 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=['get'], url_path='faculty/discounts')
     def get_faculty_discounts(self, request):
         admin = get_current_admin(request)
-        faculty = admin.faculty 
-
+        faculty = admin.faculty
         data = {
             "aff_discount": faculty.aff_discount,
             "reg_discount": faculty.reg_discount,
             "bk_discount": faculty.bk_discount,
             "full_discount": faculty.full_discount
         }
-
         return Response({
             "message": "تم جلب خصومات الكلية بنجاح",
             "discounts": data
-        }, status=status.HTTP_200_OK)
+        })
+
+
 # ============================================================
-# SUPER/DEPT ADMIN VIEWSET
+# SUPER / DEPARTMENT ADMIN VIEWSET
 # ============================================================
+
 class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
-    permission_classes = [AllowAny]
+    permission_classes = [ IsRole]
+    allowed_roles = ['مدير ادارة', 'مشرف النظام']
     serializer_class = SolidarityListSerializer
     queryset = Solidarities.objects.all()
 
     @extend_schema(
-            tags = ["Dept&super Admin API"],
+        tags=["Dept&Super Admin APIs"],
         description="Retrieve all solidarity applications with optional filters",
         parameters=[
             OpenApiParameter('faculty', str, description="Filter by faculty ID"),
@@ -246,64 +241,43 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
     )
     @action(detail=False, methods=['get'], url_path='all_applications')
     def all_applications(self, request):
-        filters = {
-            'faculty': request.query_params.get('faculty'),
-            'status': request.query_params.get('status'),
-            'student_id': request.query_params.get('student_id'),
-            'date_from': request.query_params.get('date_from'),
-            'date_to': request.query_params.get('date_to'),
-            'housing_status': request.query_params.get('housing_status'),
-            'grade': request.query_params.get('grade'),
-            'father_status': request.query_params.get('father_status'),
-            'mother_status': request.query_params.get('mother_status'),
-            'total_income': request.query_params.get('total_income'),
-            'family_numbers': request.query_params.get('family_numbers'),
-            'disabilities': request.query_params.get('disabilities'),
-        }
+        filters = {key: request.query_params.get(key) for key in [
+            'faculty', 'status', 'student_id', 'date_from', 'date_to',
+            'housing_status', 'grade', 'father_status', 'mother_status',
+            'total_income', 'family_numbers', 'disabilities'
+        ]}
         queryset = SolidarityService.get_all_applications(filters=filters)
-        serializer = SolidarityListSerializer(queryset, many=True)
-        return Response(serializer.data)
+        return Response(SolidarityListSerializer(queryset, many=True).data)
 
     @extend_schema(
-        tags = ["Dept&super Admin API"],
+        tags=["Dept&Super Admin APIs"],
         description="Retrieve detailed application data for a specific student",
         responses={200: SolidarityDetailSerializer, 404: OpenApiResponse(description="Not found")}
     )
     @action(detail=True, methods=['get'], url_path='applications')
     def student_application_detail(self, request, pk=None):
         admin = get_current_admin(request)
-        solidarity = SolidarityService.get_app_dtl(pk,admin)
+        solidarity = SolidarityService.get_app_dtl(pk, admin)
         return Response(SolidarityDetailSerializer(solidarity).data)
 
-
     @extend_schema(
-        tags = ["Dept&super Admin API"],
-        description="change status of request to approve for a specific student",
+        tags=["Dept&Super Admin APIs"],
+        description="Change status of request to 'Approved'",
         responses={200: SolidarityDetailSerializer, 404: OpenApiResponse(description="Not found")}
     )
     @action(detail=True, methods=['post'], url_path='change_to_approve')
     def change_to_approve(self, request, pk=None):
         admin = get_current_admin(request)
-        try:
-            result = SolidarityService.change_to_approve(pk, admin)
-            return Response(result, status=status.HTTP_200_OK)
-        except DjangoValidationError as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        except Solidarities.DoesNotExist:
-            return Response({'error': 'Application not found'}, status=status.HTTP_404_NOT_FOUND)
-        
+        result = SolidarityService.change_to_approve(pk, admin)
+        return Response(result)
+
     @extend_schema(
-        tags = ["Dept&super Admin API"],
-        description="change status of request to reject for a specific student",
+        tags=["Dept&Super Admin APIs"],
+        description="Change status of request to 'Rejected'",
         responses={200: SolidarityDetailSerializer, 404: OpenApiResponse(description="Not found")}
-    )   
+    )
     @action(detail=True, methods=['post'], url_path='change_to_reject')
     def change_to_reject(self, request, pk=None):
         admin = get_current_admin(request)
-        try:
-            result = SolidarityService.change_to_reject(pk, admin)
-            return Response(result, status=status.HTTP_200_OK)
-        except DjangoValidationError as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        except Solidarities.DoesNotExist:
-            return Response({'error': 'Application not found'}, status=status.HTTP_404_NOT_FOUND)
+        result = SolidarityService.change_to_reject(pk, admin)
+        return Response(result)

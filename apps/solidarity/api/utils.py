@@ -5,6 +5,12 @@ import uuid
 from django.core.files.storage import FileSystemStorage
 from django.utils import timezone
 from django.conf import settings
+    
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.exceptions import AuthenticationFailed
+from django.shortcuts import get_object_or_404
+# from apps.accounts.models import Admins
+
 
 fs = FileSystemStorage(location=settings.MEDIA_ROOT, base_url=settings.MEDIA_URL)
 
@@ -40,19 +46,59 @@ def save_uploaded_file(uploaded_file, upload_subdir):
     }
 
 
-
 def get_current_student(request):
-    student_id = request.headers.get('X-Student-Id')
-    if not student_id:
-        student_id = 2
-    return get_object_or_404(Students, pk=student_id)
+    """
+    Safely get the current authenticated student using the JWT token.
+    """
+    auth = JWTAuthentication()
+    header = request.headers.get('Authorization')
+
+    if not header or not header.startswith('Bearer '):
+        raise AuthenticationFailed("Missing or invalid Authorization header")
+
+    raw_token = header.split(' ')[1]
+    try:
+        validated_token = auth.get_validated_token(raw_token)
+        payload = validated_token.payload
+
+        student_id = payload.get('student_id')
+        if not student_id:
+            raise AuthenticationFailed("Token missing student_id claim")
+
+        return get_object_or_404(Students, pk=student_id)
+
+    except Exception as e:
+        raise AuthenticationFailed(str(e))
+    
+
+
 
 def get_current_admin(request):
-    admin_id = request.headers.get('X-Admin-Id')
-    if not admin_id:
-        admin_id=7 #just for testing
-        #raise ValueError("X-Admin-Id header is required for admin endpoints") 
-    return get_object_or_404(Admins, pk=admin_id)
+    """
+    Get the current authenticated admin based on the JWT token.
+    If the token is valid, extract the admin_id from its payload.
+    """
+    jwt_auth = JWTAuthentication()
+    try:
+        # validate the token and get (user, token) tuple
+        user, token = jwt_auth.authenticate(request)
+        if not user:
+            raise AuthenticationFailed("لم يتم العثور على مستخدم مرتبط .")
+        
+        # the user should already be an instance of Admins
+        if isinstance(user, Admins):
+            return user
+        
+        # fallback if token payload has admin_id
+        admin_id = token.payload.get('admin_id') or token.payload.get('user_id')
+        if not admin_id:
+            raise AuthenticationFailed("لا يحتوي  على admin_id.")
+        
+        return get_object_or_404(Admins, pk=admin_id)
+
+    except Exception as e:
+        raise AuthenticationFailed(f"خطأ في التوكن: {str(e)}")
+
 
 def get_admin_faculty_id(admin):
     if hasattr(admin, 'faculty') and admin.faculty:

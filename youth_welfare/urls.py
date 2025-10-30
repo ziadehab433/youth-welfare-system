@@ -5,6 +5,9 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, Sp
 urlpatterns = [
     path('admin/', admin.site.urls),
 
+    # auth
+    path('api/auth/', include('apps.accounts.urls')),
+
     # Solidarity subsystem routes
     path('api/', include('apps.solidarity.api.urls')),
 
