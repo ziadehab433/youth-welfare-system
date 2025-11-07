@@ -226,3 +226,20 @@ ALTER COLUMN password TYPE text
 
 ALTER TABLE admins
 ALTER COLUMN password TYPE text
+
+/* 
+alter faculties tabke to support array for major and discounts 
+*/
+
+
+ALTER TABLE faculties
+ALTER COLUMN major TYPE text[] USING ARRAY[major];
+
+ALTER TABLE faculties
+ALTER COLUMN aff_discount TYPE float4[] USING ARRAY[aff_discount];
+ALTER TABLE faculties
+ALTER COLUMN reg_discount TYPE float8[] USING ARRAY[reg_discount];
+ALTER TABLE faculties
+ALTER COLUMN bk_discount TYPE float8[] USING ARRAY[bk_discount];
+ALTER TABLE faculties
+ALTER COLUMN full_discount TYPE float8[] USING ARRAY[full_discount];
