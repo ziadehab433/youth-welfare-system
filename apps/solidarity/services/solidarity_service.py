@@ -11,6 +11,7 @@ from django.db.models import Q
 from apps.solidarity.models import Solidarities, SolidarityDocs
 
 from youth_welfare import settings
+from django.db import connection
 
 
 logger = logging.getLogger(__name__)
@@ -185,6 +186,9 @@ class SolidarityService:
 
         return solidarity
 
+    @staticmethod
+    def get_docs_by_solidarity_id(solidarity_id):
+        return SolidarityDocs.objects.filter(solidarity_id=solidarity_id)
 
 
     @staticmethod
@@ -408,3 +412,18 @@ class SolidarityService:
 
         logger.info(f"Super admin {admin.name} rejected application {solidarity_id}.")
         return {'message': 'Application rejected successfully.'}
+    
+
+
+
+    # for read logs
+
+    @staticmethod
+    def log_data_access(actor_id, actor_type, action, target_type, solidarity_id=None , ip_address=None):
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                INSERT INTO logs (actor_id, actor_type, action, target_type, solidarity_id, ip_address)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, [actor_id, actor_type, action, target_type, solidarity_id, ip_address])
+
+   

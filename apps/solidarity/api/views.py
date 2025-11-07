@@ -18,9 +18,16 @@ from apps.solidarity.api.serializers import (
     SolidarityDetailSerializer,
     FacultyDiscountUpdateSerializer,
 )
-from .serializers import DiscountAssignSerializer
+from .serializers import DiscountAssignSerializer, SolidarityDocsSerializer
 from apps.solidarity.api.utils import get_current_student, get_current_admin
 from apps.solidarity.services.solidarity_service import SolidarityService
+def get_client_ip(request):
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0]  # first IP in the list
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip
 
 
 # ============================================================
@@ -102,6 +109,8 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
     )
     @action(detail=True, methods=['get'], url_path='applications')
     def get_application(self, request, pk=None):
+        client_ip = get_client_ip(request)
+
         admin = get_current_admin(request)
         try:
             solidarity = SolidarityService.get_application_detail(pk, admin)
@@ -112,7 +121,47 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
             elif "not found" in msg.lower():
                 return Response({'error': msg}, status=status.HTTP_404_NOT_FOUND)
             return Response({'error': msg}, status=status.HTTP_400_BAD_REQUEST)
+            #  Log that this admin viewed the solidarity details
+
+        SolidarityService.log_data_access(
+            actor_id=admin.admin_id,
+            actor_type=admin.role,
+            action='عرض بيانات الطلب',      # “Viewed solidarity details”
+            target_type='تكافل',
+            solidarity_id=pk,
+            ip_address=client_ip
+
+        )
         return Response(SolidarityDetailSerializer(solidarity).data)
+
+    @extend_schema(
+        tags=["Faculty Admin APIs"],
+        description="Retrieve all uploaded documents for a specific solidarity application",
+        responses={200: SolidarityDocsSerializer(many=True)}
+    )
+    @action(detail=True, methods=['get'], url_path='documents')
+    def get_documents(self, request, pk=None):
+
+        admin = get_current_admin(request)
+
+        docs = SolidarityService.get_docs_by_solidarity_id(pk)
+        if not docs.exists():
+            return Response({'detail': 'No documents found for this solidarity_id'}, status=404)
+           # # Log document access
+        client_ip = get_client_ip(request)
+
+        SolidarityService.log_data_access(
+        actor_id=admin.admin_id,
+        actor_type=admin.role,
+        action='عرض مستندات الطلب',     # “Viewed solidarity documents”
+        target_type='تكافل',
+        solidarity_id=pk,
+        ip_address=client_ip
+    )
+       # ""
+
+        return Response(SolidarityDocsSerializer(docs, many=True).data)
+
 
     @extend_schema(
         tags=["Faculty Admin APIs"],
@@ -153,7 +202,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         request=DiscountAssignSerializer,
         responses={200: OpenApiResponse(description="Discount assigned successfully")}
     )
-    @action(detail=True, methods=['patch'], url_path='assign-discount')
+    @action(detail=True, methods=['patch'], url_path='assign_discount')
     def assign_discount(self, request, pk=None):
         admin = get_current_admin(request)
         serializer = DiscountAssignSerializer(data=request.data)
@@ -174,7 +223,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         request=FacultyDiscountUpdateSerializer,
         responses={200: OpenApiResponse(description="Faculty discounts updated successfully")}
     )
-    @action(detail=False, methods=['patch'], url_path='update-faculty-discounts')
+    @action(detail=False, methods=['patch'], url_path='update_faculty_discounts')
     def update_faculty_discounts(self, request):
         admin = get_current_admin(request)
         serializer = FacultyDiscountUpdateSerializer(data=request.data)
@@ -256,9 +305,53 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
     )
     @action(detail=True, methods=['get'], url_path='applications')
     def student_application_detail(self, request, pk=None):
+        client_ip = get_client_ip(request)
+
         admin = get_current_admin(request)
         solidarity = SolidarityService.get_app_dtl(pk, admin)
+
+        SolidarityService.log_data_access(
+        actor_id=admin.admin_id,
+        actor_type=admin.role,
+        action='عرض بيانات الطلب',
+        target_type='تكافل',
+        solidarity_id=pk,
+        ip_address=client_ip
+    )
         return Response(SolidarityDetailSerializer(solidarity).data)
+
+
+
+    @extend_schema(
+        tags=["Dept&Super Admin APIs"],
+        description="Retrieve all uploaded documents for a specific solidarity application",
+        responses={200: SolidarityDocsSerializer(many=True)}
+    )
+    @action(detail=True, methods=['get'], url_path='documents')
+    def get_documents(self, request, pk=None):
+
+        admin = get_current_admin(request)
+        client_ip = get_client_ip(request)
+
+
+        docs = SolidarityService.get_docs_by_solidarity_id(pk)
+        if not docs.exists():
+            return Response({'detail': 'No documents found for this solidarity_id'}, status=404)
+       
+           # # Log document access
+        SolidarityService.log_data_access(
+        actor_id=admin.admin_id,
+        actor_type=admin.role,
+        action='عرض مستندات الطلب',     # “Viewed solidarity documents”
+        target_type='تكافل',
+        solidarity_id=pk,
+        ip_address=client_ip
+    )
+        return Response(SolidarityDocsSerializer(docs, many=True).data)
+
+
+
+
 
     @extend_schema(
         tags=["Dept&Super Admin APIs"],
@@ -281,3 +374,6 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
         admin = get_current_admin(request)
         result = SolidarityService.change_to_reject(pk, admin)
         return Response(result)
+
+
+

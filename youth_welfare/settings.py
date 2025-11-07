@@ -126,30 +126,6 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-# REST_FRAMEWORK = {
-#     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
-#     'DEFAULT_PERMISSION_CLASSES': [
-#         'rest_framework.permissions.AllowAny',
-#     ],
-# }
-
-# REST_FRAMEWORK = {
-#     'DEFAULT_AUTHENTICATION_CLASSES': (
-#         'rest_framework_simplejwt.authentication.JWTAuthentication',
-#     ),
-#     'DEFAULT_PERMISSION_CLASSES': (
-#         'rest_framework.permissions.IsAuthenticated',
-#     ),
-#     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
-# }
-
-# REST_FRAMEWORK = {
-#     "DEFAULT_AUTHENTICATION_CLASSES": (
-#         "apps.accounts.authentication.CustomJWTAuthentication",
-#     ),
-#     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
-# }
-
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
@@ -162,54 +138,7 @@ REST_FRAMEWORK = {
 }
 
 
-# SPECTACULAR_SETTINGS = {
-#     'TITLE': 'Youth Welfare API',
-#     'DESCRIPTION': 'API documentation for the Solidarity Subsystem',
-#     'VERSION': '1.0.0',
-#     'SERVE_INCLUDE_SCHEMA': False,
-#     'SWAGGER_UI_SETTINGS': {
-#         'deepLinking': True,
-#         'persistAuthorization': True,
-#     },
-#    'COMPONENT_SPLIT_REQUEST': True,  # ✅ helps drf-spectacular separate file upload fields
 
-#     # Define authentication
-#     'SWAGGER_UI_SETTINGS': {'persistAuthorization': True},
-
-# }
-
-
-# ## almost done
-
-# SPECTACULAR_SETTINGS = {
-#     'TITLE': 'Youth Welfare API',
-#     'DESCRIPTION': 'API documentation for the Solidarity Subsystem',
-#     'VERSION': '1.0.0',
-#     'SERVE_INCLUDE_SCHEMA': False,
-
-#     # ✅ Make Swagger show the "Authorize" button for JWT tokens
-#     'SECURITY_SCHEMES': {
-#         'BearerAuth': {
-#             'type': 'http',
-#             'scheme': 'bearer',
-#             'bearerFormat': 'JWT',
-#         },
-#     },
-    
-#     "SCHEMA_AUTHENTICATION_CLASSES": (
-#         "apps.accounts.authentication.CustomJWTAuthentication",
-#         "rest_framework_simplejwt.authentication.JWTAuthentication",     ),
-
-#     # ✅ Split file upload fields properly
-#     'COMPONENT_SPLIT_REQUEST': True,
-
-#     # ✅ Configure UI
-#     'SWAGGER_UI_SETTINGS': {
-#         'deepLinking': True,
-#         'persistAuthorization': True,
-#         'displayRequestDuration': True,
-#     },
-# }
 
 
 ###############################
@@ -244,14 +173,6 @@ SPECTACULAR_SETTINGS = {
 
 
 
-# SPECTACULAR_SETTINGS = {
-#     'TITLE': 'Youth Welfare API',
-#     'DESCRIPTION': 'API documentation for the Solidarity Subsystem',
-#     'VERSION': '1.0.0',
-#     'SERVE_INCLUDE_SCHEMA': False,
-#     'SWAGGER_UI_SETTINGS': {'persistAuthorization': True},
-#     'COMPONENT_SPLIT_REQUEST': True,  # ✅ helps drf-spectacular separate file upload fields
-# }
 
 
 # Internationalization
