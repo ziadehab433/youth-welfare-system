@@ -131,7 +131,7 @@ class SolidarityService:
 
     @staticmethod
     def get_application_detail(solidarity_id, admin):
-        if admin.role != 'مسؤول كلية' :
+        if admin.role not in ['مسؤول كلية'] :
             raise PermissionDenied("You can not view applications .")
         try:
             solidarity = (

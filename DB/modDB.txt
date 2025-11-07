@@ -209,3 +209,20 @@ ALTER TYPE sol_doc_type
 ADD VALUE 'تكافل و كرامة';
 ---------------------------------------------------
 
+
+
+
+
+
+
+
+/* 
+for pass hash
+*/
+
+ALTER TABLE students
+ALTER COLUMN password TYPE text
+
+
+ALTER TABLE admins
+ALTER COLUMN password TYPE text

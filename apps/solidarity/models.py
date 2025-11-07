@@ -95,7 +95,7 @@ class Students(models.Model):
     student_id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=100)
     email = models.CharField(unique=True, max_length=100)
-    password = models.BinaryField()
+    password = models.CharField()
     faculty = models.ForeignKey('Faculties', models.DO_NOTHING)
     profile_photo = models.CharField(max_length=255, blank=True, null=True)
     gender = models.CharField(max_length=1)
@@ -109,6 +109,14 @@ class Students(models.Model):
     grade = models.CharField(max_length=50, blank=True, null=True)
     major = models.CharField(max_length=255)
 
+    @property
+    def id(self):
+        return self.student_id
+
+    @property
+    def id(self):
+        return self.student_id
+    
     class Meta:
         managed = False
         db_table = 'students'
@@ -133,7 +141,7 @@ class Admins(models.Model):
     admin_id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=100)
     email = models.CharField(unique=True, max_length=100)
-    password = models.BinaryField()
+    password = models.CharField()
     faculty = models.ForeignKey(Faculties, models.DO_NOTHING, blank=True, null=True)
     dept = models.ForeignKey(Departments, models.DO_NOTHING, blank=True, null=True)
     created_at = models.DateTimeField(blank=True, null=True)
