@@ -17,6 +17,7 @@ from apps.solidarity.api.serializers import (
     SolidarityListSerializer,
     SolidarityDetailSerializer,
     FacultyDiscountUpdateSerializer,
+    LogSerializer,
 )
 from .serializers import DiscountAssignSerializer, SolidarityDocsSerializer
 from apps.solidarity.api.utils import get_current_student, get_current_admin
@@ -208,15 +209,15 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         serializer = DiscountAssignSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        discount_types = serializer.validated_data['discount_types']
+        discount_data = serializer.validated_data['discounts']
+        
         solidarity = SolidarityService.get_application_detail(pk, admin)
-        updated_solidarity = SolidarityService.assign_discounts(admin, solidarity, discount_types)
+        updated_solidarity = SolidarityService.assign_discounts(admin, solidarity, discount_data)
 
         return Response({
             "message": "تم تطبيق الخصم بنجاح",
             "total_discount": updated_solidarity.total_discount
         })
-
     @extend_schema(
         tags=["Faculty Admin APIs"],
         description="Update faculty discount values for the current faculty",
@@ -375,5 +376,30 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
         result = SolidarityService.change_to_reject(pk, admin)
         return Response(result)
 
+    @extend_schema(
+        tags=["Dept&Super Admin APIs"],
+        description="Retrieve system logs (Restricted to Super/Dept Admins)",
+        parameters=[
+            OpenApiParameter('actor_id', str, OpenApiParameter.QUERY, description="Filter by Admin ID"),
+            OpenApiParameter('action', str, OpenApiParameter.QUERY, description="Filter by action description (e.g., 'رفض')"),
+            OpenApiParameter('target_type', str, OpenApiParameter.QUERY, description="Filter by target type (e.g., 'solidarity', 'student')"),
+        ],
+        responses={200: LogSerializer(many=True)}
+    )
+    @action(detail=False, methods=['get'], url_path='system_logs')
+    def get_system_logs(self, request):
+        admin = get_current_admin(request)
+        
+        if admin.role not in ['مشرف النظام', 'مدير ادارة']:
+            raise PermissionDenied("You do not have permission to view system logs.")
 
-
+        filters = {
+            'actor_id': request.query_params.get('actor_id'),
+            'action': request.query_params.get('action'),
+            'target_type': request.query_params.get('target_type'),
+        }
+        filters = {k: v for k, v in filters.items() if v is not None}
+        
+        queryset = SolidarityService.get_all_logs(filters=filters)
+        
+        return Response(LogSerializer(queryset, many=True).data)

@@ -281,19 +281,19 @@ class SolidarityService:
 
     @staticmethod
     @transaction.atomic
-    def assign_discounts(admin, solidarity, discount_types):
-       faculty = solidarity.faculty
-       total_discount = 0
-       for discount_type in discount_types:
-          discount_value = getattr(faculty, discount_type, 0) or 0 
-          total_discount += discount_value
+    def assign_discounts(admin, solidarity, discount_data):
+        total_discount = 0
+        
+        for item in discount_data:
+            discount_value = item['discount_value'] 
+            total_discount += discount_value
 
-       solidarity.total_discount = total_discount
-       solidarity.approved_by = admin  
-       solidarity.updated_at = timezone.now()
-       solidarity.save()
+        solidarity.total_discount = total_discount
+        solidarity.approved_by = admin
+        solidarity.updated_at = timezone.now()
+        solidarity.save()
 
-       return solidarity
+        return solidarity
 
     @staticmethod
     @transaction.atomic
@@ -426,4 +426,19 @@ class SolidarityService:
                 VALUES (%s, %s, %s, %s, %s, %s)
             """, [actor_id, actor_type, action, target_type, solidarity_id, ip_address])
 
-   
+
+
+
+    @staticmethod
+    def get_all_logs(filters=None):
+        queryset = Logs.objects.select_related('actor', 'solidarity').order_by('-logged_at')
+
+        if filters:
+            if filters.get('actor_id'):
+                queryset = queryset.filter(actor__admin_id=filters['actor_id'])
+            if filters.get('action'):
+                queryset = queryset.filter(action__icontains=filters['action'])
+            if filters.get('target_type'):
+                queryset = queryset.filter(target_type=filters['target_type'])
+                
+        return queryset
