@@ -4,7 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.core.exceptions import ValidationError as DjangoValidationError
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError , PermissionDenied
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse
 from rest_framework.parsers import MultiPartParser, FormParser
 
@@ -377,12 +377,12 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
         return Response(result)
 
     @extend_schema(
-        tags=["Dept&Super Admin APIs"],
+        tags=["Super Admin APIs"],
         description="Retrieve system logs (Restricted to Super/Dept Admins)",
         parameters=[
-            OpenApiParameter('actor_id', str, OpenApiParameter.QUERY, description="Filter by Admin ID"),
-            OpenApiParameter('action', str, OpenApiParameter.QUERY, description="Filter by action description (e.g., 'رفض')"),
-            OpenApiParameter('target_type', str, OpenApiParameter.QUERY, description="Filter by target type (e.g., 'solidarity', 'student')"),
+            OpenApiParameter('actor_id', str, location=OpenApiParameter.QUERY, description="Filter by Admin ID"),
+            OpenApiParameter('action', str, location=OpenApiParameter.QUERY, description="Filter by action description (e.g., 'رفض')"),
+            OpenApiParameter('target_type', str, location=OpenApiParameter.QUERY, description="Filter by target type (e.g., 'solidarity', 'student')"),
         ],
         responses={200: LogSerializer(many=True)}
     )
@@ -390,7 +390,7 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
     def get_system_logs(self, request):
         admin = get_current_admin(request)
         
-        if admin.role not in ['مشرف النظام', 'مدير ادارة']:
+        if admin.role not in ['مشرف النظام']:
             raise PermissionDenied("You do not have permission to view system logs.")
 
         filters = {

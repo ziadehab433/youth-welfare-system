@@ -130,10 +130,18 @@ class LogSerializer(serializers.ModelSerializer):
     actor_name = serializers.CharField(source='actor.name', read_only=True)
     actor_role = serializers.CharField(source='actor_type', read_only=True)
     solidarity_id = serializers.IntegerField(source='solidarity.solidarity_id', read_only=True, allow_null=True)
+    faculty_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Logs
         fields = [
-            'log_id', 'actor_name', 'actor_role', 'action', 'target_type', 
+            'log_id', 'actor_name','actor_id', 'actor_role', 'faculty_name','action',  'target_type', 
             'solidarity_id', 'ip_address', 'logged_at'
         ]
+
+    def get_faculty_name(self, obj):
+        # Safely access faculty through actor
+        try:
+            return obj.actor.faculty.name if obj.actor and obj.actor.faculty else None
+        except AttributeError:
+            return None
