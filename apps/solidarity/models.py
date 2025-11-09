@@ -6,7 +6,8 @@
 #   * Remove `managed = False` lines if you wish to allow Django to create, modify, and delete the table
 # Feel free to rename the models, but don't rename db_table values or field names.
 from django.db import models
-
+from django.contrib.postgres.fields import ArrayField 
+from django.db import models
 
 class Solidarities(models.Model):
     solidarity_id = models.AutoField(primary_key=True)
@@ -125,17 +126,38 @@ class Students(models.Model):
 class Faculties(models.Model):
     faculty_id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=100)
-    major = models.CharField(max_length=255)
+    major = ArrayField(models.CharField(max_length=255), default=list, blank=True)
+    
     created_at = models.DateTimeField()
-    aff_discount = models.FloatField(blank=True, null=True)
-    reg_discount = models.FloatField(blank=True, null=True)
-    bk_discount = models.FloatField(blank=True, null=True)
-    full_discount = models.FloatField(blank=True, null=True)
+    
+    aff_discount = ArrayField(
+        models.FloatField(), 
+        default=list, 
+        blank=True, 
+        null=True
+    )
+    reg_discount = ArrayField(
+        models.FloatField(), 
+        default=list, 
+        blank=True, 
+        null=True
+    )
+    bk_discount = ArrayField(
+        models.FloatField(), 
+        default=list, 
+        blank=True, 
+        null=True
+    )
+    full_discount = ArrayField(
+        models.FloatField(), 
+        default=list, 
+        blank=True, 
+        null=True
+    )
 
     class Meta:
         managed = False
         db_table = 'faculties'
-
 
 class Admins(models.Model):
     admin_id = models.AutoField(primary_key=True)

@@ -1,7 +1,7 @@
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from apps.solidarity.models import Solidarities, SolidarityDocs
-
+from apps.solidarity.models import Solidarities, SolidarityDocs, Logs
 class SolidarityApplySerializer(serializers.Serializer):
     family_numbers = serializers.IntegerField(min_value=1)
     father_status = serializers.CharField(required=False, allow_blank=True, allow_null=True)
@@ -57,25 +57,49 @@ class SolidarityListSerializer(serializers.ModelSerializer):
             'family_numbers', 'created_at'
         ]
 
-class DiscountAssignSerializer(serializers.Serializer):
-    discount_types = serializers.ListField(
-        child=serializers.ChoiceField(
-            choices=[
-                ('aff_discount', 'خصم انتساب'),
-                ('reg_discount', 'خصم انتظام'),
-                ('bk_discount', 'خصم الكتب'),
-                ('full_discount', 'خصم كامل'),
-            ]
-        ),
-        help_text="اختر نوع أو أكثر من أنواع الخصم"
+class DiscountItemSerializer(serializers.Serializer):
+    """Serializer داخلي لاستقبال نوع الخصم وقيمته المخصصة."""
+    discount_type = serializers.ChoiceField(
+        choices=[
+            ('aff_discount', 'خصم انتساب'),
+            ('reg_discount', 'خصم انتظام'),
+            ('bk_discount', 'خصم الكتب'),
+            ('full_discount', 'خصم كامل'),
+        ],
+        help_text="نوع الخصم (string)"
+    )
+    discount_value = serializers.DecimalField(
+        max_digits=10, decimal_places=2, min_value=0, help_text="قيمة الخصم المراد تطبيقها (value)"
     )
 
-class FacultyDiscountUpdateSerializer(serializers.Serializer):
-    aff_discount = serializers.FloatField(required=False, help_text="خصم انتساب")
-    reg_discount = serializers.FloatField(required=False, help_text="خصم انتظام")
-    bk_discount = serializers.FloatField(required=False, help_text="خصم الكتب")
-    full_discount = serializers.FloatField(required=False, help_text="خصم كامل")
+class DiscountAssignSerializer(serializers.Serializer):
+    """الـ Serializer الرئيسي لتطبيق قائمة الخصومات وقيمها المخصصة."""
 
+    discounts = serializers.ListField(
+        child=DiscountItemSerializer(),
+        help_text="قائمة بالخصومات المراد تطبيقها (النوع والقيمة)"
+    )
+class FacultyDiscountUpdateSerializer(serializers.Serializer):
+    aff_discount = serializers.ListField(
+        child=serializers.FloatField(), 
+        required=False, 
+        help_text="قائمة بقيم خصم الانتساب"
+    )
+    reg_discount = serializers.ListField(
+        child=serializers.FloatField(), 
+        required=False, 
+        help_text="قائمة بقيم خصم الانتظام"
+    )
+    bk_discount = serializers.ListField(
+        child=serializers.FloatField(), 
+        required=False, 
+        help_text="قائمة بقيم خصم الكتب"
+    )
+    full_discount = serializers.ListField(
+        child=serializers.FloatField(), 
+        required=False, 
+        help_text="قائمة بقيم الخصم الكامل"
+    )
 
 class SolidarityDetailSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source='student.name', read_only=True)
@@ -99,3 +123,25 @@ class SolidarityDocsSerializer(serializers.ModelSerializer):
     class Meta:
         model = SolidarityDocs
         fields = '__all__'
+
+from rest_framework import serializers
+
+class LogSerializer(serializers.ModelSerializer):
+    actor_name = serializers.CharField(source='actor.name', read_only=True)
+    actor_role = serializers.CharField(source='actor_type', read_only=True)
+    solidarity_id = serializers.IntegerField(source='solidarity.solidarity_id', read_only=True, allow_null=True)
+    faculty_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Logs
+        fields = [
+            'log_id', 'actor_name','actor_id', 'actor_role', 'faculty_name','action',  'target_type', 
+            'solidarity_id', 'ip_address', 'logged_at'
+        ]
+
+    def get_faculty_name(self, obj):
+        # Safely access faculty through actor
+        try:
+            return obj.actor.faculty.name if obj.actor and obj.actor.faculty else None
+        except AttributeError:
+            return None
