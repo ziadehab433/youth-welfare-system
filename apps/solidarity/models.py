@@ -61,6 +61,9 @@ class Logs(models.Model):
         db_table = 'logs'
 
 
+def solidarity_doc_upload_path(instance, filename):
+    return f"uploads/solidarity/{instance.solidarity.solidarity_id}/{filename}" 
+
 class SolidarityDocs(models.Model):
     doc_id = models.AutoField(primary_key=True)
     solidarity = models.ForeignKey(Solidarities, models.DO_NOTHING)
@@ -71,8 +74,9 @@ class SolidarityDocs(models.Model):
         ('ص.ب شخصية', 'ص.ب شخصية'),
         ('حبازة زراعية', 'حبازة زراعية'),
     ])
-    file_name = models.CharField(max_length=255)
-    file_path = models.CharField(max_length=255)
+    # file_name = models.CharField(max_length=255)
+    # file_path = models.CharField(max_length=255)
+    file = models.FileField(upload_to=solidarity_doc_upload_path  , null=True, blank=True) 
     mime_type = models.CharField(max_length=80)
     file_size = models.IntegerField(blank=True, null=True)
     uploaded_at = models.DateTimeField(blank=True, null=True)

@@ -120,9 +120,16 @@ class RejectionSerializer(serializers.Serializer):
 
 
 class SolidarityDocsSerializer(serializers.ModelSerializer):
+    file_url = serializers.SerializerMethodField()
+
     class Meta:
         model = SolidarityDocs
-        fields = '__all__'
+        fields = ['doc_id', 'solidarity', 'doc_type', 'file_url', 'mime_type', 'file_size', 'uploaded_at']
+
+    def get_file_url(self, obj):
+        request = self.context.get('request')
+        url = obj.file.url if obj.file else None
+        return request.build_absolute_uri(url) if request and url else url
 
 from rest_framework import serializers
 

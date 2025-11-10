@@ -243,3 +243,11 @@ ALTER TABLE faculties
 ALTER COLUMN bk_discount TYPE float8[] USING ARRAY[bk_discount];
 ALTER TABLE faculties
 ALTER COLUMN full_discount TYPE float8[] USING ARRAY[full_discount];
+
+
+
+------------------------------------------------------------------
+ALTER TABLE solidarity_docs DROP COLUMN IF EXISTS file_name;
+ALTER TABLE solidarity_docs DROP COLUMN IF EXISTS file_path;
+
+ALTER TABLE solidarity_docs ADD COLUMN file VARCHAR(255);

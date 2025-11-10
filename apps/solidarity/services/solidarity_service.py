@@ -68,26 +68,41 @@ class SolidarityService:
         )
 
         # Handle files
-        if uploaded_docs:
-            upload_dir = os.path.join(settings.MEDIA_ROOT, f"uploads/solidarity/{solidarity.solidarity_id}/")
-            os.makedirs(upload_dir, exist_ok=True)
+        # if uploaded_docs:
+        #     upload_dir = os.path.join(settings.MEDIA_ROOT, f"uploads/solidarity/{solidarity.solidarity_id}/")
+        #     os.makedirs(upload_dir, exist_ok=True)
 
+        #     for doc_type_key, file_obj in uploaded_docs.items():
+        #         arabic_doc_type = DOC_TYPE_MAP.get(doc_type_key)
+        #         if not arabic_doc_type:
+        #             raise ValidationError(f"Invalid document type: {doc_type_key}")
+
+        #         file_path = os.path.join(upload_dir, file_obj.name)
+
+        #         with open(file_path, 'wb+') as destination:
+        #             for chunk in file_obj.chunks():
+        #                 destination.write(chunk)
+
+        #         SolidarityDocs.objects.create(
+        #             solidarity=solidarity,
+        #             doc_type=arabic_doc_type,
+        #             file_name=file_obj.name,
+        #             file_path=file_path.replace(settings.MEDIA_ROOT + '/', ''),  # relative path
+        #             mime_type=file_obj.content_type,
+        #             file_size=file_obj.size,
+        #             uploaded_at=timezone.now()
+        #         )
+
+        if uploaded_docs:
             for doc_type_key, file_obj in uploaded_docs.items():
                 arabic_doc_type = DOC_TYPE_MAP.get(doc_type_key)
                 if not arabic_doc_type:
-                    raise ValidationError(f"Invalid document type: {doc_type_key}")
-
-                file_path = os.path.join(upload_dir, file_obj.name)
-
-                with open(file_path, 'wb+') as destination:
-                    for chunk in file_obj.chunks():
-                        destination.write(chunk)
+                        raise ValidationError(f"Invalid document type: {doc_type_key}")
 
                 SolidarityDocs.objects.create(
                     solidarity=solidarity,
                     doc_type=arabic_doc_type,
-                    file_name=file_obj.name,
-                    file_path=file_path.replace(settings.MEDIA_ROOT + '/', ''),  # relative path
+                    file=file_obj,                        # <-- this is all you need!
                     mime_type=file_obj.content_type,
                     file_size=file_obj.size,
                     uploaded_at=timezone.now()
@@ -173,16 +188,7 @@ class SolidarityService:
         except Solidarities.DoesNotExist:
             raise NotFound("Application not found.")
 
-        # print(f"Admin faculty_id: {admin.faculty_id}, Admin faculty: {admin.faculty}")
-        # print(f"Solidarity faculty_id: {solidarity.faculty_id}, Solidarity faculty: {solidarity.faculty}")
 
-        # # Restriction for faculty admin
-        # if admin.role == 'مسؤول كلية':
-        #     admin_faculty_id = getattr(admin.faculty, 'faculty_id', None) or getattr(admin, 'faculty_id', None)
-        #     solidarity_faculty_id = getattr(solidarity.faculty, 'faculty_id', None) or getattr(solidarity, 'faculty_id', None)
-
-        #     if admin_faculty_id != solidarity_faculty_id:
-        #         raise PermissionDenied("You can only view applications from your faculty.")
 
         return solidarity
 

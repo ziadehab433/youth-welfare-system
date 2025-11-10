@@ -235,7 +235,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 MIGRATION_MODULES = {
     'event': None,
     'family': None,
-    'solidarity': None,
+    #'solidarity': None,
 }
 
 
@@ -249,7 +249,7 @@ PASSWORD_HASHERS = [
 from datetime import timedelta
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=150),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     "ROTATE_REFRESH_TOKENS": False,
     "BLACKLIST_AFTER_ROTATION": True,
@@ -263,5 +263,5 @@ SIMPLE_JWT = {
 #"DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.AllowAny",)
 # if i want to test whole apis once 
 
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-MEDIA_URL = '/media/'
+# MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+# MEDIA_URL = '/media/'

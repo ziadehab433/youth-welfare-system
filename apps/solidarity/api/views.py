@@ -161,7 +161,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
     )
        # ""
 
-        return Response(SolidarityDocsSerializer(docs, many=True).data)
+        return Response(SolidarityDocsSerializer(docs, many=True , context={'request': request}).data)
 
 
     @extend_schema(
@@ -348,7 +348,7 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
         solidarity_id=pk,
         ip_address=client_ip
     )
-        return Response(SolidarityDocsSerializer(docs, many=True).data)
+        return Response(SolidarityDocsSerializer(docs, many=True , context={'request': request}).data)
 
 
 
