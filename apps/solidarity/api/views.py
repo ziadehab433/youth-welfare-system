@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework.exceptions import ValidationError , PermissionDenied
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse
 from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.exceptions import ValidationError, PermissionDenied, NotFound 
 
 # fixed import — use IsRole, IsStudent, and IsFacultyAdmin
 from apps.accounts.permissions import IsRole, IsStudent, IsFacultyAdmin
@@ -82,7 +83,31 @@ class StudentSolidarityViewSet(viewsets.GenericViewSet):
         qs = Solidarities.objects.filter(student=student).order_by('-created_at')
         return Response(SolidarityStatusSerializer(qs, many=True).data)
 
+    @extend_schema(
+        tags=["Student APIs"],
+        description="Get detailed information for a specific solidarity application (including all documents)",
+        responses={
+            200: SolidarityDetailSerializer, 
+            404: OpenApiResponse(description="Application not found or access denied")
+        }
+    )
+    @action(detail=True, methods=['get'], url_path='detail')
+    def get_application_detail(self, request, pk=None):
+        student = get_current_student(request)
+        
+        try:
+            solidarity = SolidarityService.get_student_application_detail(pk, student)
+            docs = SolidarityService.get_docs_by_solidarity_id(pk)
+            solidarity_data = SolidarityDetailSerializer(solidarity).data
+            context = {'request': request}
+            solidarity_data['documents'] = SolidarityDocsSerializer(docs, many=True, context=context).data
+            
+            return Response(solidarity_data)
 
+        except NotFound as e:
+            return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 # ============================================================
 # FACULTY ADMIN VIEWSET
 # ============================================================
