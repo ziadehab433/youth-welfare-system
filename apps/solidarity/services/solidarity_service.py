@@ -457,7 +457,7 @@ class SolidarityService:
         try:
             solidarity = (
                 Solidarities.objects
-                .select_related('student', 'faculty', 'approved_by')
+                .select_related('student', 'faculty')
                 .get(pk=solidarity_id, student=student) 
             )
         except Solidarities.DoesNotExist:
