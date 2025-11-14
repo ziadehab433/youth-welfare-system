@@ -13,7 +13,7 @@ class SolidarityApplySerializer(serializers.Serializer):
     f_phone_num = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     reason = serializers.CharField()
     #docs = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    sd = serializers.CharField()
+    sd = serializers.CharField(required=False)
     disabilities = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     housing_status = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     grade = serializers.CharField(required=False, allow_blank=True, allow_null=True)

@@ -19,7 +19,7 @@ class AdminsUser(AbstractBaseUser, PermissionsMixin):
                                    blank=True, null=True)
     dept       = models.ForeignKey('solidarity.Departments', models.DO_NOTHING,
                                    blank=True, null=True)
-    created_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(blank=True, null=True, auto_now_add=True)
     can_create = models.BooleanField(blank=True, null=True)
     can_update = models.BooleanField(blank=True, null=True)
     can_read   = models.BooleanField(blank=True, null=True)
