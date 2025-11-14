@@ -69,3 +69,32 @@ class AdminsUser(AbstractBaseUser, PermissionsMixin):
     @property
     def is_anonymous(self):
         return False
+    
+
+
+# Std 
+
+class Students(models.Model):
+    student_id = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=100)
+    email = models.CharField(unique=True, max_length=100)
+    password = models.CharField()
+    faculty = models.ForeignKey('solidarity.Faculties', models.DO_NOTHING)
+    profile_photo = models.CharField(max_length=255, blank=True, null=True)
+    gender = models.CharField(max_length=1 , default='M')
+    nid = models.TextField(unique=True)
+    uid = models.TextField(unique=True)
+    phone_number = models.TextField(unique=True , null= True)
+    address = models.CharField(max_length=255 ,null= True)
+    acd_year = models.CharField(max_length=50)
+    join_date = models.DateField(auto_now_add=True)
+    grade = models.CharField(max_length=50, blank=True, null=True)
+    major = models.CharField(max_length=255 , null= True)
+
+    @property
+    def id(self):
+        return self.student_id
+
+    class Meta:
+        managed = False   
+        db_table = 'students'

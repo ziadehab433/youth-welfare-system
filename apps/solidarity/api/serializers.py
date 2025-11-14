@@ -32,8 +32,7 @@ class SolidarityStatusSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Solidarities
-        fields = ['solidarity_id', 'req_status', 'created_at', 'updated_at', 'approved_by_name' , 'approved_by']
-
+        fields = ['solidarity_id', 'req_status', 'created_at', 'updated_at', 'approved_by_name' , 'approved_by' , 'reason' , 'family_numbers' , 'total_income']
     # @extend_schema_field(serializers.CharField())
     # def get_status_display(self, obj):
     #     statuses = {
@@ -105,8 +104,8 @@ class SolidarityDetailSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source='student.name', read_only=True)
     student_uid = serializers.CharField(source='student.uid', read_only=True)
     faculty_name = serializers.CharField(source='faculty.name', read_only=True)
-    approved_by_name = serializers.CharField(source='approved_by.name', read_only=True, allow_null=True)
-    app_or_rej_by_aid =serializers.CharField(source='approved_by' ,read_only=True, allow_null=False )
+    # approved_by_name = serializers.CharField(source='approved_by.name', read_only=True, allow_null=True)
+    # app_or_rej_by_aid =serializers.CharField(source='approved_by' ,read_only=True, allow_null=False )
 
     class Meta:
         model = Solidarities

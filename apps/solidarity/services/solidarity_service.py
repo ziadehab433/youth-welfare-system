@@ -39,8 +39,8 @@ class SolidarityService:
     @staticmethod
     @transaction.atomic
     def create_application(student, application_data, uploaded_docs=None):
-        if SolidarityService.has_pending_application(student) or SolidarityService.has_application(student):
-            raise ValidationError("لديك طلب معلق بالفعل. يرجى الانتظار للمراجعة.")
+        # if SolidarityService.has_pending_application(student) or SolidarityService.has_application(student):
+        #     raise ValidationError("لديك طلب معلق بالفعل. يرجى الانتظار للمراجعة.")
 
         father_income = application_data.get('father_income') or 0
         mother_income = application_data.get('mother_income') or 0
@@ -448,3 +448,19 @@ class SolidarityService:
                 queryset = queryset.filter(target_type=filters['target_type'])
                 
         return queryset
+    
+
+
+
+    @staticmethod
+    def get_student_application_detail(solidarity_id, student):
+        try:
+            solidarity = (
+                Solidarities.objects
+                .select_related('student', 'faculty')
+                .get(pk=solidarity_id, student=student) 
+            )
+        except Solidarities.DoesNotExist:
+            raise NotFound("Application not found or does not belong to the student.")
+        
+        return solidarity

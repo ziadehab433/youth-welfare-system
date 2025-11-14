@@ -1,5 +1,6 @@
 from django.shortcuts import get_object_or_404
-from apps.solidarity.models import Students, Admins
+from apps.solidarity.models import Admins
+from apps.accounts.models import Students
 import os
 import uuid
 from django.core.files.storage import FileSystemStorage
