@@ -44,37 +44,6 @@ class IsFacultyAdmin(BasePermission):
 # apps/accounts/permissions.py
 from rest_framework.permissions import BasePermission
 from rest_framework.exceptions import PermissionDenied
-# apps/accounts/permissions.py
-from rest_framework.permissions import BasePermission
-from rest_framework.exceptions import PermissionDenied
-
-# class IsRole(BasePermission):
-#     """
-#     Checks if the user has one of the allowed roles (for Admins).
-#     Works with your custom Admins model and JWT authentication.
-#     Usage:
-#         permission_classes = [IsRole]
-#         allowed_roles = ['dept_admin', 'super_admin']
-#     """
-#     def has_permission(self, request, view):
-#         user = request.user
-
-#         if not user:
-#             return False  # no user attached
-
-#         allowed_roles = getattr(view, 'allowed_roles', [])
-
-#         # check for admin
-#         if hasattr(user, 'role') and user.role:
-#             if not allowed_roles or user.role in allowed_roles:
-#                 return True
-#             raise PermissionDenied("ليس لديك صلاحية الوصول لهذا المورد")
-
-#         # check for student (optional)
-#         if hasattr(user, 'user_type') and user.user_type == 'student':
-#             return True
-
-#         return False
 
 
 

@@ -39,8 +39,8 @@ class SolidarityService:
     @staticmethod
     @transaction.atomic
     def create_application(student, application_data, uploaded_docs=None):
-        if SolidarityService.has_pending_application(student) or SolidarityService.has_application(student):
-            raise ValidationError("لديك طلب معلق بالفعل. يرجى الانتظار للمراجعة.")
+        # if SolidarityService.has_pending_application(student) or SolidarityService.has_application(student):
+        #     raise ValidationError("لديك طلب معلق بالفعل. يرجى الانتظار للمراجعة.")
 
         father_income = application_data.get('father_income') or 0
         mother_income = application_data.get('mother_income') or 0

@@ -254,7 +254,7 @@ SIMPLE_JWT = {
     "ROTATE_REFRESH_TOKENS": False,
     "BLACKLIST_AFTER_ROTATION": True,
     "ALGORITHM": "HS256",
-    "SIGNING_KEY": SECRET_KEY,
+    "SIGNING_KEY": config('SECRET_KEY'),
     "AUTH_HEADER_TYPES": ("Bearer",),
     "USER_ID_FIELD": "admin_id",  # 👈 tell SimpleJWT which field to use
     "USER_ID_CLAIM": "admin_id",  # 👈 claim name in token

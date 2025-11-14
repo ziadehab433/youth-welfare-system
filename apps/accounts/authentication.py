@@ -1,6 +1,7 @@
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken
-from apps.solidarity.models import Admins, Students
+from apps.solidarity.models import Admins
+from apps.accounts.models import Students
 
 class CustomJWTAuthentication(JWTAuthentication):
     def get_user(self, validated_token):

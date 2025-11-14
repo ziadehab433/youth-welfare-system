@@ -11,7 +11,7 @@ from django.db import models
 
 class Solidarities(models.Model):
     solidarity_id = models.AutoField(primary_key=True)
-    student = models.ForeignKey('Students', models.DO_NOTHING, blank=True, null=True)
+    student = models.ForeignKey('accounts.Students', models.DO_NOTHING, blank=True, null=True)
     faculty = models.ForeignKey('Faculties', models.DO_NOTHING, blank=True, null=True)
     req_status = models.TextField(blank=True, null=True)  # This field type is a guess.
     created_at = models.DateTimeField(blank=True, null=True , auto_now_add=True)
@@ -96,35 +96,35 @@ class Departments(models.Model):
         managed = False
         db_table = 'departments'
 
-class Students(models.Model):
-    student_id = models.AutoField(primary_key=True)
-    name = models.CharField(max_length=100)
-    email = models.CharField(unique=True, max_length=100)
-    password = models.CharField()
-    faculty = models.ForeignKey('Faculties', models.DO_NOTHING)
-    profile_photo = models.CharField(max_length=255, blank=True, null=True)
-    gender = models.CharField(max_length=1)
-    nid = models.TextField(unique=True)
-    uid = models.TextField(unique=True)
-    phone_number = models.TextField(unique=True)
-    address = models.CharField(max_length=255)
-    acd_year = models.CharField(max_length=50)
-    join_date = models.DateField()
-    gpa = models.DecimalField(max_digits=4, decimal_places=2, blank=True, null=True)
-    grade = models.CharField(max_length=50, blank=True, null=True)
-    major = models.CharField(max_length=255)
+# class Students(models.Model):
+#     student_id = models.AutoField(primary_key=True)
+#     name = models.CharField(max_length=100)
+#     email = models.CharField(unique=True, max_length=100)
+#     password = models.CharField()
+#     faculty = models.ForeignKey('Faculties', models.DO_NOTHING)
+#     profile_photo = models.CharField(max_length=255, blank=True, null=True)
+#     gender = models.CharField(max_length=1)
+#     nid = models.TextField(unique=True)
+#     uid = models.TextField(unique=True)
+#     phone_number = models.TextField(unique=True)
+#     address = models.CharField(max_length=255)
+#     acd_year = models.CharField(max_length=50)
+#     join_date = models.DateField(auto_now_add=True)
+#     gpa = models.DecimalField(max_digits=4, decimal_places=2, blank=True, null=True)
+#     grade = models.CharField(max_length=50, blank=True, null=True)
+#     major = models.CharField(max_length=255)
 
-    @property
-    def id(self):
-        return self.student_id
+#     @property
+#     def id(self):
+#         return self.student_id
 
-    @property
-    def id(self):
-        return self.student_id
+#     @property
+#     def id(self):
+#         return self.student_id
     
-    class Meta:
-        managed = False
-        db_table = 'students'
+#     class Meta:
+#         managed = False
+#         db_table = 'students'
 
 
 class Faculties(models.Model):
