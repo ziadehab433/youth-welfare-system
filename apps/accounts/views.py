@@ -33,6 +33,12 @@ from .models import AdminsUser
 from .serializers import AdminsUserSerializer
 from .permissions import IsSuperAdmin
 
+# --- Existing imports ---
+from rest_framework.viewsets import ViewSet, GenericViewSet # ADD GenericViewSet
+# --- New/Modified Imports ---
+from apps.accounts.serializers import StudentDetailSerializer # ADD StudentDetailSerializer
+from .permissions import IsStudent # ADD IsStudent permission
+
 @extend_schema(
     tags=["Authentication"],
     description="Login and get JWT tokens",
@@ -273,3 +279,35 @@ class AdminManagementViewSet(viewsets.ModelViewSet):
                 'can_delete': admin.can_delete
             }
         })
+
+
+class StudentProfileViewSet(GenericViewSet):
+    """
+    ViewSet for students to view and update their own profile details.
+    Uses the student_id from the JWT token payload.
+    """
+    serializer_class = StudentDetailSerializer
+    permission_classes = [IsAuthenticated, IsStudent]
+    
+    def get_object(self):
+        """Custom method to get the currently authenticated student."""
+        try:
+            student_id = self.request.auth.payload.get('student_id')
+            if not student_id:
+                 raise Students.DoesNotExist # Treat as not found
+            
+            return Students.objects.get(student_id=student_id)
+        except Students.DoesNotExist:
+            raise AuthenticationFailed("User not found or token missing 'student_id'")
+
+
+    @extend_schema(
+        tags=["Student Profile"],
+        description="Retrieve the authenticated student's profile details.",
+        responses={200: StudentDetailSerializer}
+    )
+    def list(self, request, *args, **kwargs):
+        """Handles GET /accounts/profile/ to retrieve the current user's details."""
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, context={'request': request})
+        return Response(serializer.data)
