@@ -20,6 +20,7 @@ from apps.solidarity.api.serializers import (
     FacultyDiscountUpdateSerializer,
     LogSerializer,
 )
+from .serializers import SolidarityApprovedRowSerializer
 from .serializers import DiscountAssignSerializer, SolidarityDocsSerializer
 from apps.solidarity.api.utils import get_current_student, get_current_admin
 from apps.solidarity.services.solidarity_service import SolidarityService
@@ -285,8 +286,44 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
             "message": "تم جلب خصومات الكلية بنجاح",
             "discounts": data
         })
+    @extend_schema(
+        tags=["Faculty Admin APIs"],
+        description="Get approved applications summary for faculty admin",
+        responses={200: {
+            "type": "object",
+            "properties": {
+                'total_approved': {"type": "integer"},
+                'total_discount': {"type": "number"},
+                "results": {
+                    "type": "array",
+                    "items": SolidarityApprovedRowSerializer, 
+                },
+            }
+        }}
+    )
+    @action(detail=False, methods=['get'], url_path='faculty-approved')
+    def faculty_approved(self, request):
+        admin = get_current_admin(request)
 
+        rows_qs, totals = SolidarityService.get_approved_for_faculty_admin(admin)
 
+        rows = []
+        for r in rows_qs:
+            rows.append({
+                'solidarity_id': r['solidarity_id'],
+                'student_name': r['student_name'],
+                'student_id': r['student_pk'],
+                'total_income': r.get('total_income') or 0,
+                'discount_amount': r.get('total_discount_coalesced') or 0
+            })
+
+        # NOTE: Ensure SolidarityApprovedRowSerializer is imported in views.py
+        serializer = SolidarityApprovedRowSerializer(rows, many=True)
+        return Response({
+            'total_approved': totals['total_approved'],
+            'total_discount': totals['total_discount'],
+            'results': serializer.data
+        })
 # ============================================================
 # SUPER / DEPARTMENT ADMIN VIEWSET
 # ============================================================

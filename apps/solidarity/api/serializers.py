@@ -151,3 +151,10 @@ class LogSerializer(serializers.ModelSerializer):
             return obj.actor.faculty.name if obj.actor and obj.actor.faculty else None
         except AttributeError:
             return None
+
+class SolidarityApprovedRowSerializer(serializers.Serializer):
+    solidarity_id = serializers.IntegerField()
+    student_name = serializers.CharField()
+    student_id = serializers.IntegerField()
+    total_income = serializers.DecimalField(max_digits=12, decimal_places=2)
+    discount_amount = serializers.DecimalField(max_digits=12, decimal_places=2)

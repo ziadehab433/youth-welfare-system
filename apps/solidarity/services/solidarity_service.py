@@ -9,10 +9,13 @@ from django.conf import settings
 from apps.solidarity.api.utils import save_uploaded_file
 from django.db.models import Q
 from apps.solidarity.models import Solidarities, SolidarityDocs
-
+from django.db.models import F, Value, Sum, DecimalField, Count 
+from django.db.models.functions import Coalesce
 from youth_welfare import settings
 from django.db import connection
 
+from django.db.models import Sum, Count, F, Value
+from django.db.models.functions import Coalesce
 
 logger = logging.getLogger(__name__)
 DOC_TYPE_MAP = {
@@ -459,3 +462,38 @@ class SolidarityService:
             raise NotFound("Application not found or does not belong to the student.")
         
         return solidarity
+
+    @staticmethod
+    def get_approved_for_faculty_admin(admin):
+        # 1. Permission and Base Queryset filtering
+        if getattr(admin, 'role', None) != 'مسؤول كلية' or not hasattr(admin, 'faculty'):
+            return Solidarities.objects.none(), {'total_approved': 0, 'total_discount': 0}
+
+        qs = Solidarities.objects.select_related('student', 'faculty').filter(faculty=admin.faculty)
+        qs = qs.filter(req_status='مقبول')
+        annotated = qs.annotate(
+            student_name=F('student__name'),
+            student_pk=F('student__student_id'), 
+            total_discount_coalesced=Coalesce(
+                F('total_discount'),
+                Value(0),
+                output_field=DecimalField(max_digits=12, decimal_places=2)
+            )
+        ).values(
+            'solidarity_id',
+            'student_name',
+            'student_pk',
+            'total_income',
+            'total_discount_coalesced'
+        ).order_by('-created_at')
+        # NOTE: Using the original 'qs' for counting and aggregation is more reliable.
+        total_approved = qs.count()
+        total_discount = qs.aggregate(
+            total=Coalesce(
+                Sum('total_discount'),
+                Value(0),
+                output_field=DecimalField(max_digits=14, decimal_places=2)
+            )
+        )['total'] or 0
+
+        return annotated, {'total_approved': total_approved, 'total_discount': total_discount}
