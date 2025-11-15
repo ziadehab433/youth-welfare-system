@@ -1,6 +1,7 @@
 # apps/accounts/permissions.py
 from rest_framework.permissions import BasePermission
 from rest_framework.exceptions import PermissionDenied
+from .models import AdminsUser
 
 
 
@@ -76,3 +77,27 @@ class IsRole(BasePermission):
 
         raise PermissionDenied("ليس لديك صلاحية الوصول لهذا المورد")
 
+
+
+
+class IsSuperAdmin(BasePermission):
+    """Allow only super admins (مشرف النظام)."""
+    
+    def has_permission(self, request, view):
+        user = request.user
+        token = getattr(request, 'auth', None)
+        
+        if not user or not user.is_authenticated:
+            return False
+            
+        role = None
+        if token and hasattr(token, 'payload'):
+            role = token.payload.get('role')
+            
+        if not role and hasattr(user, 'role'):
+            role = user.role
+            
+        if role == 'مشرف النظام':
+            return True
+            
+        raise PermissionDenied("هذا المورد مخصص لمشرف النظام فقط")
