@@ -36,9 +36,10 @@ from .permissions import IsSuperAdmin
 # --- Existing imports ---
 from rest_framework.viewsets import ViewSet, GenericViewSet # ADD GenericViewSet
 # --- New/Modified Imports ---
-from apps.accounts.serializers import StudentDetailSerializer # ADD StudentDetailSerializer
+from apps.accounts.serializers import StudentDetailSerializer, StudentSignUpSerializer, StudentUpdateSerializer
 from .permissions import IsStudent # ADD IsStudent permission
-
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.decorators import action
 @extend_schema(
     tags=["Authentication"],
     description="Login and get JWT tokens",
@@ -288,6 +289,7 @@ class StudentProfileViewSet(GenericViewSet):
     """
     serializer_class = StudentDetailSerializer
     permission_classes = [IsAuthenticated, IsStudent]
+    parser_classes = [MultiPartParser, FormParser] 
     
     def get_object(self):
         """Custom method to get the currently authenticated student."""
@@ -311,3 +313,36 @@ class StudentProfileViewSet(GenericViewSet):
         instance = self.get_object()
         serializer = self.get_serializer(instance, context={'request': request})
         return Response(serializer.data)
+    
+    def get_object(self):
+        try:
+            student_id = self.request.auth.payload.get('student_id')
+            if not student_id:
+                    raise Students.DoesNotExist
+            
+            return Students.objects.get(student_id=student_id)
+        except Students.DoesNotExist:
+            raise AuthenticationFailed("User not found or token missing 'student_id'")
+
+    @extend_schema(
+        tags=["Student Profile"],
+        description="Update the authenticated student's profile details.",
+        request=StudentUpdateSerializer,
+        responses={200: StudentDetailSerializer}
+    )
+   
+    @action(detail=False, methods=['patch'])
+    def update_profile(self, request, *args, **kwargs):
+        """Handles PATCH /accounts/profile/update_profile/ to update the current user's details."""
+        instance = self.get_object()
+        serializer = StudentUpdateSerializer(
+            instance, 
+            data=request.data, 
+            partial=True,
+            context={'request': request}
+        )
+        serializer.is_valid(raise_exception=True)
+        updated_instance = serializer.save()
+        
+        detail_serializer = self.get_serializer(updated_instance, context={'request': request})
+        return Response(detail_serializer.data, status=status.HTTP_200_OK)

@@ -190,3 +190,41 @@ class AdminsUserSerializer(serializers.ModelSerializer):
         instance.save()
         return instance
         
+class StudentUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for updating student profile details with file upload support."""
+    
+    profile_photo = serializers.FileField(write_only=True, required=False, allow_null=True)
+    
+    class Meta:
+        model = Students
+        fields = [
+            'email', 'faculty', 'phone_number', 'address',
+            'acd_year', 'grade', 'major', 'profile_photo',
+        ]
+        read_only_fields = ['email']
+
+    def update(self, instance, validated_data):
+        from django.core.files.storage import default_storage
+        import os
+        
+        profile_photo_file = validated_data.pop('profile_photo', None)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        if profile_photo_file is not None:
+            
+            if instance.profile_photo and default_storage.exists(instance.profile_photo):
+                default_storage.delete(instance.profile_photo)
+            ext = os.path.splitext(profile_photo_file.name)[1]
+            file_path = f'uploads/students/{instance.student_id}/image{ext}'
+            saved_path = default_storage.save(file_path, profile_photo_file)
+            instance.profile_photo = saved_path
+        
+
+        elif 'profile_photo' in self.initial_data and self.initial_data['profile_photo'] is None:
+            if instance.profile_photo and default_storage.exists(instance.profile_photo):
+                default_storage.delete(instance.profile_photo)
+            instance.profile_photo = None
+            
+        instance.save()
+        return instance
