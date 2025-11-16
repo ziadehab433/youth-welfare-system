@@ -158,3 +158,10 @@ class SolidarityApprovedRowSerializer(serializers.Serializer):
     student_id = serializers.IntegerField()
     total_income = serializers.DecimalField(max_digits=12, decimal_places=2)
     discount_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+
+
+
+class FacultyApprovedResponseSerializer(serializers.Serializer):
+    total_approved = serializers.IntegerField()
+    total_discount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    results = SolidarityApprovedRowSerializer(many=True)

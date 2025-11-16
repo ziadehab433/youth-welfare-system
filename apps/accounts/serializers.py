@@ -90,7 +90,7 @@ class StudentDetailSerializer(serializers.ModelSerializer):
         fields = [
             'student_id', 'name', 'email', 'faculty', 'gender',
             'nid', 'uid', 'phone_number', 'address',
-            'acd_year', 'grade', 'major', 'profile_photo', 'profile_photo_url'
+            'acd_year', 'grade', 'major', 'profile_photo_url'
         ]
 
     def get_profile_photo_url(self, obj):

@@ -8,7 +8,7 @@ from rest_framework.exceptions import ValidationError , PermissionDenied
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.exceptions import ValidationError, PermissionDenied, NotFound 
-
+from .serializers import FacultyApprovedResponseSerializer 
 # fixed import — use IsRole, IsStudent, and IsFacultyAdmin
 from apps.accounts.permissions import IsRole, IsStudent, IsFacultyAdmin
 from apps.solidarity.models import Solidarities
@@ -289,22 +289,11 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
     @extend_schema(
         tags=["Faculty Admin APIs"],
         description="Get approved applications summary for faculty admin",
-        responses={200: {
-            "type": "object",
-            "properties": {
-                'total_approved': {"type": "integer"},
-                'total_discount': {"type": "number"},
-                "results": {
-                    "type": "array",
-                    "items": SolidarityApprovedRowSerializer, 
-                },
-            }
-        }}
+        responses={200: FacultyApprovedResponseSerializer}  
     )
-    @action(detail=False, methods=['get'], url_path='faculty-approved')
+    @action(detail=False, methods=['get'], url_path='faculty_approved')
     def faculty_approved(self, request):
         admin = get_current_admin(request)
-
         rows_qs, totals = SolidarityService.get_approved_for_faculty_admin(admin)
 
         rows = []
@@ -317,7 +306,6 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
                 'discount_amount': r.get('total_discount_coalesced') or 0
             })
 
-        # NOTE: Ensure SolidarityApprovedRowSerializer is imported in views.py
         serializer = SolidarityApprovedRowSerializer(rows, many=True)
         return Response({
             'total_approved': totals['total_approved'],
