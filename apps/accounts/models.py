@@ -2,6 +2,8 @@ from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseU
 from django.db import models
 from django.contrib.auth.hashers import make_password, check_password
 
+from django.contrib.postgres.fields import ArrayField
+
 
 class AdminsUserManager(BaseUserManager):
     use_in_migrations = False
@@ -26,7 +28,13 @@ class AdminsUser(AbstractBaseUser, PermissionsMixin):
     can_delete = models.BooleanField(blank=True, null=True)
     acc_status = models.CharField(max_length=20, blank=True, null=True)
     role       = models.TextField(blank=True, null=True)
+    dept_fac_ls = ArrayField(
+        base_field=models.CharField(max_length=255),
+        blank=True,
+        null=True
+    )
 
+    
     @property
     def id(self):
         return self.admin_id

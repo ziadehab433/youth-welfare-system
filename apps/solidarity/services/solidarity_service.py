@@ -16,7 +16,10 @@ from django.db import connection
 
 from django.db.models import Sum, Count, F, Value
 from django.db.models.functions import Coalesce
-
+from decimal import Decimal
+from django.db.models import Count, Sum, Case, When, Value, DecimalField, F, IntegerField
+from django.db.models.functions import Coalesce
+    
 logger = logging.getLogger(__name__)
 DOC_TYPE_MAP = {
     'social_research_file': 'بحث احتماعي',
@@ -497,3 +500,49 @@ class SolidarityService:
         )['total'] or 0
 
         return annotated, {'total_approved': total_approved, 'total_discount': total_discount}
+    
+ 
+
+    @staticmethod
+    def get_faculty_summary_for_dept_manager(admin):
+        if getattr(admin, 'role', '') not in [ 'مدير ادارة' , 'مشرف النظام']:
+            raise PermissionDenied("مسموح لمدير الادارة فقط")
+        qs = Solidarities.objects.all()
+        summary_qs = qs.values('faculty__faculty_id', 'faculty__name').annotate(
+            approved_count=Count(
+                Case(When(req_status='مقبول', then=1), output_field=IntegerField())
+            ),
+            pending_count=Count(
+                Case(When(req_status='منتظر', then=1), output_field=IntegerField())
+            ),
+            total_approved_amount=Coalesce(
+                Sum(
+                    Case(
+                        When(req_status='مقبول', then=F('total_discount')),
+                        default=Value(0),
+                        output_field=DecimalField(max_digits=12, decimal_places=2)
+                    )
+                ),
+                Value(0),
+                output_field=DecimalField(max_digits=12, decimal_places=2)
+            )
+        ).order_by('faculty__name')
+        rows = []
+        totals = {'total_approved_amount': Decimal('0.00'), 'total_approved_count': 0, 'total_pending_count': 0}
+
+        for r in summary_qs:
+            ta = r.get('total_approved_amount') or Decimal('0.00')
+            ac = int(r.get('approved_count') or 0)
+            pc = int(r.get('pending_count') or 0)
+            rows.append({
+                'faculty_id': r.get('faculty__faculty_id'),
+                'faculty_name': r.get('faculty__name'),
+                'total_approved_amount': ta,
+                'approved_count': ac,
+                'pending_count': pc,
+            })
+            totals['total_approved_amount'] += Decimal(str(ta))
+            totals['total_approved_count'] += ac
+            totals['total_pending_count'] += pc
+
+        return rows, totals
