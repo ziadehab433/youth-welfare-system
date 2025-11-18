@@ -8,7 +8,7 @@ from rest_framework.exceptions import ValidationError , PermissionDenied
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.exceptions import ValidationError, PermissionDenied, NotFound 
-from .serializers import FacultyApprovedResponseSerializer 
+
 # fixed import — use IsRole, IsStudent, and IsFacultyAdmin
 from apps.accounts.permissions import IsRole, IsStudent, IsFacultyAdmin
 from apps.solidarity.models import Solidarities
@@ -20,7 +20,15 @@ from apps.solidarity.api.serializers import (
     FacultyDiscountUpdateSerializer,
     LogSerializer,
 )
-from .serializers import SolidarityApprovedRowSerializer
+from drf_spectacular.utils import extend_schema
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.exceptions import PermissionDenied
+
+from apps.solidarity.api.serializers import DeptFacultySummarySerializer
+from apps.solidarity.services.solidarity_service import SolidarityService
+from .serializers import FacultyApprovedResponseSerializer, SolidarityApprovedRowSerializer
 from .serializers import DiscountAssignSerializer, SolidarityDocsSerializer
 from apps.solidarity.api.utils import get_current_student, get_current_admin
 from apps.solidarity.services.solidarity_service import SolidarityService
@@ -453,3 +461,33 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
         queryset = SolidarityService.get_all_logs(filters=filters)
         
         return Response(LogSerializer(queryset, many=True).data)
+    
+# ... (داخل كلاس SuperDeptSolidarityViewSet) ...
+
+    @extend_schema(
+        tags=["Dept&Super Admin APIs"],
+        description="Get Faculty Summary (name, approved amount, approved count, pending count)",
+        # نستخدم OpenApiResponse هنا لأن شكل الرد مخصص (Custom Dictionary)
+        responses={200: OpenApiResponse(description="Returns rows list and totals object")}
+    )
+    @action(detail=False, methods=['get'], url_path='faculty-summary')
+    def faculty_summary(self, request):
+        admin = get_current_admin(request)
+        
+        try:
+            rows, totals = SolidarityService.get_faculty_summary_for_dept_manager(admin)
+        except Exception as e:
+            # يفضل إرجاع 400 أو 500 حسب نوع الخطأ، لكن 403 كما طلبت
+            return Response({'error': str(e)}, status=status.HTTP_403_FORBIDDEN)
+
+        # استخدام الـ Serializer لضمان تنسيق البيانات (الأرقام العشرية وغيرها)
+        serializer = DeptFacultySummarySerializer(rows, many=True)
+        
+        return Response({
+            'rows': serializer.data,
+            'totals': {
+                'total_approved_amount': str(totals['total_approved_amount']), # تحويل لـ String للحفاظ على الدقة في JSON
+                'total_approved_count': totals['total_approved_count'],
+                'total_pending_count': totals['total_pending_count']
+            }
+        }, status=status.HTTP_200_OK)

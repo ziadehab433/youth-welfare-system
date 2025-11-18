@@ -165,3 +165,11 @@ class FacultyApprovedResponseSerializer(serializers.Serializer):
     total_approved = serializers.IntegerField()
     total_discount = serializers.DecimalField(max_digits=10, decimal_places=2)
     results = SolidarityApprovedRowSerializer(many=True)
+
+class DeptFacultySummarySerializer(serializers.Serializer):
+
+    faculty_id = serializers.IntegerField()
+    faculty_name = serializers.CharField()
+    total_approved_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    approved_count = serializers.IntegerField()
+    pending_count = serializers.IntegerField()
