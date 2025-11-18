@@ -195,7 +195,6 @@ class StudentSignUpView(APIView):
 
 ## Admin Users creation
 
-
 class AdminManagementViewSet(viewsets.ModelViewSet):
     """
     ViewSet for Super Admin to manage other admins
@@ -203,81 +202,100 @@ class AdminManagementViewSet(viewsets.ModelViewSet):
     queryset = AdminsUser.objects.all()
     serializer_class = AdminsUserSerializer
     permission_classes = [IsAuthenticated, IsSuperAdmin]
-    
-    # @action(detail=False, methods=['post'], url_path='create_admin')
+
+    # ----------- CREATE ADMIN -----------
     def create(self, request, *args, **kwargs):
-        """Create new admin - Super admin assigns all permissions manually"""
+        """
+        Create a new admin, including receiving array of strings in dept_fac_ls
+        Example JSON:
+        {
+            "name": "Omar",
+            "email": "...",
+            "password": "...",
+            "role": "مدير ادارة",
+            "dept": 3,
+            "dept_fac_ls": ["نشاط رياضي", "نشاط علمي"]
+        }
+        """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         admin = serializer.save()
-        
+
         return Response({
             'message': 'تم إنشاء المشرف بنجاح',
             'admin': AdminsUserSerializer(admin).data
         }, status=status.HTTP_201_CREATED)
-    
-    def destroy(self, request, *args, **kwargs):
-        """Delete admin"""
+
+    # ----------- UPDATE ADMIN -----------
+    def update(self, request, *args, **kwargs):
+        """
+        Full update admin, including updating dept_fac_ls (array of strings)
+        """
+        partial = kwargs.pop('partial', False)
         instance = self.get_object()
-        
-        # Prevent deleting super admin
-        if instance.role == 'مشرف النظام':
-            return Response({
-                'error': 'لا يمكن حذف مشرف النظام'
-            }, status=status.HTTP_403_FORBIDDEN)
-        
-        # Prevent self-deletion
-        if instance.admin_id == request.user.admin_id:
-            return Response({
-                'error': 'لا يمكنك حذف حسابك الخاص'
-            }, status=status.HTTP_403_FORBIDDEN)
-        
-        self.perform_destroy(instance)
+
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        admin = serializer.save()
+
         return Response({
-            'message': 'تم حذف المشرف بنجاح'
-        }, status=status.HTTP_204_NO_CONTENT)
-    
-    # @action(detail=True, methods=['post'])
-    # def toggle_status(self, request, pk=None):
-    #     """Toggle admin account status"""
-    #     admin = self.get_object()
-        
-    #     if admin.role == 'مشرف النظام':
-    #         return Response({
-    #             'error': 'لا يمكن تغيير حالة مشرف النظام'
-    #         }, status=status.HTTP_403_FORBIDDEN)
-        
-    #     admin.acc_status = 'inactive' if admin.acc_status == 'active' else 'active'
-    #     admin.save()
-        
-    #     return Response({
-    #         'message': f'تم {"تفعيل" if admin.acc_status == "active" else "تعطيل"} الحساب',
-    #         'status': admin.acc_status
-    #     })
-    
+            "message": "تم تحديث بيانات المشرف بنجاح",
+            "admin": AdminsUserSerializer(admin).data
+        })
+
+    # ----------- PARTIAL UPDATE (PATCH) -----------
+    def partial_update(self, request, *args, **kwargs):
+        """
+        Handles updating only specific fields (e.g. dept_fac_ls alone)
+        """
+        kwargs['partial'] = True
+        return self.update(request, *args, **kwargs)
+
+    # ----------- DELETE ADMIN -----------
+    def destroy(self, request, *args, **kwargs):
+        """Delete admin safely"""
+        instance = self.get_object()
+
+        if instance.role == 'مشرف النظام':
+            return Response(
+                {"error": "لا يمكن حذف مشرف النظام"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if instance.admin_id == request.user.admin_id:
+            return Response(
+                {"error": "لا يمكنك حذف حسابك الخاص"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        self.perform_destroy(instance)
+        return Response({"message": "تم حذف المشرف بنجاح"}, status=status.HTTP_204_NO_CONTENT)
+
+    # ----------- UPDATE PERMISSIONS ONLY -----------
     @action(detail=True, methods=['patch'])
     def update_permissions(self, request, pk=None):
         """Update only admin permissions"""
         admin = self.get_object()
-        
+
         if admin.role == 'مشرف النظام':
-            return Response({
-                'error': 'لا يمكن تغيير صلاحيات مشرف النظام'
-            }, status=status.HTTP_403_FORBIDDEN)
-        
+            return Response(
+                {"error": "لا يمكن تغيير صلاحيات مشرف النظام"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         admin.can_create = request.data.get('can_create', admin.can_create)
         admin.can_update = request.data.get('can_update', admin.can_update)
         admin.can_read = request.data.get('can_read', admin.can_read)
         admin.can_delete = request.data.get('can_delete', admin.can_delete)
         admin.save()
-        
+
         return Response({
-            'message': 'تم تحديث الصلاحيات بنجاح',
-            'permissions': {
-                'can_create': admin.can_create,
-                'can_update': admin.can_update,
-                'can_read': admin.can_read,
-                'can_delete': admin.can_delete
+            "message": "تم تحديث الصلاحيات بنجاح",
+            "permissions": {
+                "can_create": admin.can_create,
+                "can_update": admin.can_update,
+                "can_read": admin.can_read,
+                "can_delete": admin.can_delete
             }
         })
 

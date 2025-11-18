@@ -505,7 +505,7 @@ class SolidarityService:
 
     @staticmethod
     def get_faculty_summary_for_dept_manager(admin):
-        if getattr(admin, 'role', '') != 'مدير ادارة':
+        if getattr(admin, 'role', '') not in [ 'مدير ادارة' , 'مشرف النظام']:
             raise PermissionDenied("مسموح لمدير الادارة فقط")
         qs = Solidarities.objects.all()
         summary_qs = qs.values('faculty__faculty_id', 'faculty__name').annotate(

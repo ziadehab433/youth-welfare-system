@@ -251,3 +251,21 @@ ALTER TABLE solidarity_docs DROP COLUMN IF EXISTS file_name;
 ALTER TABLE solidarity_docs DROP COLUMN IF EXISTS file_path;
 
 ALTER TABLE solidarity_docs ADD COLUMN file VARCHAR(255);
+
+
+-------------------------------------------
+
+
+
+--pre
+ALTER TYPE public.actor_type
+ADD VALUE 'مدير ادارة';
+
+
+----
+
+ALTER TABLE public.admins
+ADD COLUMN dept_fac_ls text[] DEFAULT '{}';
+
+
+-------

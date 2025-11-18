@@ -470,7 +470,7 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
         # نستخدم OpenApiResponse هنا لأن شكل الرد مخصص (Custom Dictionary)
         responses={200: OpenApiResponse(description="Returns rows list and totals object")}
     )
-    @action(detail=False, methods=['get'], url_path='faculty-summary')
+    @action(detail=False, methods=['get'], url_path='faculty_summary')
     def faculty_summary(self, request):
         admin = get_current_admin(request)
         
