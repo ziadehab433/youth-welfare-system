@@ -9,10 +9,13 @@ from django.conf import settings
 from apps.solidarity.api.utils import save_uploaded_file
 from django.db.models import Q
 from apps.solidarity.models import Solidarities, SolidarityDocs
-
+from django.db.models import F, Value, Sum, DecimalField, Count 
+from django.db.models.functions import Coalesce
 from youth_welfare import settings
 from django.db import connection
 
+from django.db.models import Sum, Count, F, Value
+from django.db.models.functions import Coalesce
 
 logger = logging.getLogger(__name__)
 DOC_TYPE_MAP = {
@@ -315,64 +318,59 @@ class SolidarityService:
     @staticmethod
     def get_all_applications(admin=None, filters=None):
         queryset = Solidarities.objects.select_related('student', 'faculty', 'approved_by')
-
-        if admin and hasattr(admin, 'role'):
-            if admin.role == 'مدير ادارة' and getattr(admin, 'dept_id', None):
-                faculty_ids = [f.faculty_id for f in admin.dept.faculties_set.all()]
+        
+        if admin and hasattr(admin, 'role') and admin.role == 'مدير ادارة':
+            if getattr(admin, 'dept_id', None):
+                faculty_ids = admin.dept.faculties_set.values_list('faculty_id', flat=True)
                 queryset = queryset.filter(faculty_id__in=faculty_ids)
+            else:
+                return Solidarities.objects.none()
 
-        if filters:
-            faculty = filters.get('faculty')
-            if faculty:
-                queryset = queryset.filter(faculty_id=faculty)
+        if not filters:
+            return queryset.order_by('-created_at')
 
-            status = filters.get('status')
-            if status:
-                queryset = queryset.filter(req_status=status)
+        q_objects = Q()
+        simple_filters = {}
+        
+        if filters.get('faculty'):
+            simple_filters['faculty_id'] = filters['faculty']
+        if filters.get('status'):
+            simple_filters['req_status'] = filters['status']
+        if filters.get('student_id'):
+            simple_filters['student__student_id'] = filters['student_id']
+        if filters.get('housing_status'):
+            simple_filters['housing_status__iexact'] = filters['housing_status']
+        if filters.get('grade'):
+            q_objects &= Q(grade__icontains=filters['grade'])
+        if filters.get('father_status'):
+            q_objects &= Q(father_status__icontains=filters['father_status'])
+        if filters.get('mother_status'):
+            q_objects &= Q(mother_status__icontains=filters['mother_status'])
+        if filters.get('disabilities'):
+            q_objects &= Q(disabilities__icontains=filters['disabilities'])
+            
+        queryset = queryset.filter(**simple_filters)
+        
+        if filters.get('total_income'):
+            income = filters['total_income'].lower()
+            if income == 'low':
+                q_objects &= Q(total_income__lt=3000)
+            elif income == 'moderate':
+                q_objects &= Q(total_income__gte=3000, total_income__lte=5000)
+            elif income == 'high':
+                q_objects &= Q(total_income__gt=5000)
 
-            student_id = filters.get('student_id')
-            if student_id:
-                queryset = queryset.filter(student__student_id=student_id)
-
-            total_income = filters.get('total_income')
-            if total_income:
-                total_income = total_income.lower()
-                if total_income == 'low':
-                    queryset = queryset.filter(total_income__lt=3000)
-                elif total_income == 'moderate':
-                    queryset = queryset.filter(total_income__gte=3000, total_income__lte=5000)
-                elif total_income == 'high':
-                    queryset = queryset.filter(total_income__gt=5000)
-
-            family_numbers = filters.get('family_numbers')
-            if family_numbers:
-                family_numbers = family_numbers.lower()
-                if family_numbers == 'few':
-                    queryset = queryset.filter(family_numbers__lt=3)
-                elif family_numbers == 'moderate':
-                    queryset = queryset.filter(family_numbers__gte=3, family_numbers__lte=4)
-                elif family_numbers == 'many':
-                    queryset = queryset.filter(family_numbers__gt=4)
-
-            disabilities = filters.get('disabilities')
-            if disabilities:
-                queryset = queryset.filter(disabilities__icontains=disabilities)
-
-            housing_status = filters.get('housing_status')
-            if housing_status:
-                queryset = queryset.filter(housing_status__iexact=housing_status)
-
-            grade = filters.get('grade')
-            if grade:
-                queryset = queryset.filter(grade__icontains=grade)
-
-            father_status = filters.get('father_status')
-            if father_status:
-                queryset = queryset.filter(father_status__icontains=father_status)
-
-            mother_status = filters.get('mother_status')
-            if mother_status:
-                queryset = queryset.filter(mother_status__icontains=mother_status)
+        if filters.get('family_numbers'):
+            numbers = filters['family_numbers'].lower()
+            if numbers == 'few':
+                q_objects &= Q(family_numbers__lt=3)
+            elif numbers == 'moderate':
+                q_objects &= Q(family_numbers__gte=3, family_numbers__lte=4)
+            elif numbers == 'many':
+                q_objects &= Q(family_numbers__gt=4)
+                
+        if q_objects:
+            queryset = queryset.filter(q_objects)
 
         return queryset.order_by('-created_at')
     @staticmethod
@@ -464,3 +462,38 @@ class SolidarityService:
             raise NotFound("Application not found or does not belong to the student.")
         
         return solidarity
+
+    @staticmethod
+    def get_approved_for_faculty_admin(admin):
+        # 1. Permission and Base Queryset filtering
+        if getattr(admin, 'role', None) != 'مسؤول كلية' or not hasattr(admin, 'faculty'):
+            return Solidarities.objects.none(), {'total_approved': 0, 'total_discount': 0}
+
+        qs = Solidarities.objects.select_related('student', 'faculty').filter(faculty=admin.faculty)
+        qs = qs.filter(req_status='مقبول')
+        annotated = qs.annotate(
+            student_name=F('student__name'),
+            student_pk=F('student__student_id'), 
+            total_discount_coalesced=Coalesce(
+                F('total_discount'),
+                Value(0),
+                output_field=DecimalField(max_digits=12, decimal_places=2)
+            )
+        ).values(
+            'solidarity_id',
+            'student_name',
+            'student_pk',
+            'total_income',
+            'total_discount_coalesced'
+        ).order_by('-created_at')
+        # NOTE: Using the original 'qs' for counting and aggregation is more reliable.
+        total_approved = qs.count()
+        total_discount = qs.aggregate(
+            total=Coalesce(
+                Sum('total_discount'),
+                Value(0),
+                output_field=DecimalField(max_digits=14, decimal_places=2)
+            )
+        )['total'] or 0
+
+        return annotated, {'total_approved': total_approved, 'total_discount': total_discount}
