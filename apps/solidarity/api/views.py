@@ -8,7 +8,7 @@ from rest_framework.exceptions import ValidationError , PermissionDenied
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.exceptions import ValidationError, PermissionDenied, NotFound 
-from .serializers import FacultyApprovedResponseSerializer 
+
 # fixed import — use IsRole, IsStudent, and IsFacultyAdmin
 from apps.accounts.permissions import IsRole, IsStudent, IsFacultyAdmin
 from apps.solidarity.models import Solidarities
@@ -20,6 +20,18 @@ from apps.solidarity.api.serializers import (
     FacultyDiscountUpdateSerializer,
     LogSerializer,
 )
+from drf_spectacular.utils import extend_schema
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.exceptions import PermissionDenied
+
+from apps.solidarity.api.serializers import DeptFacultySummarySerializer
+from apps.solidarity.services.solidarity_service import SolidarityService
+
+
+
+
 from .serializers import SolidarityApprovedRowSerializer
 from .serializers import DiscountAssignSerializer, SolidarityDocsSerializer
 from apps.solidarity.api.utils import get_current_student, get_current_admin
@@ -286,24 +298,36 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
             "message": "تم جلب خصومات الكلية بنجاح",
             "discounts": data
         })
-    @extend_schema(
-        tags=["Faculty Admin APIs"],
-        description="Get approved applications summary for faculty admin",
-        responses={200: FacultyApprovedResponseSerializer}  
-    )
-    @action(detail=False, methods=['get'], url_path='faculty_approved')
-    def faculty_approved(self, request):
-        admin = get_current_admin(request)
-        rows_qs, totals = SolidarityService.get_approved_for_faculty_admin(admin)
 
+    @extend_schema(
+        tags=["Dept&super Admin API"],
+        description="Get approved applications summary for faculty admin",
+        parameters=[
+            OpenApiParameter('student_id', str, description='Filter by student id', required=False),
+            OpenApiParameter('date_from', str, description='Filter from date (YYYY-MM-DD)', required=False),
+            OpenApiParameter('date_to', str, description='Filter to date (YYYY-MM-DD)', required=False),
+        ],
+        responses={200: OpenApiResponse(description="Approved applications summary")}
+    )
+    @action(detail=False, methods=['get'], url_path='approved_summary')
+    def approved_summary(self, request):
+        admin = get_current_admin(request)  # reuse your existing helper
+        filters = {
+            'student_id': request.query_params.get('student_id'),
+            'date_from': request.query_params.get('date_from'),
+            'date_to': request.query_params.get('date_to'),
+        }
+        rows_qs, totals = SolidarityService.get_approved_summary_for_faculty(admin, filters=filters)
+
+        # prepare rows and rename discount field
         rows = []
         for r in rows_qs:
             rows.append({
                 'solidarity_id': r['solidarity_id'],
                 'student_name': r['student_name'],
-                'student_id': r['student_pk'],
+                'student_id': r['student_id'],
                 'total_income': r.get('total_income') or 0,
-                'discount_amount': r.get('total_discount_coalesced') or 0
+                'discount_amount': r.get('discount_amount_coalesced') or 0
             })
 
         serializer = SolidarityApprovedRowSerializer(rows, many=True)
@@ -311,7 +335,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
             'total_approved': totals['total_approved'],
             'total_discount': totals['total_discount'],
             'results': serializer.data
-        })
+        }, status=status.HTTP_200_OK)
 # ============================================================
 # SUPER / DEPARTMENT ADMIN VIEWSET
 # ============================================================
@@ -453,3 +477,28 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
         queryset = SolidarityService.get_all_logs(filters=filters)
         
         return Response(LogSerializer(queryset, many=True).data)
+
+
+    @extend_schema(
+        tags=["Dept&Super Admin APIs"],
+        description="Get Faculty Summary (name, approved amount, approved count, pending count)",
+        responses={200: OpenApiResponse(description="Returns rows list and totals object")}
+    )
+    @action(detail=False, methods=['get'], url_path='faculty-summary')
+    def faculty_summary(self, request):
+        admin = get_current_admin(request)
+        
+        try:
+            rows, totals = SolidarityService.get_faculty_summary_for_dept_manager(admin)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_403_FORBIDDEN)
+        serializer = DeptFacultySummarySerializer(rows, many=True)
+        
+        return Response({
+            'rows': serializer.data,
+            'totals': {
+                'total_approved_amount': str(totals['total_approved_amount']), 
+                'total_approved_count': totals['total_approved_count'],
+                'total_pending_count': totals['total_pending_count']
+            }
+        }, status=status.HTTP_200_OK)
