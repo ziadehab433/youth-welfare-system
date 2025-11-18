@@ -440,7 +440,7 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
         parameters=[
             OpenApiParameter('actor_id', str, location=OpenApiParameter.QUERY, description="Filter by Admin ID"),
             OpenApiParameter('action', str, location=OpenApiParameter.QUERY, description="Filter by action description (e.g., 'رفض')"),
-            OpenApiParameter('target_type', str, location=OpenApiParameter.QUERY, description="Filter by target type (e.g., 'solidarity', 'student')"),
+            OpenApiParameter('target_type', str, location=OpenApiParameter.QUERY, description="Filter by target type (e.g., 'تكافل', 'نشاط')"),
         ],
         responses={200: LogSerializer(many=True)}
     )

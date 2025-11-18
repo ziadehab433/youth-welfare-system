@@ -2,25 +2,37 @@
 from django.contrib.auth.backends import BaseBackend
 from apps.accounts.models import AdminsUser
 import bcrypt
+from django.contrib.auth.hashers import check_password , make_password
+
 
 class AdminsBackend(BaseBackend):
     """
     Custom authentication backend for AdminsUser model (DB-first)
     """
     def authenticate(self, request, username=None, password=None, **kwargs):
-        if not username or not password:
+
+        user = AdminsUser.objects.filter(email=username).first()
+        if not user:
             return None
 
+        stored = user.password
+
+        # New Django-hashed passwords
+        if stored.startswith("pbkdf2_"):
+            if check_password(password, stored):
+                return user
+            return None
+
+        #  OLD bcrypt passwords
         try:
-            user = AdminsUser.objects.filter(email=username).first()
-        except AdminsUser.DoesNotExist:
-            return None
-        if not user or not user.password:
-            return None
+            if bcrypt.checkpw(password.encode(), stored.encode()):
+                # Migrate old password into Django format
+                user.password = make_password(password)
+                user.save()
+                return user
+        except:
+            pass
 
-        stored_hash = user.password.encode() if isinstance(user.password, str) else user.password
-        if bcrypt.checkpw(password.encode(), stored_hash):
-            return user
         return None
 
     def get_user(self, user_id):
