@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@100..900&display=swap" rel="stylesheet">
 <title>كشف توزيع الإعانات</title>
 <style>
   :root{
@@ -16,19 +19,20 @@
     height:100%;
     margin:0;
     padding:0;
-    font-family: "Tahoma", "Arial", sans-serif;
+    font-family: "Noto Kufi Arabic", "Tahoma", "Arial", sans-serif;
     background: #e6e6e6;
     direction: rtl;
+    font-size: 14px;
   }
 
   /* Page container to mimic A4 */
   .page {
-    width: calc(var(--page-width) - 2 * var(--margin));
-    min-height: calc(var(--page-height) - 2 * var(--margin));
-    margin: var(--margin) auto;
+    width: var(--page-width);
+    min-height: var(--page-height);
+    margin: 0 auto;
     background: white;
     box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-    padding: 18px;
+    padding: 15mm;
     box-sizing: border-box;
   }
 
@@ -53,12 +57,12 @@
     width:100%;
     border-collapse:collapse;
     table-layout:fixed;
-    font-size:13px;
+    font-size:12px;
     margin-top:12px;
   }
   table.form-table thead th{
     border:1px solid var(--border-color);
-    padding:6px 8px;
+    padding:6px 4px;
     background:var(--light);
     font-weight:600;
     text-align:center;
@@ -66,8 +70,8 @@
   }
   table.form-table tbody td{
     border:1px solid var(--border-color);
-    height:34px;
-    padding:6px 8px;
+    height:30px;
+    padding:4px 4px;
     vertical-align:middle;
     text-align:center;
     word-wrap:break-word;
@@ -114,9 +118,29 @@
 
   /* Print adjustments */
   @media print{
-    body{background: white}
-    .page{box-shadow:none; margin:0; width:100%; min-height:auto; padding:10mm;}
+    body{
+      background: white;
+      margin: 0;
+      padding: 0;
+    }
+    .page{
+      box-shadow:none; 
+      margin:0; 
+      width:100%; 
+      min-height:100vh; 
+      padding:15mm;
+      page-break-inside: avoid;
+    }
+    table.form-table {
+      font-size: 11px;
+    }
     .no-print{display:none}
+  }
+
+  /* PDF-specific fixes */
+  @page {
+    size: A4;
+    margin: 0;
   }
 </style>
 </head>
@@ -163,13 +187,7 @@
             {% endif %}
           </td>
           <td>{{ item.family_numbers|default:"-" }}</td>
-          <td>
-            {% if item.total_income and item.family_numbers %}
-              {{ item.total_income|floatformat:2 }}
-            {% else %}
-              -
-            {% endif %}
-          </td>
+          <td>{{ item.average_income }} </td>
           <td>
             {% if item.total_discount %}
               {{ item.total_discount }}
@@ -181,44 +199,13 @@
           <td>{{ item.reason|truncatewords:3|default:"-" }}</td>
         </tr>
         {% endfor %}
-
-        <!-- Fill remaining rows if data count is less than 20 -->
-        {% with data_length=data|length %}
-          {% if data_length < 20 %}
-            {% for i in "x"|rjust:"20" %}
-              {% if forloop.counter > data_length %}
-              <tr>
-                <td>{{ forloop.counter }}</td>
-                <td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>
-              </tr>
-              {% endif %}
-            {% endfor %}
-          {% endif %}
-        {% endwith %}
-        
-        <!-- If no data at all, show 20 empty rows -->
-        {% if not data %}
-          {% for i in "x"|rjust:"20" %}
-          <tr>
-            <td>{{ forloop.counter }}</td>
-            <td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>
-          </tr>
-          {% endfor %}
-        {% endif %}
       </tbody>
     </table>
 
     <div class="summary">
       <div class="label">الإجمالي:</div>
       <div style="min-width:120px; border:1px solid #333; padding:6px; text-align:center;">
-        {% with total=0 %}
-          {% for item in data %}
-            {% if item.total_discount %}
-              <!-- In a real scenario, you'd calculate the total here -->
-            {% endif %}
-          {% endfor %}
-          .............
-        {% endwith %}
+        {{ total_amount_spent }}
       </div>
     </div>
 

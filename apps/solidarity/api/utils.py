@@ -105,3 +105,18 @@ def get_admin_faculty_id(admin):
     if hasattr(admin, 'faculty') and admin.faculty:
         return admin.faculty.faculty_id
     return None
+
+def handle_report_data(data): 
+    total_amount_spent = 0
+
+    for item in data: 
+        item.average_income = item.total_income / item.family_numbers
+
+        if item.total_discount is None: 
+            continue
+        total_amount_spent = total_amount_spent + item.total_discount 
+
+    return { 
+        "data": data,
+        "total_amount_spent": total_amount_spent
+    }

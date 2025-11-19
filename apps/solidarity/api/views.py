@@ -37,7 +37,7 @@ from apps.solidarity.api.serializers import DeptFacultySummarySerializer
 from apps.solidarity.services.solidarity_service import SolidarityService
 from .serializers import FacultyApprovedResponseSerializer, SolidarityApprovedRowSerializer
 from .serializers import DiscountAssignSerializer, SolidarityDocsSerializer
-from apps.solidarity.api.utils import get_current_student, get_current_admin
+from apps.solidarity.api.utils import get_current_student, get_current_admin, handle_report_data
 from apps.solidarity.services.solidarity_service import SolidarityService
 def get_client_ip(request):
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
@@ -345,7 +345,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         if len(data) == 0:
             return Response({'detail': 'Cant generate a report (no data)'}, status=404)
 
-        html_content = render_to_string("api/solidarity-report.html", { "data": data })
+        html_content = render_to_string("api/solidarity-report.html", handle_report_data(data))
         buffer = io.BytesIO()
         html = HTML(string=html_content)
         html.write_pdf(buffer)
