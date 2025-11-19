@@ -66,7 +66,8 @@ INSTALLED_APPS = [
     'apps.solidarity',
     'apps.family',
     'apps.accounts',
-    'apps.accounts.schema'
+    'apps.accounts.schema',
+    'apps.solidarity.api'
 ]
 
 MIDDLEWARE = [
@@ -108,7 +109,7 @@ ROOT_URLCONF = 'youth_welfare.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / "templates"],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [

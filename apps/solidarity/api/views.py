@@ -1,3 +1,10 @@
+from django.http import HttpResponse
+from weasyprint import HTML
+from django.template.loader import render_to_string
+import io as io
+
+from apps.solidarity.models import Solidarities
+
 # apps/solidarity/api/views.py
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -5,7 +12,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework.exceptions import ValidationError , PermissionDenied
-from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse, OpenApiTypes
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.exceptions import ValidationError, PermissionDenied, NotFound 
 
@@ -320,6 +327,38 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
             'total_discount': totals['total_discount'],
             'results': serializer.data
         })
+
+    @extend_schema(
+        tags=["Faculty Admin APIs"],
+        description="pdf",
+        responses={
+            200: OpenApiResponse(
+                description="PDF file download",
+            )
+        }
+    )
+    @action(detail=False, methods=['get'], url_path='export')
+    def export(self, request):
+        admin = get_current_admin(request)
+        data = Solidarities.objects.filter(faculty=admin.faculty)
+
+        if len(data) == 0:
+            return Response({'detail': 'Cant generate a report (no data)'}, status=404)
+
+        html_content = render_to_string("api/solidarity-report.html", { "data": data })
+        buffer = io.BytesIO()
+        html = HTML(string=html_content)
+        html.write_pdf(buffer)
+
+        response = HttpResponse(
+            buffer.getvalue(),
+            content_type='application/pdf'
+        )
+        response['Content-Disposition'] = f'attachment; filename="generated_pdf.pdf"'
+        
+        return response
+
+
 # ============================================================
 # SUPER / DEPARTMENT ADMIN VIEWSET
 # ============================================================
