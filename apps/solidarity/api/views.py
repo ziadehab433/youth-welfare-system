@@ -9,8 +9,7 @@ from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiRespon
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.exceptions import ValidationError, PermissionDenied, NotFound 
 
-# fixed import — use IsRole, IsStudent, and IsFacultyAdmin
-from apps.accounts.permissions import IsRole, IsStudent, IsFacultyAdmin
+from apps.accounts.permissions import IsRole
 from apps.solidarity.models import Solidarities
 from apps.solidarity.api.serializers import (
     SolidarityApplySerializer,
@@ -178,11 +177,15 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
     def get_documents(self, request, pk=None):
 
         admin = get_current_admin(request)
+        docs_qs = SolidarityService.get_docs_by_solidarity_id(pk)
 
         docs = SolidarityService.get_docs_by_solidarity_id(pk)
         if not docs.exists():
             return Response({'detail': 'No documents found for this solidarity_id'}, status=404)
            # # Log document access
+        solidarity = docs_qs.first().solidarity 
+        if admin.faculty_id != solidarity.faculty_id:
+           raise PermissionDenied("You can only view applications from your faculty.")      
         client_ip = get_client_ip(request)
 
         SolidarityService.log_data_access(

@@ -1,4 +1,3 @@
-# apps/accounts/views.py
 from argparse import Action
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -6,7 +5,6 @@ from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
 from rest_framework.exceptions import AuthenticationFailed
-# from apps.solidarity.models import Students
 import bcrypt
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -24,20 +22,18 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 import os
 from django.core.files.storage import default_storage
 
-
+from apps.solidarity.models import Faculties
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from .models import AdminsUser
 from .serializers import AdminsUserSerializer
-from .permissions import IsSuperAdmin
-
+from .permissions import IsRole
 # --- Existing imports ---
 from rest_framework.viewsets import ViewSet, GenericViewSet # ADD GenericViewSet
 # --- New/Modified Imports ---
 from apps.accounts.serializers import StudentDetailSerializer, StudentSignUpSerializer, StudentUpdateSerializer
-from .permissions import IsStudent # ADD IsStudent permission
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import action
 @extend_schema(
@@ -48,6 +44,17 @@ from rest_framework.decorators import action
 )
 class LoginView(APIView):
     permission_classes = []
+    
+    def get_faculty_info(self, faculty_id):
+        """Helper method to get faculty information"""
+        if not faculty_id:
+            return None, None
+            
+        try:
+            faculty = Faculties.objects.get(faculty_id=faculty_id)
+            return faculty_id, faculty.name  
+        except Faculties.DoesNotExist:
+            return faculty_id, None
 
     def post(self, request):
         identifier = request.data.get('email') or request.data.get('username')
@@ -61,34 +68,68 @@ class LoginView(APIView):
             refresh = RefreshToken.for_user(user)
             refresh['user_type'] = 'admin'
             refresh['admin_id'] = user.admin_id
-
             refresh['role'] = user.role
             refresh['name'] = user.name
-            return Response({
+            
+            # Get the access token from refresh token
+            access_token = refresh.access_token
+            access_token['user_type'] = 'admin'
+            access_token['admin_id'] = user.admin_id
+            access_token['role'] = user.role
+            access_token['name'] = user.name
+            
+            response_data = {
                 'refresh': str(refresh),
-                'access': str(refresh.access_token),
+                'access': str(access_token),
                 'user_type': 'admin',
                 'admin_id': user.admin_id,
-
                 'role': user.role,
                 'name': user.name,
-            })
+            }
+            
+            # Add faculty_id and faculty_name for specific admin roles
+            if user.role in ['مسؤول كلية', 'مدير كلية']:
+                faculty_id, faculty_name = self.get_faculty_info(user.faculty_id)
+                
+                # Add to refresh token payload
+                refresh['faculty_id'] = faculty_id
+                refresh['faculty_name'] = faculty_name
+                
+                # Add to access token payload
+                access_token['faculty_id'] = faculty_id
+                access_token['faculty_name'] = faculty_name
+                
+                # Add to response (optional - for immediate use)
+                response_data['faculty_id'] = faculty_id
+                response_data['faculty_name'] = faculty_name
+                
+            # Update tokens in response after modifications
+            response_data['refresh'] = str(refresh)
+            response_data['access'] = str(access_token)
+                
+            return Response(response_data)
 
-  
         # 2) Fallback: try student manually
         student = Students.objects.filter(email=identifier).first()
         
         if student and bcrypt.checkpw(password.encode(), student.password.encode()):
-            # Create a token manually instead of for_user()
+            # Get faculty info for student
+            faculty_id, faculty_name = self.get_faculty_info(student.faculty_id)
+            
+            # Create a token manually
             refresh = RefreshToken()
             refresh['user_type'] = 'student'
             refresh['student_id'] = student.student_id
             refresh['name'] = student.name
+            refresh['faculty_id'] = faculty_id
+            refresh['faculty_name'] = faculty_name
 
             access_token = refresh.access_token
             access_token['user_type'] = 'student'
             access_token['student_id'] = student.student_id
             access_token['name'] = student.name
+            access_token['faculty_id'] = faculty_id
+            access_token['faculty_name'] = faculty_name
             
             return Response({
                 'refresh': str(refresh),
@@ -96,9 +137,11 @@ class LoginView(APIView):
                 'user_type': 'student',
                 'student_id': student.student_id,
                 'name': student.name,
+                'faculty_id': faculty_id,
+                'faculty_name': faculty_name,
             })
+            
         raise AuthenticationFailed('Invalid credentials')
-
 
 
 
@@ -201,8 +244,8 @@ class AdminManagementViewSet(viewsets.ModelViewSet):
     """
     queryset = AdminsUser.objects.all()
     serializer_class = AdminsUserSerializer
-    permission_classes = [IsAuthenticated, IsSuperAdmin]
-
+    permission_classes = [ IsAuthenticated,IsRole]
+    allowed_roles = ['مشرف النظام']
     # ----------- CREATE ADMIN -----------
     def create(self, request, *args, **kwargs):
         """
@@ -306,7 +349,8 @@ class StudentProfileViewSet(GenericViewSet):
     Uses the student_id from the JWT token payload.
     """
     serializer_class = StudentDetailSerializer
-    permission_classes = [IsAuthenticated, IsStudent]
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['student']
     parser_classes = [MultiPartParser, FormParser] 
     
     def get_object(self):
