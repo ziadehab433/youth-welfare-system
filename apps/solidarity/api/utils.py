@@ -6,6 +6,10 @@ import uuid
 from django.core.files.storage import FileSystemStorage
 from django.utils import timezone
 from django.conf import settings
+
+import asyncio
+from io import BytesIO
+from pyppeteer import launch
     
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.exceptions import AuthenticationFailed
@@ -120,3 +124,28 @@ def handle_report_data(data):
         "data": data,
         "total_amount_spent": total_amount_spent
     }
+
+async def html_to_pdf_buffer(html):
+    browser = await launch(
+        headless=True,
+        args=[
+            '--no-sandbox',
+            '--disable-setuid-sandbox'
+        ],
+        handleSIGINT=False,
+        handleSIGTERM=False,
+        handleSIGHUP=False
+    )
+
+    page = await browser.newPage()
+    await page.setContent(html)
+    pdf = await page.pdf({
+        "format": "A4",
+        "printBackground": True
+    })
+
+    await browser.close()
+
+    buffer = BytesIO(pdf)
+    buffer.seek(0)
+    return buffer
