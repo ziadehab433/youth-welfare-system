@@ -1,7 +1,8 @@
+from django.db import DatabaseError
 from django.http import HttpResponse
-from weasyprint import HTML
 from django.template.loader import render_to_string
 import io as io
+import asyncio
 
 from apps.solidarity.models import Solidarities
 
@@ -36,7 +37,7 @@ from apps.solidarity.api.serializers import DeptFacultySummarySerializer
 from apps.solidarity.services.solidarity_service import SolidarityService
 from .serializers import FacultyApprovedResponseSerializer, SolidarityApprovedRowSerializer
 from .serializers import DiscountAssignSerializer, SolidarityDocsSerializer
-from apps.solidarity.api.utils import get_current_student, get_current_admin, handle_report_data
+from apps.solidarity.api.utils import get_current_student, get_current_admin, handle_report_data, html_to_pdf_buffer
 from apps.solidarity.services.solidarity_service import SolidarityService
 def get_client_ip(request):
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
@@ -343,20 +344,29 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=['get'], url_path='export')
     def export(self, request):
         admin = get_current_admin(request)
-        data = Solidarities.objects.filter(faculty=admin.faculty)
 
-        if len(data) == 0:
+        try: 
+            data = Solidarities.objects.filter(faculty=admin.faculty)
+        except DatabaseError:
+            return Response({'detail': 'database error while fetching data'}, status=500)
+
+        if not data.exists:
             return Response({'detail': 'Cant generate a report (no data)'}, status=404)
 
         html_content = render_to_string("api/solidarity-report.html", handle_report_data(data))
-        buffer = io.BytesIO()
-        html = HTML(string=html_content)
-        html.write_pdf(buffer)
 
-        response = HttpResponse(
-            buffer.getvalue(),
+        try:
+            buffer = asyncio.new_event_loop().run_until_complete(
+                html_to_pdf_buffer(html_content)
+            )        
+        except Exception:
+            return Response({'detail': 'could not generate pdf'}, status=500)
+        
+        response = HttpResponse( 
+            buffer,
             content_type='application/pdf'
         )
+
         response['Content-Disposition'] = f'attachment; filename="generated_pdf.pdf"'
         
         return response
