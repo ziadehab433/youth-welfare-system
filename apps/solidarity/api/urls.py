@@ -1,10 +1,10 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from apps.solidarity.api.views import (
-    StudentSolidarityViewSet,
-    FacultyAdminSolidarityViewSet,
-    SuperDeptSolidarityViewSet,
-)
+
+from apps.solidarity.api.views.student import StudentSolidarityViewSet
+from apps.solidarity.api.views.faculty import FacultyAdminSolidarityViewSet
+from apps.solidarity.api.views.super_dept import SuperDeptSolidarityViewSet
+
 from django.conf import settings
 from django.conf.urls.static import static
 
