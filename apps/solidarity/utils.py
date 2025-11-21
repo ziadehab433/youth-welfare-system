@@ -125,6 +125,14 @@ def handle_report_data(data):
         "total_amount_spent": total_amount_spent
     }
 
+def get_client_ip(request):
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0]  # first IP in the list
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip
+
 async def html_to_pdf_buffer(html):
     browser = await launch(
         headless=True,

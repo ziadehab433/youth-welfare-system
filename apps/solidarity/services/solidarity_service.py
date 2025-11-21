@@ -6,7 +6,7 @@ from apps.solidarity.models import Solidarities, Logs, SolidarityDocs
 import logging
 from rest_framework.exceptions import PermissionDenied, NotFound
 from django.conf import settings
-from apps.solidarity.api.utils import save_uploaded_file
+from apps.solidarity.utils import save_uploaded_file
 from django.db.models import Q
 from apps.solidarity.models import Solidarities, SolidarityDocs
 from django.db.models import F, Value, Sum, DecimalField, Count 
