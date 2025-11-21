@@ -1,3 +1,4 @@
+import asyncio
 from django.db import DatabaseError
 from django.http import HttpResponse
 from django.template.loader import render_to_string
@@ -261,7 +262,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
             return Response({'detail': 'database error while fetching data'}, status=500)
 
         if not data.exists:
-            return Response({'detail': 'Cant generate a report (no data)'}, status=404)
+            return Response({'detail': 'Cant generate a report (no data)'}, status=422)
 
         html_content = render_to_string("api/solidarity-report.html", handle_report_data(data))
 
