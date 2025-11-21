@@ -80,6 +80,67 @@ class AdminsUser(AbstractBaseUser, PermissionsMixin):
     
 
 
+
+    def has_create_permission(self, resource=None):
+        """Check if admin has create permission"""
+        if not self.is_active:
+            return False
+        return bool(self.can_create)
+
+    def has_read_permission(self, resource=None):
+        """Check if admin has read permission"""
+        if not self.is_active:
+            return False
+        return bool(self.can_read)
+
+    def has_update_permission(self, resource=None):
+        """Check if admin has update permission"""
+        if not self.is_active:
+            return False
+        return bool(self.can_update)
+
+    def has_delete_permission(self, resource=None):
+        """Check if admin has delete permission"""
+        if not self.is_active:
+            return False
+        return bool(self.can_delete)
+
+    def has_permission(self, permission_type, resource=None):
+        """
+        Generic permission checker
+        
+        Args:
+            permission_type: 'create', 'read', 'update', 'delete'
+            resource: optional resource name for future granular permissions
+        
+        Returns:
+            bool: True if admin has permission
+        """
+        if not self.is_active:
+            return False
+            
+        permission_map = {
+            'create': self.can_create,
+            'read': self.can_read,
+            'update': self.can_update,
+            'delete': self.can_delete,
+        }
+        
+        return bool(permission_map.get(permission_type, False))
+
+    def get_permissions(self):
+        """Get list of permissions admin has"""
+        permissions = []
+        if self.can_create:
+            permissions.append('create')
+        if self.can_read:
+            permissions.append('read')
+        if self.can_update:
+            permissions.append('update')
+        if self.can_delete:
+            permissions.append('delete')
+        return permissions
+
 # Std 
 class Students(models.Model):
     student_id = models.AutoField(primary_key=True)

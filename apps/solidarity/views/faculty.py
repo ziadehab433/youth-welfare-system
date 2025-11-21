@@ -16,7 +16,7 @@ from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiRespon
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.exceptions import ValidationError, PermissionDenied, NotFound 
 
-from apps.accounts.permissions import IsRole
+from apps.accounts.permissions import IsRole , require_permission
 from apps.solidarity.models import Solidarities
 from apps.solidarity.serializers import (
     SolidarityListSerializer,
@@ -49,6 +49,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         responses={200: SolidarityListSerializer(many=True)}
     )
     @action(detail=False, methods=['get'], url_path='applications')
+    @require_permission('read')
     def list_applications(self, request):
         admin = get_current_admin(request)
         qs = SolidarityService.get_applications_for_review(admin)
@@ -60,6 +61,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         responses={200: SolidarityDetailSerializer, 403: OpenApiResponse(description="Forbidden"), 404: OpenApiResponse(description="Not found")}
     )
     @action(detail=True, methods=['get'], url_path='applications')
+    @require_permission('read')
     def get_application(self, request, pk=None):
         client_ip = get_client_ip(request)
 
@@ -92,6 +94,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         responses={200: SolidarityDocsSerializer(many=True)}
     )
     @action(detail=True, methods=['get'], url_path='documents')
+    @require_permission('read')
     def get_documents(self, request, pk=None):
 
         admin = get_current_admin(request)
@@ -125,6 +128,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         responses={200: OpenApiResponse(description="Application approved successfully")}
     )
     @action(detail=True, methods=['post'], url_path='approve')
+    @require_permission('update' )
     def approve(self, request, pk=None):
         admin = get_current_admin(request)
         result = SolidarityService.approve_application(pk, admin)
@@ -136,6 +140,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         responses={200: OpenApiResponse(description="Application pre-approved successfully")}
     )
     @action(detail=True, methods=['post'], url_path='pre_approve')
+    @require_permission('update')
     def pre_approve(self, request, pk=None):
         admin = get_current_admin(request)
         result = SolidarityService.pre_approve_application(pk, admin)
@@ -147,6 +152,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         responses={200: OpenApiResponse(description="Application rejected successfully")}
     )
     @action(detail=True, methods=['post'], url_path='reject')
+    @require_permission('update')
     def reject(self, request, pk=None):
         admin = get_current_admin(request)
         result = SolidarityService.reject_application(pk, admin)
@@ -167,6 +173,8 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         }
     )
     @action(detail=True, methods=['patch'], url_path='assign_discount')
+    @require_permission('update' )
+    #@require_any_permission('update', 'create')  # Can have either
     def assign_discount(self, request, pk=None):
         try:
             admin = get_current_admin(request)
@@ -210,6 +218,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         responses={200: OpenApiResponse(description="Faculty discounts updated successfully")}
     )
     @action(detail=False, methods=['patch'], url_path='update_faculty_discounts')
+    @require_permission('update')
     def update_faculty_discounts(self, request):
         admin = get_current_admin(request)
         serializer = FacultyDiscountUpdateSerializer(data=request.data)
@@ -232,6 +241,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         responses={200: OpenApiResponse(description="Faculty discounts retrieved successfully")}
     )
     @action(detail=False, methods=['get'], url_path='faculty/discounts')
+    @require_permission('read')
     def get_faculty_discounts(self, request):
         admin = get_current_admin(request)
         faculty = admin.faculty
@@ -251,6 +261,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         responses={200: FacultyApprovedResponseSerializer}  
     )
     @action(detail=False, methods=['get'], url_path='faculty_approved')
+    @require_permission('read')
     def faculty_approved(self, request):
         admin = get_current_admin(request)
         rows_qs, totals = SolidarityService.get_approved_for_faculty_admin(admin)
@@ -282,6 +293,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         }
     )
     @action(detail=False, methods=['get'], url_path='export')
+    @require_permission('read')
     def export(self, request):
         admin = get_current_admin(request)
 
