@@ -18,6 +18,7 @@ from rest_framework.exceptions import ValidationError, PermissionDenied, NotFoun
 
 from apps.accounts.permissions import IsRole
 from apps.solidarity.models import Solidarities
+from apps.solidarity.models import Faculties
 from apps.solidarity.serializers import (
     SolidarityApplySerializer,
     SolidarityStatusSerializer,
@@ -25,6 +26,7 @@ from apps.solidarity.serializers import (
     SolidarityDetailSerializer,
     FacultyDiscountUpdateSerializer,
     LogSerializer,
+    DeptFacultiesSerializer
 )
 from drf_spectacular.utils import extend_schema
 from rest_framework.decorators import action
@@ -206,3 +208,21 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
                 'total_pending_count': totals['total_pending_count']
             }
         }, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        tags=["Dept&Super Admin APIs"],
+        description="Get Faculties",
+        responses={200: OpenApiResponse(description="Returns a list of faculties in the db")}
+    )
+    @action(detail=False, methods=['get'], url_path='faculties')
+    def faculties(self, request):
+        try: 
+            data = Faculties.objects.all()
+        except DatabaseError:
+            return Response({"details": "error fetching faculties from db"}, status=500)
+
+        serializer = DeptFacultiesSerializer(data, many=True).data
+        
+        return Response(serializer, status=status.HTTP_200_OK)
+
+
