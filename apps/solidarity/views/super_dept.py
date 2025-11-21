@@ -208,6 +208,17 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
                 'total_pending_count': totals['total_pending_count']
             }
         }, status=status.HTTP_200_OK)
+    
+
+
+
+    def get_permissions(self):
+        # Make "faculties" public
+        if self.action == 'faculties':
+            return []   
+
+
+        return [permission() for permission in self.permission_classes]
 
     @extend_schema(
         tags=["Dept&Super Admin APIs"],
