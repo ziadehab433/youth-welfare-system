@@ -16,7 +16,7 @@ from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiRespon
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.exceptions import ValidationError, PermissionDenied, NotFound 
 
-from apps.accounts.permissions import IsRole
+from apps.accounts.permissions import IsRole , require_permission
 from apps.solidarity.models import Solidarities
 from apps.solidarity.models import Faculties
 from apps.solidarity.serializers import (
@@ -36,7 +36,7 @@ from rest_framework.exceptions import PermissionDenied
 
 from apps.solidarity.serializers import DeptFacultySummarySerializer
 from apps.solidarity.services.solidarity_service import SolidarityService
-from ..serializers import FacultyApprovedResponseSerializer, SolidarityApprovedRowSerializer
+# from ..serializers import FacultyApprovedResponseSerializer, SolidarityApprovedRowSerializer
 from ..serializers import DiscountAssignSerializer, SolidarityDocsSerializer
 from apps.solidarity.utils import get_current_student, get_current_admin, handle_report_data, html_to_pdf_buffer, get_client_ip
 from apps.solidarity.services.solidarity_service import SolidarityService
@@ -65,6 +65,7 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
         responses={200: SolidarityListSerializer(many=True)}
     )
     @action(detail=False, methods=['get'], url_path='all_applications')
+    @require_permission('read')
     def all_applications(self, request):
         filters = {key: request.query_params.get(key) for key in [
             'faculty', 'status', 'student_id', 'date_from', 'date_to',
@@ -80,6 +81,7 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
         responses={200: SolidarityDetailSerializer, 404: OpenApiResponse(description="Not found")}
     )
     @action(detail=True, methods=['get'], url_path='applications')
+    @require_permission('read')
     def student_application_detail(self, request, pk=None):
         client_ip = get_client_ip(request)
 
@@ -104,6 +106,7 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
         responses={200: SolidarityDocsSerializer(many=True)}
     )
     @action(detail=True, methods=['get'], url_path='documents')
+    @require_permission('read')
     def get_documents(self, request, pk=None):
 
         admin = get_current_admin(request)
@@ -135,6 +138,8 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
         responses={200: SolidarityDetailSerializer, 404: OpenApiResponse(description="Not found")}
     )
     @action(detail=True, methods=['post'], url_path='change_to_approve')
+    @require_permission('update')
+    #@require_any_permission('update', 'create')  # Can have either
     def change_to_approve(self, request, pk=None):
         admin = get_current_admin(request)
         result = SolidarityService.change_to_approve(pk, admin)
@@ -146,6 +151,7 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
         responses={200: SolidarityDetailSerializer, 404: OpenApiResponse(description="Not found")}
     )
     @action(detail=True, methods=['post'], url_path='change_to_reject')
+    @require_permission('update' )
     def change_to_reject(self, request, pk=None):
         admin = get_current_admin(request)
         result = SolidarityService.change_to_reject(pk, admin)
@@ -162,6 +168,7 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
         responses={200: LogSerializer(many=True)}
     )
     @action(detail=False, methods=['get'], url_path='system_logs')
+    @require_permission('read')
     def get_system_logs(self, request):
         admin = get_current_admin(request)
         
@@ -188,6 +195,7 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
         responses={200: OpenApiResponse(description="Returns rows list and totals object")}
     )
     @action(detail=False, methods=['get'], url_path='faculty_summary')
+    @require_permission('read')
     def faculty_summary(self, request):
         admin = get_current_admin(request)
         
@@ -205,7 +213,8 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
             'totals': {
                 'total_approved_amount': str(totals['total_approved_amount']), # تحويل لـ String للحفاظ على الدقة في JSON
                 'total_approved_count': totals['total_approved_count'],
-                'total_pending_count': totals['total_pending_count']
+                'total_pending_count': totals['total_pending_count'],
+                
             }
         }, status=status.HTTP_200_OK)
     
@@ -220,6 +229,15 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
 
         return [permission() for permission in self.permission_classes]
 
+
+
+    def get_permissions(self):
+        # Make "faculties" public
+        if self.action == 'faculties':
+            return []   
+        return [permission() for permission in self.permission_classes]
+    
+    
     @extend_schema(
         tags=["Dept&Super Admin APIs"],
         description="Get Faculties",

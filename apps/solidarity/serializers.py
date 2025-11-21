@@ -159,7 +159,6 @@ class SolidarityApprovedRowSerializer(serializers.Serializer):
     student_id = serializers.IntegerField()
     total_income = serializers.DecimalField(max_digits=12, decimal_places=2)
     discount_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
-    discount_type = serializers.ListField()
 
 
 
@@ -177,4 +176,3 @@ class DeptFacultySummarySerializer(serializers.Serializer):
     total_approved_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
     approved_count = serializers.IntegerField()
     pending_count = serializers.IntegerField()
-    discount_type = serializers.ListField()
