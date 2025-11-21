@@ -3,6 +3,8 @@ from django.urls import path, include
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 from django.conf import settings
 from django.conf.urls.static import static
+
+
 urlpatterns = [
     path('admin/', admin.site.urls),
 
@@ -10,7 +12,7 @@ urlpatterns = [
     path('api/auth/', include('apps.accounts.urls')),
 
     # Solidarity subsystem routes
-    path('api/', include('apps.solidarity.api.urls')),
+    path('api/', include('apps.solidarity.urls')),
 
     # Schema and Swagger UI (drf-spectacular)
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),

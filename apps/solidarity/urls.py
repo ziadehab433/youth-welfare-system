@@ -1,49 +1,21 @@
+from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-from django.urls import include, path
-from apps.solidarity.api.views import (
-    StudentSolidarityViewSet,
-    FacultyAdminSolidarityViewSet,
-    SuperDeptSolidarityViewSet,
-)
+from apps.solidarity.views.student import StudentSolidarityViewSet
+from apps.solidarity.views.faculty import FacultyAdminSolidarityViewSet
+from apps.solidarity.views.super_dept import SuperDeptSolidarityViewSet
 
-# # Students
-# student_apply = StudentSolidarityViewSet.as_view({'post': 'apply'})
-# student_status = StudentSolidarityViewSet.as_view({'get': 'status'})
+from django.conf import settings
+from django.conf.urls.static import static
 
-# # Faculty Admin
-# faculty_list = FacultyAdminSolidarityViewSet.as_view({'get': 'list_applications'})
-# faculty_get = FacultyAdminSolidarityViewSet.as_view({'get': 'get_application'})
-# faculty_approve = FacultyAdminSolidarityViewSet.as_view({'post': 'approve'})
-# faculty_reject = FacultyAdminSolidarityViewSet.as_view({'post': 'reject'})
-# faculty_pre_approve = FacultyAdminSolidarityViewSet.as_view({'post' : 'pre_approve'})
-
-# # Super Admin & Dept Admin
-# super_all = SuperDeptSolidarityViewSet.as_view({'get': 'all_applications'})
-# super_student_detail = SuperDeptSolidarityViewSet.as_view({'get': 'student_application_detail'})
-
-# urlpatterns = [
-#     # Students
-#     path('solidarity/apply/', student_apply),
-#     path('solidarity/status/', student_status),
-
-#     # Faculty Admin
-#     path('solidarity/applications/', faculty_list),
-#     path('solidarity/applications/<int:pk>/', faculty_get),
-#     path('solidarity/applications/<int:pk>/approve/', faculty_approve),
-#     path('solidarity/applications/<int:pk>/pre_approve/', faculty_pre_approve),
-#     path('solidarity/applications/<int:pk>/reject/', faculty_reject),
-
-#     # Super Admin & Dept Admin
-#     path('solidarity/all-applications/', super_all),
-#     path('solidarity/student/<int:pk>/', super_student_detail),
-# ]
-
-
-## we will need later 
 router = DefaultRouter()
-router.register(r'solidarity', FacultyAdminSolidarityViewSet, basename='solidarity')
+router.register(r'student', StudentSolidarityViewSet, basename='student-solidarity')
+router.register(r'faculty', FacultyAdminSolidarityViewSet, basename='faculty-solidarity')
+router.register(r'super_dept', SuperDeptSolidarityViewSet, basename='super-dept-solidarity')
 
 urlpatterns = [
-    path('api/', include(router.urls)),
+    path('solidarity/', include(router.urls)),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

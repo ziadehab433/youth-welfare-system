@@ -18,7 +18,7 @@ from rest_framework.exceptions import ValidationError, PermissionDenied, NotFoun
 
 from apps.accounts.permissions import IsRole
 from apps.solidarity.models import Solidarities
-from apps.solidarity.api.serializers import (
+from apps.solidarity.serializers import (
     SolidarityApplySerializer,
     SolidarityStatusSerializer,
     SolidarityListSerializer,
@@ -32,11 +32,11 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
 
-from apps.solidarity.api.serializers import DeptFacultySummarySerializer
+from apps.solidarity.serializers import DeptFacultySummarySerializer
 from apps.solidarity.services.solidarity_service import SolidarityService
 from ..serializers import FacultyApprovedResponseSerializer, SolidarityApprovedRowSerializer
 from ..serializers import DiscountAssignSerializer, SolidarityDocsSerializer
-from apps.solidarity.api.utils import get_current_student, get_current_admin, handle_report_data, html_to_pdf_buffer, get_client_ip
+from apps.solidarity.utils import get_current_student, get_current_admin, handle_report_data, html_to_pdf_buffer, get_client_ip
 from apps.solidarity.services.solidarity_service import SolidarityService
 
 class StudentSolidarityViewSet(viewsets.GenericViewSet):
