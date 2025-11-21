@@ -1,7 +1,7 @@
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from apps.solidarity.models import Solidarities, SolidarityDocs
-from apps.solidarity.models import Solidarities, SolidarityDocs, Logs
+from apps.solidarity.models import Solidarities, SolidarityDocs, Logs, Faculties
 class SolidarityApplySerializer(serializers.Serializer):
     family_numbers = serializers.IntegerField(min_value=1)
     father_status = serializers.CharField(required=False, allow_blank=True, allow_null=True)
@@ -151,6 +151,13 @@ class LogSerializer(serializers.ModelSerializer):
             return obj.actor.faculty.name if obj.actor and obj.actor.faculty else None
         except AttributeError:
             return None
+
+class DeptFacultiesSerializer(serializers.ModelSerializer): 
+    class Meta:
+        model = Faculties
+        fields = [
+            "faculty_id", "name"
+        ]
 
 class SolidarityApprovedRowSerializer(serializers.Serializer):
     solidarity_id = serializers.IntegerField()
