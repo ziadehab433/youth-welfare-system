@@ -1,4 +1,3 @@
-import os
 from django.db import transaction
 from django.core.exceptions import ValidationError
 from django.utils import timezone
@@ -19,6 +18,8 @@ from django.db.models.functions import Coalesce
 from decimal import Decimal
 from django.db.models import Count, Sum, Case, When, Value, DecimalField, F, IntegerField
 from django.db.models.functions import Coalesce
+from ..utils import get_arabic_discount_type
+
     
 logger = logging.getLogger(__name__)
 DOC_TYPE_MAP = {
@@ -291,21 +292,58 @@ class SolidarityService:
         return queryset.order_by('-created_at')
 
 
+
+    
+
     @staticmethod
-    @transaction.atomic
     def assign_discounts(admin, solidarity, discount_data):
-        total_discount = 0
+        """
+        Assign discounts to a solidarity application
+        Converts English discount types to Arabic for storage
         
-        for item in discount_data:
-            discount_value = item['discount_value'] 
-            total_discount += discount_value
+        Args:
+            admin: The admin performing the action
+            solidarity: The solidarity instance
+            discount_data: List with 'discount_type' (English) and 'discount_value'
+        
+        Returns:
+            Updated solidarity instance
+        """
+        total_discount = 0
+        arabic_discount_types = []
+        
+        try:
+            for discount in discount_data:
+                # Get discount_value
+                value = float(discount.get('discount_value', 0))
+                total_discount += value
+                
+                # Convert English type to Arabic
+                english_type = discount.get('discount_type')
+                arabic_type = get_arabic_discount_type(english_type)
+                
+                if arabic_type and arabic_type not in arabic_discount_types:
+                    arabic_discount_types.append(arabic_type)
+            
+            
+            solidarity.total_discount = total_discount
+            solidarity.discount_type = arabic_discount_types
+            solidarity.approved_by = admin
+            solidarity.updated_at = timezone.now()
+            
+            solidarity.save(update_fields=['total_discount', 'discount_type', 'approved_by', 'updated_at'])
+            solidarity.refresh_from_db()
+            
+            logger.info(f"Saved solidarity {solidarity.solidarity_id}: "
+                    f"total_discount={solidarity.total_discount}, "
+                    f"discount_type={solidarity.discount_type}")
+            
+            return solidarity
+            
+        except Exception as e:
+            logger.error(f"Error assigning discounts to solidarity {solidarity.solidarity_id}: {str(e)}")
+            raise
 
-        solidarity.total_discount = total_discount
-        solidarity.approved_by = admin
-        solidarity.updated_at = timezone.now()
-        solidarity.save()
-
-        return solidarity
 
     @staticmethod
     @transaction.atomic

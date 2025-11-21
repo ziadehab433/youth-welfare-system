@@ -1,4 +1,5 @@
 import asyncio
+from asyncio.log import logger
 from django.db import DatabaseError
 from django.http import HttpResponse
 from django.template.loader import render_to_string
@@ -18,12 +19,9 @@ from rest_framework.exceptions import ValidationError, PermissionDenied, NotFoun
 from apps.accounts.permissions import IsRole
 from apps.solidarity.models import Solidarities
 from apps.solidarity.serializers import (
-    SolidarityApplySerializer,
-    SolidarityStatusSerializer,
     SolidarityListSerializer,
     SolidarityDetailSerializer,
     FacultyDiscountUpdateSerializer,
-    LogSerializer,
 )
 from drf_spectacular.utils import extend_schema
 from rest_framework.decorators import action
@@ -37,6 +35,7 @@ from ..serializers import FacultyApprovedResponseSerializer, SolidarityApprovedR
 from ..serializers import DiscountAssignSerializer, SolidarityDocsSerializer
 from apps.solidarity.utils import get_current_student, get_current_admin, handle_report_data, html_to_pdf_buffer, get_client_ip
 from apps.solidarity.services.solidarity_service import SolidarityService
+from ..utils import get_arabic_discount_type
 
 
 class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
@@ -153,27 +152,57 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         result = SolidarityService.reject_application(pk, admin)
         return Response({'message': result['message']})
 
+
+
+
+
     @extend_schema(
         tags=["Faculty Admin APIs"],
         description="Assign discount(s) to a solidarity application",
         request=DiscountAssignSerializer,
-        responses={200: OpenApiResponse(description="Discount assigned successfully")}
+        responses={
+            200: OpenApiResponse(description="Discount assigned successfully"),
+            400: OpenApiResponse(description="Invalid input data"),
+            404: OpenApiResponse(description="Solidarity application not found")
+        }
     )
     @action(detail=True, methods=['patch'], url_path='assign_discount')
     def assign_discount(self, request, pk=None):
-        admin = get_current_admin(request)
-        serializer = DiscountAssignSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        try:
+            admin = get_current_admin(request)
+            serializer = DiscountAssignSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
 
-        discount_data = serializer.validated_data['discounts']
-        
-        solidarity = SolidarityService.get_application_detail(pk, admin)
-        updated_solidarity = SolidarityService.assign_discounts(admin, solidarity, discount_data)
+            discount_data = serializer.validated_data['discounts']
+            
+            solidarity = SolidarityService.get_application_detail(pk, admin)
+            updated_solidarity = SolidarityService.assign_discounts(
+                admin, 
+                solidarity, 
+                discount_data
+            )
 
-        return Response({
-            "message": "تم تطبيق الخصم بنجاح",
-            "total_discount": updated_solidarity.total_discount
-        })
+            return Response({
+                "message": "تم تطبيق الخصم بنجاح",
+                "solidarity_id": updated_solidarity.solidarity_id,
+                "total_discount": float(updated_solidarity.total_discount) if updated_solidarity.total_discount else None,
+                "discount_types": updated_solidarity.discount_type,  # Returns Arabic
+                "discounts_applied": [
+                    {
+                        "type": get_arabic_discount_type(d['discount_type']),  # Convert to Arabic
+                        "value": float(d['discount_value'])
+                    } for d in discount_data
+                ],
+                "updated_at": updated_solidarity.updated_at.isoformat()
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"Error in assign_discount: {str(e)}")
+            return Response({
+                "error": f"حدث خطأ أثناء تطبيق الخصم: {str(e)}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+    
+
     @extend_schema(
         tags=["Faculty Admin APIs"],
         description="Update faculty discount values for the current faculty",
