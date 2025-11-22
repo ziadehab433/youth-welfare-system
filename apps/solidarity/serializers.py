@@ -162,7 +162,7 @@ class SolidarityListSerializer(serializers.ModelSerializer):
         fields = [
             'solidarity_id', 'student_name', 'student_uid',
             'faculty_name', 'req_status', 'total_income',
-            'family_numbers', 'created_at','discount_type'
+            'family_numbers', 'created_at','discount_type','total_discount'
         ]
 
 class DiscountItemSerializer(serializers.Serializer):
