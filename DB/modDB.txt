@@ -269,3 +269,8 @@ ADD COLUMN dept_fac_ls text[] DEFAULT '{}';
 
 
 -------
+
+
+ALTER TABLE public.solidarities
+ADD COLUMN discount_type text[] DEFAULT '{}';
+

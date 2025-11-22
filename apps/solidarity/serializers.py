@@ -2,6 +2,7 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from apps.solidarity.models import Solidarities, SolidarityDocs
 from apps.solidarity.models import Solidarities, SolidarityDocs, Logs, Faculties
+from .utils import DISCOUNT_TYPE_MAPPING
 class SolidarityApplySerializer(serializers.Serializer):
     family_numbers = serializers.IntegerField(min_value=1)
     father_status = serializers.CharField(required=False, allow_blank=True, allow_null=True)
@@ -12,7 +13,6 @@ class SolidarityApplySerializer(serializers.Serializer):
     m_phone_num = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     f_phone_num = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     reason = serializers.CharField()
-    #docs = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     sd = serializers.CharField(required=False)
     disabilities = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     housing_status = serializers.CharField(required=False, allow_blank=True, allow_null=True)
@@ -27,21 +27,12 @@ class SolidarityApplySerializer(serializers.Serializer):
     sd_file = serializers.FileField(required=False, allow_null=True)
     
 class SolidarityStatusSerializer(serializers.ModelSerializer):
-    #status_display = serializers.SerializerMethodField()
     approved_by_name = serializers.CharField(source='approved_by.name', read_only=True, allow_null=True)
 
     class Meta:
         model = Solidarities
-        fields = ['solidarity_id', 'req_status', 'created_at', 'updated_at', 'approved_by_name' , 'approved_by' , 'reason' , 'family_numbers' , 'total_income']
-    # @extend_schema_field(serializers.CharField())
-    # def get_status_display(self, obj):
-    #     statuses = {
-    #         'منتظر': 'In Review',
-    #         'موافقة مبدئية': 'Pre-Approved',
-    #         'مقبول': 'Approved',
-    #         'مرفوض': 'Rejected',
-    #     }
-    #     return statuses.get(obj.req_status, obj.req_status)
+        fields = ['solidarity_id', 'req_status', 'created_at', 'updated_at', 'approved_by_name' , 'approved_by' , 'reason' , 'family_numbers' , 'total_income' , 'discount_type']
+
 
 class SolidarityListSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source='student.name', read_only=True)
@@ -53,31 +44,34 @@ class SolidarityListSerializer(serializers.ModelSerializer):
         fields = [
             'solidarity_id', 'student_name', 'student_uid',
             'faculty_name', 'req_status', 'total_income',
-            'family_numbers', 'created_at'
+            'family_numbers', 'created_at','discount_type'
         ]
 
 class DiscountItemSerializer(serializers.Serializer):
     """Serializer داخلي لاستقبال نوع الخصم وقيمته المخصصة."""
+    
     discount_type = serializers.ChoiceField(
         choices=[
-            ('aff_discount', 'خصم انتساب'),
-            ('reg_discount', 'خصم انتظام'),
-            ('bk_discount', 'خصم الكتب'),
             ('full_discount', 'خصم كامل'),
+            ('bk_discount', 'خصم كتاب'),
+            ('reg_discount', 'خصم انتظام'),
+            ('aff_discount', 'خصم انتساب'),
         ],
-        help_text="نوع الخصم (string)"
+        help_text="نوع الخصم (English key)"
     )
     discount_value = serializers.DecimalField(
-        max_digits=10, decimal_places=2, min_value=0, help_text="قيمة الخصم المراد تطبيقها (value)"
+        max_digits=10, decimal_places=2, min_value=0, 
+        help_text="قيمة الخصم المراد تطبيقها"
     )
 
 class DiscountAssignSerializer(serializers.Serializer):
-    """الـ Serializer الرئيسي لتطبيق قائمة الخصومات وقيمها المخصصة."""
-
     discounts = serializers.ListField(
         child=DiscountItemSerializer(),
-        help_text="قائمة بالخصومات المراد تطبيقها (النوع والقيمة)"
+        allow_empty=False,
+        help_text="List of discounts"
     )
+
+    
 class FacultyDiscountUpdateSerializer(serializers.Serializer):
     aff_discount = serializers.ListField(
         child=serializers.FloatField(), 
@@ -172,6 +166,8 @@ class FacultyApprovedResponseSerializer(serializers.Serializer):
     total_approved = serializers.IntegerField()
     total_discount = serializers.DecimalField(max_digits=10, decimal_places=2)
     results = SolidarityApprovedRowSerializer(many=True)
+    discount_type = serializers.ListField()
+
 
 class DeptFacultySummarySerializer(serializers.Serializer):
 

@@ -34,6 +34,12 @@ class Solidarities(models.Model):
     req_type = models.TextField(blank=True, null=True)  # This field type is a guess.
     housing_status = models.TextField(blank=True, null=True)  # This field type is a guess.
     total_discount = models.FloatField(blank=True, null=True)
+    discount_type = ArrayField(
+        models.CharField(max_length=100),
+        default=list,
+        blank=True,
+        help_text="List of discount types applied"
+    )
 
 
     class Meta:
@@ -96,35 +102,7 @@ class Departments(models.Model):
         managed = False
         db_table = 'departments'
 
-# class Students(models.Model):
-#     student_id = models.AutoField(primary_key=True)
-#     name = models.CharField(max_length=100)
-#     email = models.CharField(unique=True, max_length=100)
-#     password = models.CharField()
-#     faculty = models.ForeignKey('Faculties', models.DO_NOTHING)
-#     profile_photo = models.CharField(max_length=255, blank=True, null=True)
-#     gender = models.CharField(max_length=1)
-#     nid = models.TextField(unique=True)
-#     uid = models.TextField(unique=True)
-#     phone_number = models.TextField(unique=True)
-#     address = models.CharField(max_length=255)
-#     acd_year = models.CharField(max_length=50)
-#     join_date = models.DateField(auto_now_add=True)
-#     gpa = models.DecimalField(max_digits=4, decimal_places=2, blank=True, null=True)
-#     grade = models.CharField(max_length=50, blank=True, null=True)
-#     major = models.CharField(max_length=255)
 
-#     @property
-#     def id(self):
-#         return self.student_id
-
-#     @property
-#     def id(self):
-#         return self.student_id
-    
-#     class Meta:
-#         managed = False
-#         db_table = 'students'
 
 
 class Faculties(models.Model):

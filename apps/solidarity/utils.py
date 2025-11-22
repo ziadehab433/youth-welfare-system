@@ -7,7 +7,6 @@ from django.core.files.storage import FileSystemStorage
 from django.utils import timezone
 from django.conf import settings
 
-import asyncio
 from io import BytesIO
 from pyppeteer import launch
     
@@ -15,6 +14,20 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 from django.shortcuts import get_object_or_404
 # from apps.accounts.models import Admins
+
+# utils.py or constants.py
+
+DISCOUNT_TYPE_MAPPING = {
+    'full_discount': 'خصم كامل',
+    'bk_discount': 'خصم كتاب',
+    'reg_discount': 'خصم انتظام',
+    'aff_discount': 'خصم انتساب',
+}
+
+def get_arabic_discount_type(english_key):
+    """Convert English discount type to Arabic"""
+    return DISCOUNT_TYPE_MAPPING.get(english_key, english_key)
+
 
 
 fs = FileSystemStorage(location=settings.MEDIA_ROOT, base_url=settings.MEDIA_URL)
