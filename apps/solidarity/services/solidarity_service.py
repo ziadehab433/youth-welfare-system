@@ -74,32 +74,7 @@ class SolidarityService:
             req_status='منتظر'
         )
 
-        # Handle files
-        # if uploaded_docs:
-        #     upload_dir = os.path.join(settings.MEDIA_ROOT, f"uploads/solidarity/{solidarity.solidarity_id}/")
-        #     os.makedirs(upload_dir, exist_ok=True)
-
-        #     for doc_type_key, file_obj in uploaded_docs.items():
-        #         arabic_doc_type = DOC_TYPE_MAP.get(doc_type_key)
-        #         if not arabic_doc_type:
-        #             raise ValidationError(f"Invalid document type: {doc_type_key}")
-
-        #         file_path = os.path.join(upload_dir, file_obj.name)
-
-        #         with open(file_path, 'wb+') as destination:
-        #             for chunk in file_obj.chunks():
-        #                 destination.write(chunk)
-
-        #         SolidarityDocs.objects.create(
-        #             solidarity=solidarity,
-        #             doc_type=arabic_doc_type,
-        #             file_name=file_obj.name,
-        #             file_path=file_path.replace(settings.MEDIA_ROOT + '/', ''),  # relative path
-        #             mime_type=file_obj.content_type,
-        #             file_size=file_obj.size,
-        #             uploaded_at=timezone.now()
-        #         )
-
+   
         if uploaded_docs:
             for doc_type_key, file_obj in uploaded_docs.items():
                 arabic_doc_type = DOC_TYPE_MAP.get(doc_type_key)
@@ -309,6 +284,15 @@ class SolidarityService:
         Returns:
             Updated solidarity instance
         """
+    # Validate request status( fac admin can not assign discount until preapprove)
+        status = solidarity.req_status.lower().strip()
+        if status != 'موافقة مبدئية':
+            logger.warning(f"Discount assignment rejected for {solidarity.solidarity_id}: "
+                        f"Invalid status '{status}'")
+            raise ValidationError({
+                'req_status': f"Request status must be 'موافقة مبدئية', got '{solidarity.req_status}'"
+            })
+        
         total_discount = 0
         arabic_discount_types = []
         

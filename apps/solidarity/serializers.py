@@ -3,28 +3,146 @@ from rest_framework import serializers
 from apps.solidarity.models import Solidarities, SolidarityDocs
 from apps.solidarity.models import Solidarities, SolidarityDocs, Logs, Faculties
 from .utils import DISCOUNT_TYPE_MAPPING
+from django.core.validators import FileExtensionValidator, RegexValidator
+
 class SolidarityApplySerializer(serializers.Serializer):
-    family_numbers = serializers.IntegerField(min_value=1)
-    father_status = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    mother_status = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    father_income = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, allow_null=True, min_value=0)
-    mother_income = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, allow_null=True, min_value=0)
-    arrange_of_brothers = serializers.IntegerField(required=False, allow_null=True, min_value=1)
-    m_phone_num = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    f_phone_num = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    reason = serializers.CharField()
-    sd = serializers.CharField(required=False)
-    disabilities = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    housing_status = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    # Basic info
+    family_numbers = serializers.IntegerField(min_value=1, max_value=50)
+    reason = serializers.CharField(max_length=500, min_length=1)
+    address = serializers.CharField(max_length=300, min_length=5)
+    
+    # Status fields
+    father_status = serializers.CharField(
+        required=False, 
+        allow_blank=True, 
+        allow_null=True,
+        max_length=100
+    )
+    mother_status = serializers.CharField(
+        required=False, 
+        allow_blank=True, 
+        allow_null=True,
+        max_length=100
+    )
+    
+    # Income validation
+    father_income = serializers.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        required=False, 
+        allow_null=True, 
+        min_value=0,
+        max_value=999999.99  
+    )
+    mother_income = serializers.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        required=False, 
+        allow_null=True, 
+        min_value=0,
+        max_value=999999.99
+    )
+    
+    # Phone validation with regex
+    phone_regex = RegexValidator(
+        regex=r'^\+?1?\d{9,15}$',
+        message='Phone number must be 9-15 digits'
+    )
+    f_phone_num = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        validators=[phone_regex],
+        max_length=15
+    )
+    m_phone_num = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        validators=[phone_regex],
+        max_length=15
+    )
+    
+    # Other fields
+    arrange_of_brothers = serializers.IntegerField(
+        required=False, 
+        allow_null=True, 
+        min_value=1,
+        max_value=20
+    )
     grade = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     acd_status = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    address = serializers.CharField()
-    social_research_file = serializers.FileField(required=False, allow_null=True)
-    salary_proof_file = serializers.FileField(required=False, allow_null=True)
-    father_id_file = serializers.FileField(required=False, allow_null=True)
-    student_id_file = serializers.FileField(required=False, allow_null=True)
+    housing_status = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    disabilities = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    sd = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    
+    #  Enhanced file validation
+    ALLOWED_EXTENSIONS = {'pdf', 'jpg', 'jpeg', 'png'}
+    MAX_FILE_SIZE = 20 * 1024 * 1024  # 20MB
+    
+    social_research_file = serializers.FileField(required=True)
+    salary_proof_file = serializers.FileField(required=True)
+    father_id_file = serializers.FileField(required=True)
+    student_id_file = serializers.FileField(required=True)
     land_ownership_file = serializers.FileField(required=False, allow_null=True)
     sd_file = serializers.FileField(required=False, allow_null=True)
+    
+    
+    def _validate_file(self, file_obj, field_name, required=True):
+        """Generic file validation"""
+        if file_obj is None:
+            if required:
+                raise serializers.ValidationError(f"{field_name} is required")
+            return file_obj
+        
+        # Check file size
+        if file_obj.size > self.MAX_FILE_SIZE:
+            raise serializers.ValidationError(
+                f"{field_name} exceeds {self.MAX_FILE_SIZE / (1024*1024):.0f}MB limit"
+            )
+        
+        # Check file extension
+        ext = file_obj.name.split('.')[-1].lower()
+        if ext not in self.ALLOWED_EXTENSIONS:
+            raise serializers.ValidationError(
+                f"{field_name} must be one of: {', '.join(self.ALLOWED_EXTENSIONS)}"
+            )
+        
+        return file_obj
+    
+    def validate_social_research_file(self, value):
+        return self._validate_file(value, "Social research file", required=True)
+    
+    def validate_salary_proof_file(self, value):
+        return self._validate_file(value, "Salary proof file", required=True)
+    
+    def validate_father_id_file(self, value):
+        return self._validate_file(value, "Father ID file", required=True)
+    
+    def validate_student_id_file(self, value):
+        return self._validate_file(value, "Student ID file", required=True)
+    
+    # Cross-field validation
+    def validate(self, data):
+        """Cross-field validation"""
+        
+        # If father is deceased, income should not be provided
+        if data.get('father_status', '').lower() == 'متوفي':
+            if data.get('father_income') and data.get('father_income') > 0:
+                raise serializers.ValidationError({
+                    'father_income': "Cannot set income if father is deceased"
+                })
+        
+        # If mother is deceased, income should not be provided
+        if data.get('mother_status', '').lower() == 'متوفاة':
+            if data.get('mother_income') and data.get('mother_income') > 0:
+                raise serializers.ValidationError({
+                    'mother_income': "Cannot set income if mother is deceased"
+                })
+        
+
+        
+        return data
     
 class SolidarityStatusSerializer(serializers.ModelSerializer):
     approved_by_name = serializers.CharField(source='approved_by.name', read_only=True, allow_null=True)

@@ -1,3 +1,4 @@
+from asyncio.log import logger
 from django.db import DatabaseError
 from django.http import HttpResponse
 from django.template.loader import render_to_string
@@ -46,34 +47,60 @@ class StudentSolidarityViewSet(viewsets.GenericViewSet):
 
     @extend_schema(
         tags=["Student APIs"],
-        description="Submit a new solidarity application (multipart/form-data). Upload optional documents.",
+        description="Submit solidarity application with file uploads (max 5MB each). "
+                    "Allowed formats: PDF, JPG, JPEG, PNG",
         request=SolidarityApplySerializer,
-        responses={201: SolidarityDetailSerializer, 400: OpenApiResponse(description="Validation error")}
+        responses={
+            201: SolidarityDetailSerializer,
+            400: OpenApiResponse(description="Validation error"),
+            413: OpenApiResponse(description="File too large")
+        }
     )
-    
     @action(detail=False, methods=['post'], url_path='apply')
     def apply(self, request):
         student = get_current_student(request)
+        
+        # Validate serializer (includes file validation)
         serializer = SolidarityApplySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
+        
         try:
             data = serializer.validated_data
+            
+            # Extract validated files (already validated by serializer)
             uploaded_docs = {
                 field: request.FILES[field]
                 for field in [
                     'social_research_file', 'salary_proof_file',
-                    'father_id_file', 'student_id_file',
-                    'land_ownership_file', 'sd_file'
+                    'father_id_file', 'student_id_file'
                 ]
                 if field in request.FILES
             }
-
-            solidarity = SolidarityService.create_application(student, data, uploaded_docs=uploaded_docs)
-            return Response(SolidarityDetailSerializer(solidarity).data, status=status.HTTP_201_CREATED)
-
-        except (DjangoValidationError, ValueError) as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            
+            solidarity = SolidarityService.create_application(
+                student, 
+                data, 
+                uploaded_docs=uploaded_docs
+            )
+            
+            logger.info(f"Solidarity application created for student {student.id}")
+            return Response(
+                SolidarityDetailSerializer(solidarity).data, 
+                status=status.HTTP_201_CREATED
+            )
+        
+        except DjangoValidationError as e:
+            logger.warning(f"Validation error: {str(e)}")
+            return Response(
+                {'error': str(e)}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            logger.error(f"Error creating application: {str(e)}")
+            return Response(
+                {'error': 'Failed to create application'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @extend_schema(
         tags=["Student APIs"],

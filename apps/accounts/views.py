@@ -1,4 +1,5 @@
 from argparse import Action
+from asyncio.log import logger
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -65,6 +66,19 @@ class LoginView(APIView):
         # 1) Try to authenticate admin via custom backend
         user = authenticate(request, username=identifier, password=password)
         if user:
+            # CHECK: Prevent inactive admins from logging in
+            if hasattr(user, 'acc_status') and user.acc_status != 'active':
+                logger.warning(f"Login attempt by inactive admin: {user.admin_id}")
+                #  Return Response and STOP execution here
+                return Response(
+                    {
+                        'detail': f'حسابك غير مفعل. الحالة الحالية: {user.acc_status}',
+                        'status': user.acc_status
+                    }, 
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
+            
+            # Only reach here if account_status is 'active'
             refresh = RefreshToken.for_user(user)
             refresh['user_type'] = 'admin'
             refresh['admin_id'] = user.admin_id
@@ -99,7 +113,7 @@ class LoginView(APIView):
                 access_token['faculty_id'] = faculty_id
                 access_token['faculty_name'] = faculty_name
                 
-                # Add to response (optional - for immediate use)
+                # Add to response
                 response_data['faculty_id'] = faculty_id
                 response_data['faculty_name'] = faculty_name
                 
@@ -107,7 +121,7 @@ class LoginView(APIView):
             response_data['refresh'] = str(refresh)
             response_data['access'] = str(access_token)
                 
-            return Response(response_data)
+            return Response(response_data, status=status.HTTP_200_OK)
 
         # 2) Fallback: try student manually
         student = Students.objects.filter(email=identifier).first()
@@ -139,10 +153,13 @@ class LoginView(APIView):
                 'name': student.name,
                 'faculty_id': faculty_id,
                 'faculty_name': faculty_name,
-            })
-            
-        raise AuthenticationFailed('Invalid credentials')
-
+            }, status=status.HTTP_200_OK)
+        
+        #  If no user or student found, return invalid credentials
+        return Response(
+            {'detail': 'Invalid credentials'}, 
+            status=status.HTTP_401_UNAUTHORIZED
+        )
 
 
 @extend_schema(
