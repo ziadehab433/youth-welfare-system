@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict P5EnfxzXpcYUdWOz3a8epJmeMwu9TZAXKGV7GpFxe2C0dng9FurSHMIXWeGLIHU
+\restrict DX1ivp4dhGyUM7FDoXRiiX5a6y1LUuYypMlxIzcGjqKi0No22EB504iUeziYnAs
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.6
@@ -29,7 +29,8 @@ CREATE TYPE public.actor_type AS ENUM (
     'مدير إدارة',
     'مدير عام',
     'مشرف النظام',
-    'طالب'
+    'طالب',
+    'مدير ادارة'
 );
 
 
@@ -127,7 +128,8 @@ CREATE TYPE public.sol_doc_type AS ENUM (
     'اثبات دخل',
     'ص.ب ولي امر',
     'ص.ب شخصية',
-    'حبازة زراعية'
+    'حبازة زراعية',
+    'تكافل و كرامة'
 );
 
 
@@ -208,17 +210,30 @@ ALTER FUNCTION public.log_family_insert() OWNER TO postgres;
 CREATE FUNCTION public.log_solidarity_approval() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
+DECLARE
+    admin_role actor_type ;
 BEGIN
-    INSERT INTO logs (actor_id,
-                      action,
-                      target_type,
-                      solidarity_id,
-                      ip_address)
-    VALUES (NEW.approved_by,
-            'موافقة طلب',
-            'تكافل',
-            NEW.solidarity_id,
-            client_ip());
+    -- Get the role of the admin who approved the solidarity
+    SELECT role INTO admin_role FROM admins WHERE admin_id = NEW.approved_by;
+
+    -- Insert log entry with correct field order
+    INSERT INTO logs (
+        actor_id,
+        actor_type,
+        action,
+        target_type,
+        solidarity_id,
+        ip_address
+    )
+    VALUES (
+        NEW.approved_by,
+        admin_role,          -- ✅ use the variable here
+        'موافقة طلب',       -- action
+        'تكافل',             
+        NEW.solidarity_id,
+        client_ip()
+    );
+
     RETURN NEW;
 END;
 $$;
@@ -227,23 +242,74 @@ $$;
 ALTER FUNCTION public.log_solidarity_approval() OWNER TO postgres;
 
 --
+-- Name: log_solidarity_pre_approval(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.log_solidarity_pre_approval() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    admin_role actor_type;
+BEGIN
+    -- Fetch the admin's role from the admins table
+    SELECT role INTO admin_role FROM admins WHERE admin_id = NEW.approved_by;
+
+    -- Insert log entry for pre-approval
+    INSERT INTO logs (
+        actor_id,
+        actor_type,
+        action,
+        target_type,
+        solidarity_id,
+        ip_address
+    )
+    VALUES (
+        NEW.approved_by,    
+        admin_role,         
+        'موافقة مبدئية',     
+        'تكافل',             
+        NEW.solidarity_id,
+        client_ip()          
+    );
+
+    RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION public.log_solidarity_pre_approval() OWNER TO postgres;
+
+--
 -- Name: log_solidarity_rejection(); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
 CREATE FUNCTION public.log_solidarity_rejection() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
+DECLARE
+    admin_role actor_type;
 BEGIN
-    INSERT INTO logs (actor_id,
-                      action,
-                      target_type,
-                      solidarity_id,
-                      ip_address)
-    VALUES (NEW.approved_by,  
-            'رفض طلب',
-            'تكافل',
-            NEW.solidarity_id,
-            client_ip());
+    -- Fetch the admin's role from the admins table
+    SELECT role INTO admin_role FROM admins WHERE admin_id = NEW.approved_by;
+
+    -- Insert log entry for rejection
+    INSERT INTO logs (
+        actor_id,
+        actor_type,
+        action,
+        target_type,
+        solidarity_id,
+        ip_address
+    )
+    VALUES (
+        NEW.approved_by,     -- ID of the admin who rejected
+        admin_role,          -- ✅ store their role here
+        'رفض طلب',           -- action text (rejection)
+        'تكافل',             -- target type
+        NEW.solidarity_id,
+        client_ip()
+    );
+
     RETURN NEW;
 END;
 $$;
@@ -279,7 +345,7 @@ CREATE TABLE public.admins (
     admin_id integer NOT NULL,
     name character varying(100) NOT NULL,
     email character varying(100) NOT NULL,
-    password bytea NOT NULL,
+    password text NOT NULL,
     faculty_id integer,
     dept_id integer,
     created_at timestamp with time zone DEFAULT now(),
@@ -288,7 +354,8 @@ CREATE TABLE public.admins (
     can_read boolean DEFAULT true,
     can_delete boolean DEFAULT false,
     acc_status character varying(20) DEFAULT 'active'::character varying,
-    role public.admin_role
+    role public.admin_role,
+    dept_fac_ls text[] DEFAULT '{}'::text[]
 );
 
 
@@ -729,8 +796,12 @@ ALTER TABLE public.events ALTER COLUMN event_id ADD GENERATED ALWAYS AS IDENTITY
 CREATE TABLE public.faculties (
     faculty_id integer NOT NULL,
     name character varying(100) NOT NULL,
-    major character varying(255) NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    major text[] NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    aff_discount real[],
+    reg_discount double precision[],
+    bk_discount double precision[],
+    full_discount double precision[]
 );
 
 
@@ -876,8 +947,12 @@ CREATE TABLE public.solidarities (
     updated_at timestamp with time zone DEFAULT now(),
     req_type public.req_type_enum,
     housing_status public.housing_status,
+    total_discount double precision,
+    sd character(1) DEFAULT 'f'::bpchar NOT NULL,
+    discount_type text[] DEFAULT '{}'::text[],
     CONSTRAINT solidarities_f_phone_num_check CHECK (((f_phone_num IS NULL) OR (f_phone_num ~ '^\+?[0-9]{6,15}$'::text))),
-    CONSTRAINT solidarities_m_phone_num_check CHECK (((m_phone_num IS NULL) OR (m_phone_num ~ '^\+?[0-9]{6,15}$'::text)))
+    CONSTRAINT solidarities_m_phone_num_check CHECK (((m_phone_num IS NULL) OR (m_phone_num ~ '^\+?[0-9]{6,15}$'::text))),
+    CONSTRAINT solidarities_sd_check CHECK ((sd = ANY (ARRAY['t'::bpchar, 'f'::bpchar])))
 );
 
 
@@ -905,11 +980,10 @@ CREATE TABLE public.solidarity_docs (
     doc_id integer NOT NULL,
     solidarity_id integer NOT NULL,
     doc_type public.sol_doc_type,
-    file_name character varying(255) NOT NULL,
-    file_path character varying(255) NOT NULL,
     mime_type character varying(80) NOT NULL,
     file_size integer,
-    uploaded_at timestamp with time zone DEFAULT now()
+    uploaded_at timestamp with time zone DEFAULT now(),
+    file character varying(255)
 );
 
 
@@ -945,7 +1019,7 @@ CREATE TABLE public.students (
     student_id integer NOT NULL,
     name character varying(100) NOT NULL,
     email character varying(100) NOT NULL,
-    password bytea NOT NULL,
+    password text NOT NULL,
     faculty_id integer NOT NULL,
     profile_photo character varying(255),
     gender character(1) NOT NULL,
@@ -990,411 +1064,6 @@ ALTER TABLE ONLY public.event_docs ALTER COLUMN doc_id SET DEFAULT nextval('publ
 --
 
 ALTER TABLE ONLY public.solidarity_docs ALTER COLUMN doc_id SET DEFAULT nextval('public.solidarity_docs_doc_id_seq'::regclass);
-
-
---
--- Data for Name: admins; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.admins (admin_id, name, email, password, faculty_id, dept_id, created_at, can_create, can_update, can_read, can_delete, acc_status, role) FROM stdin;
-1	أحمد علي	ahmed@example.com	\\x736563726574	1	1	2025-10-20 02:34:30.31113+03	t	t	t	f	active	مدير كلية
-2	سارة محمد	sara@example.com	\\x736563726574	2	\N	2025-10-20 02:34:30.31113+03	t	f	t	f	active	مسؤول كلية
-3	أحمد علي	ahmed.faculty@example.com	\\x736563726574	1	\N	2025-10-20 02:53:23.217139+03	t	t	t	f	active	مسؤول كلية
-4	سارة محمد	sara.head@example.com	\\x736563726574	1	1	2025-10-20 02:53:23.217139+03	t	t	t	t	active	مدير كلية
-5	خالد إبراهيم	khaled.manager@example.com	\\x736563726574	2	2	2025-10-20 02:53:23.217139+03	t	t	t	f	active	مدير ادارة
-6	منى يوسف	mona.general@example.com	\\x736563726574	\N	\N	2025-10-20 02:53:23.217139+03	t	t	t	t	active	مدير عام
-7	محمد سعيد	mohamed.super@example.com	\\x736563726574	\N	\N	2025-10-20 02:53:23.217139+03	t	t	t	t	active	مشرف النظام
-\.
-
-
---
--- Data for Name: auth_group; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.auth_group (id, name) FROM stdin;
-\.
-
-
---
--- Data for Name: auth_group_permissions; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.auth_group_permissions (id, group_id, permission_id) FROM stdin;
-\.
-
-
---
--- Data for Name: auth_permission; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.auth_permission (id, name, content_type_id, codename) FROM stdin;
-1	Can add log entry	1	add_logentry
-2	Can change log entry	1	change_logentry
-3	Can delete log entry	1	delete_logentry
-4	Can view log entry	1	view_logentry
-5	Can add permission	2	add_permission
-6	Can change permission	2	change_permission
-7	Can delete permission	2	delete_permission
-8	Can view permission	2	view_permission
-9	Can add group	3	add_group
-10	Can change group	3	change_group
-11	Can delete group	3	delete_group
-12	Can view group	3	view_group
-13	Can add user	4	add_user
-14	Can change user	4	change_user
-15	Can delete user	4	delete_user
-16	Can view user	4	view_user
-17	Can add content type	5	add_contenttype
-18	Can change content type	5	change_contenttype
-19	Can delete content type	5	delete_contenttype
-20	Can view content type	5	view_contenttype
-21	Can add session	6	add_session
-22	Can change session	6	change_session
-23	Can delete session	6	delete_session
-24	Can view session	6	view_session
-\.
-
-
---
--- Data for Name: auth_user; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.auth_user (id, password, last_login, is_superuser, username, first_name, last_name, email, is_staff, is_active, date_joined) FROM stdin;
-\.
-
-
---
--- Data for Name: auth_user_groups; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.auth_user_groups (id, user_id, group_id) FROM stdin;
-\.
-
-
---
--- Data for Name: auth_user_user_permissions; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.auth_user_user_permissions (id, user_id, permission_id) FROM stdin;
-\.
-
-
---
--- Data for Name: departments; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.departments (dept_id, name, description, created_at) FROM stdin;
-1	نشاط فني و ثقافي	نشاط فني	2025-10-20 02:34:30.31113+03
-2	نشاط رياضي	نشاط رياضي	2025-10-20 02:34:30.31113+03
-\.
-
-
---
--- Data for Name: django_admin_log; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.django_admin_log (id, action_time, object_id, object_repr, action_flag, change_message, content_type_id, user_id) FROM stdin;
-\.
-
-
---
--- Data for Name: django_content_type; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.django_content_type (id, app_label, model) FROM stdin;
-1	admin	logentry
-2	auth	permission
-3	auth	group
-4	auth	user
-5	contenttypes	contenttype
-6	sessions	session
-\.
-
-
---
--- Data for Name: django_migrations; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.django_migrations (id, app, name, applied) FROM stdin;
-1	contenttypes	0001_initial	2025-10-11 20:19:28.802694+03
-2	auth	0001_initial	2025-10-11 20:19:28.855341+03
-3	admin	0001_initial	2025-10-11 20:19:28.872819+03
-4	admin	0002_logentry_remove_auto_add	2025-10-11 20:19:28.877517+03
-5	admin	0003_logentry_add_action_flag_choices	2025-10-11 20:19:28.882463+03
-6	contenttypes	0002_remove_content_type_name	2025-10-11 20:19:28.892083+03
-7	auth	0002_alter_permission_name_max_length	2025-10-11 20:19:28.897553+03
-8	auth	0003_alter_user_email_max_length	2025-10-11 20:19:28.902847+03
-9	auth	0004_alter_user_username_opts	2025-10-11 20:19:28.907245+03
-10	auth	0005_alter_user_last_login_null	2025-10-11 20:19:28.913157+03
-11	auth	0006_require_contenttypes_0002	2025-10-11 20:19:28.91415+03
-12	auth	0007_alter_validators_add_error_messages	2025-10-11 20:19:28.918656+03
-13	auth	0008_alter_user_username_max_length	2025-10-11 20:19:28.926498+03
-14	auth	0009_alter_user_last_name_max_length	2025-10-11 20:19:28.931064+03
-15	auth	0010_alter_group_name_max_length	2025-10-11 20:19:28.936314+03
-16	auth	0011_update_proxy_permissions	2025-10-11 20:19:28.94082+03
-17	auth	0012_alter_user_first_name_max_length	2025-10-11 20:19:28.945956+03
-18	sessions	0001_initial	2025-10-11 20:19:28.95267+03
-\.
-
-
---
--- Data for Name: django_session; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.django_session (session_key, session_data, expire_date) FROM stdin;
-\.
-
-
---
--- Data for Name: documents; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.documents (doc_id, owner_id, f_name, f_path, f_type, uploaded_at, owner_type) FROM stdin;
-\.
-
-
---
--- Data for Name: event_docs; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.event_docs (doc_id, event_id, doc_type, file_name, file_path, mime_type, file_size, uploaded_at, uploaded_by) FROM stdin;
-1	1	cover	cover.jpg	events/1/cover.jpg	image/jpeg	204800	2025-10-20 02:34:30.31113+03	1
-2	1	agenda	agenda.pdf	events/1/agenda.pdf	application/pdf	102400	2025-10-20 02:34:30.31113+03	1
-3	2	banner	banner.png	events/2/banner.png	image/png	300000	2025-10-20 02:34:30.31113+03	2
-\.
-
-
---
--- Data for Name: events; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.events (event_id, title, description, dept_id, faculty_id, created_by, updated_at, cost, location, restrictions, reward, status, imgs, st_date, end_date, s_limit, created_at, type) FROM stdin;
-1	معرض مشاريع التخرج	عرض مشاريع الطلاب	1	1	1	2025-10-20 02:34:30.31113+03	0.00	قاعة الاحتفالات	\N	\N	منتظر	\N	2025-12-01	2025-12-03	\N	2025-10-20 02:34:30.31113+03	داخلي
-2	رحلة علمية	زيارة إلى مصنع الأدوية	\N	2	2	2025-10-20 02:34:30.31113+03	50.00	مصنع الحياة	\N	\N	منتظر	\N	2025-11-15	2025-11-15	\N	2025-10-20 02:34:30.31113+03	خارجي
-\.
-
-
---
--- Data for Name: faculties; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.faculties (faculty_id, name, major, created_at) FROM stdin;
-1	كلية الهندسة	هندسة عامة	2025-10-20 02:34:30.31113+03
-2	كلية العلوم	علوم أساسية	2025-10-20 02:34:30.31113+03
-\.
-
-
---
--- Data for Name: families; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.families (family_id, name, description, faculty_id, created_by, approved_by, status, created_at, updated_at) FROM stdin;
-1	أسرة المبدعين	نشاط طلابي للابتكار	1	1	\N	منتظر	2025-10-20 02:34:30.31113+03	2025-10-20 02:34:30.31113+03
-\.
-
-
---
--- Data for Name: family_members; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.family_members (family_id, student_id, role, status, joined_at) FROM stdin;
-1	1	رئيس	منتظر	2025-10-20 02:34:30.31113+03
-1	2	عضو	منتظر	2025-10-20 02:34:30.31113+03
-\.
-
-
---
--- Data for Name: logs; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.logs (log_id, actor_id, action, event_id, solidarity_id, family_id, ip_address, logged_at, actor_type, target_type) FROM stdin;
-1	1	انشاء نشاط	1	\N	\N	::1	2025-10-20 02:34:30.31113+03	\N	نشاط
-2	2	انشاء نشاط	2	\N	\N	::1	2025-10-20 02:34:30.31113+03	\N	نشاط
-3	1	انشاء اسر	\N	\N	1	::1	2025-10-20 02:34:30.31113+03	\N	اسر
-\.
-
-
---
--- Data for Name: prtcps; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.prtcps (event_id, student_id, rank, reward, status) FROM stdin;
-1	1	\N	\N	منتظر
-1	2	\N	\N	منتظر
-2	2	\N	\N	منتظر
-\.
-
-
---
--- Data for Name: solidarities; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.solidarities (solidarity_id, student_id, faculty_id, req_status, created_at, family_numbers, father_status, mother_status, father_income, mother_income, total_income, arrange_of_brothers, m_phone_num, f_phone_num, reason, disabilities, grade, acd_status, address, approved_by, updated_at, req_type, housing_status) FROM stdin;
-1	1	1	منتظر	2025-10-20 02:34:30.31113+03	6	موظف	ربة منزل	5000.00	0.00	5000.00	\N	\N	\N	مصاريف السكن	\N	\N	\N	الرياض	\N	2025-10-20 02:34:30.31113+03	\N	ايجار
-\.
-
-
---
--- Data for Name: solidarity_docs; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.solidarity_docs (doc_id, solidarity_id, doc_type, file_name, file_path, mime_type, file_size, uploaded_at) FROM stdin;
-1	1	بحث احتماعي	research.pdf	solidarity/1/research.pdf	application/pdf	204800	2025-10-20 02:34:30.31113+03
-2	1	اثبات دخل	income.pdf	solidarity/1/income.pdf	application/pdf	102400	2025-10-20 02:34:30.31113+03
-3	1	ص.ب ولي امر	guardian.jpg	solidarity/1/guardian.jpg	image/jpeg	256000	2025-10-20 02:34:30.31113+03
-4	1	ص.ب شخصية	id.jpg	solidarity/1/id.jpg	image/jpeg	180000	2025-10-20 02:34:30.31113+03
-5	1	حبازة زراعية	farm.pdf	solidarity/1/farm.pdf	application/pdf	150000	2025-10-20 02:34:30.31113+03
-\.
-
-
---
--- Data for Name: students; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.students (student_id, name, email, password, faculty_id, profile_photo, gender, nid, uid, phone_number, address, acd_year, join_date, gpa, grade, major) FROM stdin;
-1	محمد سعيد	m.saeed@example.com	\\x736563726574	1	\N	M	123456789	987654321	+966501234567	الرياض	2025/2026	2025-09-01	\N	\N	هندسة حاسوب
-2	ليلى خالد	l.khaled@example.com	\\x736563726574	2	\N	F	223456789	887654321	+966555555555	جدة	2025/2026	2025-09-01	\N	\N	كيمياء
-\.
-
-
---
--- Name: admins_admin_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.admins_admin_id_seq', 7, true);
-
-
---
--- Name: auth_group_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.auth_group_id_seq', 1, false);
-
-
---
--- Name: auth_group_permissions_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.auth_group_permissions_id_seq', 1, false);
-
-
---
--- Name: auth_permission_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.auth_permission_id_seq', 24, true);
-
-
---
--- Name: auth_user_groups_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.auth_user_groups_id_seq', 1, false);
-
-
---
--- Name: auth_user_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.auth_user_id_seq', 1, false);
-
-
---
--- Name: auth_user_user_permissions_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.auth_user_user_permissions_id_seq', 1, false);
-
-
---
--- Name: departments_dept_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.departments_dept_id_seq', 2, true);
-
-
---
--- Name: django_admin_log_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.django_admin_log_id_seq', 1, false);
-
-
---
--- Name: django_content_type_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.django_content_type_id_seq', 6, true);
-
-
---
--- Name: django_migrations_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.django_migrations_id_seq', 18, true);
-
-
---
--- Name: documents_doc_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.documents_doc_id_seq', 2, true);
-
-
---
--- Name: event_docs_doc_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.event_docs_doc_id_seq', 3, true);
-
-
---
--- Name: events_event_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.events_event_id_seq', 2, true);
-
-
---
--- Name: faculties_faculty_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.faculties_faculty_id_seq', 2, true);
-
-
---
--- Name: families_family_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.families_family_id_seq', 1, true);
-
-
---
--- Name: logs_log_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.logs_log_id_seq', 3, true);
-
-
---
--- Name: solidarities_solidarity_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.solidarities_solidarity_id_seq', 1, true);
-
-
---
--- Name: solidarity_docs_doc_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.solidarity_docs_doc_id_seq', 5, true);
-
-
---
--- Name: students_student_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.students_student_id_seq', 2, true);
 
 
 --
@@ -1931,6 +1600,13 @@ CREATE TRIGGER trg_log_solidarity_approval AFTER UPDATE ON public.solidarities F
 
 
 --
+-- Name: solidarities trg_log_solidarity_pre_approval; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER trg_log_solidarity_pre_approval AFTER UPDATE ON public.solidarities FOR EACH ROW WHEN (((old.req_status IS DISTINCT FROM new.req_status) AND (new.req_status = 'موافقة مبدئية'::public.general_status))) EXECUTE FUNCTION public.log_solidarity_pre_approval();
+
+
+--
 -- Name: solidarities trg_log_solidarity_rejection; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
@@ -2204,5 +1880,5 @@ ALTER TABLE ONLY public.students
 -- PostgreSQL database dump complete
 --
 
-\unrestrict P5EnfxzXpcYUdWOz3a8epJmeMwu9TZAXKGV7GpFxe2C0dng9FurSHMIXWeGLIHU
+\unrestrict DX1ivp4dhGyUM7FDoXRiiX5a6y1LUuYypMlxIzcGjqKi0No22EB504iUeziYnAs
 

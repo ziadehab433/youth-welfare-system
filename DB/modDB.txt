@@ -1,3 +1,8 @@
+to restore the db ---> 
+
+psql -h localhost -U postgres -d db_Name -f GP_full_backup.sql
+
+
 /* ──────────────────────────────────────────────── *
  * 1.  Function                                    *
  * ──────────────────────────────────────────────── */
