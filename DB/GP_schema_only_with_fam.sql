@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict DX1ivp4dhGyUM7FDoXRiiX5a6y1LUuYypMlxIzcGjqKi0No22EB504iUeziYnAs
+\restrict dpspNI2OixnSlepe1Vk8BuwKkEYNTw3vyGblob9W5dgvRF6lzq1FrwOGieuxUvF
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.6
@@ -58,7 +58,15 @@ ALTER TYPE public.admin_role OWNER TO postgres;
 CREATE TYPE public.event_type AS ENUM (
     'داخلي',
     'خارجي',
-    'اخر'
+    'اخر',
+    'نشاط رياضي',
+    'نشاط ثقافي',
+    'نشاط بيئي',
+    'نشاط اجتماعي',
+    'نشاط علمي',
+    'نشاط خدمة عامة',
+    'نشاط فني',
+    'نشاط معسكرات'
 );
 
 
@@ -553,7 +561,8 @@ CREATE TABLE public.departments (
     dept_id integer NOT NULL,
     name character varying(100) NOT NULL,
     description text,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    for_env_fam boolean DEFAULT false NOT NULL
 );
 
 
@@ -769,6 +778,7 @@ CREATE TABLE public.events (
     s_limit integer,
     created_at timestamp with time zone DEFAULT now(),
     type public.event_type,
+    family_id integer,
     CONSTRAINT events_check CHECK ((end_date >= st_date))
 );
 
@@ -834,7 +844,9 @@ CREATE TABLE public.families (
     approved_by integer,
     status public.general_status DEFAULT 'منتظر'::public.general_status,
     created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
+    updated_at timestamp with time zone DEFAULT now(),
+    min_limit integer DEFAULT 50 NOT NULL,
+    type character varying(50) NOT NULL
 );
 
 
@@ -863,7 +875,8 @@ CREATE TABLE public.family_members (
     student_id integer NOT NULL,
     role character varying(30) DEFAULT 'member'::character varying,
     status public.general_status DEFAULT 'منتظر'::public.general_status,
-    joined_at timestamp with time zone DEFAULT now()
+    joined_at timestamp with time zone DEFAULT now(),
+    dept_id integer
 );
 
 
@@ -1789,6 +1802,22 @@ ALTER TABLE ONLY public.family_members
 
 
 --
+-- Name: events fk_events_family; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.events
+    ADD CONSTRAINT fk_events_family FOREIGN KEY (family_id) REFERENCES public.families(family_id);
+
+
+--
+-- Name: family_members fk_family_members_dept; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.family_members
+    ADD CONSTRAINT fk_family_members_dept FOREIGN KEY (dept_id) REFERENCES public.departments(dept_id);
+
+
+--
 -- Name: logs logs_actor_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -1880,5 +1909,5 @@ ALTER TABLE ONLY public.students
 -- PostgreSQL database dump complete
 --
 
-\unrestrict DX1ivp4dhGyUM7FDoXRiiX5a6y1LUuYypMlxIzcGjqKi0No22EB504iUeziYnAs
+\unrestrict dpspNI2OixnSlepe1Vk8BuwKkEYNTw3vyGblob9W5dgvRF6lzq1FrwOGieuxUvF
 
