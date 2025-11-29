@@ -3,6 +3,9 @@ from asyncio.log import logger
 from django.db import DatabaseError
 from django.http import HttpResponse
 from django.template.loader import render_to_string
+import os
+import io
+from weasyprint import HTML
 
 from apps.solidarity.models import Solidarities
 
@@ -33,7 +36,7 @@ from apps.solidarity.serializers import DeptFacultySummarySerializer
 from apps.solidarity.services.solidarity_service import SolidarityService
 from ..serializers import FacultyApprovedResponseSerializer, SolidarityApprovedRowSerializer
 from ..serializers import DiscountAssignSerializer, SolidarityDocsSerializer
-from apps.solidarity.utils import get_current_student, get_current_admin, handle_report_data, html_to_pdf_buffer, get_client_ip
+from apps.solidarity.utils import get_current_student, get_current_admin, handle_report_data, get_client_ip
 from apps.solidarity.services.solidarity_service import SolidarityService
 from ..utils import get_arabic_discount_type
 
@@ -304,18 +307,21 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
 
         if not data.exists:
             return Response({'detail': 'Cant generate a report (no data)'}, status=422)
+        
+        print(f"File exists: {os.path.exists("/home/ziad/Downloads/helwan-university-cairo-faculty-master-s-degree-others-3a61652667c7678a078f8823f8629079.png")}")
 
-        html_content = render_to_string("api/solidarity-report.html", handle_report_data(data))
+        html_content = render_to_string("solidarity/solidarity-report.html", handle_report_data(data))
+
+        buffer = io.BytesIO()
 
         try:
-            buffer = asyncio.new_event_loop().run_until_complete(
-                html_to_pdf_buffer(html_content)
-            )        
+            html = HTML(string=html_content)
+            html.write_pdf(buffer)
         except Exception:
             return Response({'detail': 'could not generate pdf'}, status=500)
         
         response = HttpResponse( 
-            buffer,
+            buffer.getvalue(),
             content_type='application/pdf'
         )
 

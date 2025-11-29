@@ -260,6 +260,11 @@ SIMPLE_JWT = {
     "USER_ID_CLAIM": "admin_id",  # 👈 claim name in token
 }
 
+STATIC_URL = '/static/'
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+]
+
 #"DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.AllowAny",)
 # if i want to test whole apis once 
 

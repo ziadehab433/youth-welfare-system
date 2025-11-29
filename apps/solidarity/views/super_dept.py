@@ -38,7 +38,7 @@ from apps.solidarity.serializers import DeptFacultySummarySerializer
 from apps.solidarity.services.solidarity_service import SolidarityService
 # from ..serializers import FacultyApprovedResponseSerializer, SolidarityApprovedRowSerializer
 from ..serializers import DiscountAssignSerializer, SolidarityDocsSerializer
-from apps.solidarity.utils import get_current_student, get_current_admin, handle_report_data, html_to_pdf_buffer, get_client_ip
+from apps.solidarity.utils import get_current_student, get_current_admin, handle_report_data, get_client_ip
 from apps.solidarity.services.solidarity_service import SolidarityService
 
 class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):

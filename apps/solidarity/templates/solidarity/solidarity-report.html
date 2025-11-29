@@ -1,0 +1,357 @@
+{% load static %}
+<!doctype html>
+<html lang="ar" dir="rtl">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@100..900&display=swap" rel="stylesheet">
+  <title>كشف توزيع الأعلانات</title>
+  <style>
+    :root {
+      --page-width: 210mm;
+      --page-height: 297mm;
+      --margin: 15mm;
+      --border-color: #222;
+      --light: #f7f7f7;
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      font-family: "Noto Kufi Arabic", "Tahoma", "Arial", sans-serif;
+      background: #e6e6e6;
+      direction: rtl;
+      font-size: 8px;
+    }
+
+    .page {
+      width: var(--page-width);
+      min-height: var(--page-height);
+      margin: 0 auto;
+      background: white;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+      padding: 8mm;
+      box-sizing: border-box;
+      position: relative;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 6px;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 15px;
+      letter-spacing: 1px;
+    }
+
+    .subhead {
+      text-align: center;
+      margin-top: 4px;
+      font-size: 13px;
+      color: #333;
+    }
+
+    table.form-table {
+      width: 95%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 7px;
+      margin: 20px auto 0 auto;
+      direction: rtl;
+    }
+
+    table.form-table thead th {
+      border: 1px solid var(--border-color);
+      padding: 3px 1px;
+      background: var(--light);
+      font-weight: 600;
+      text-align: center;
+      vertical-align: middle;
+      line-height: 1.2;
+    }
+
+    table.form-table tbody td {
+      border: 1px solid var(--border-color);
+      height: 22px;
+      padding: 1px 1px;
+      vertical-align: middle;
+      text-align: center;
+      word-wrap: break-word;
+      overflow: hidden;
+      line-height: 1.2;
+    }
+
+    table.form-table th:nth-child(1),
+    table.form-table td:nth-child(1) {
+      width: 3% !important;
+    }
+
+    table.form-table th:nth-child(2),
+    table.form-table td:nth-child(2) {
+      width: 11% !important;
+    }
+
+    table.form-table th:nth-child(3),
+    table.form-table td:nth-child(3) {
+      width: 9% !important;
+    }
+
+    table.form-table th:nth-child(4),
+    table.form-table td:nth-child(4) {
+      width: 9% !important;
+    }
+
+    table.form-table th:nth-child(5),
+    table.form-table td:nth-child(5) {
+      width: 11% !important;
+    }
+
+    table.form-table th:nth-child(6),
+    table.form-table td:nth-child(6) {
+      width: 7% !important;
+    }
+
+    table.form-table th:nth-child(7),
+    table.form-table td:nth-child(7) {
+      width: 11% !important;
+    }
+
+    table.form-table th:nth-child(8),
+    table.form-table td:nth-child(8) {
+      width: 7% !important;
+    }
+
+    table.form-table th:nth-child(9),
+    table.form-table td:nth-child(9) {
+      width: 11% !important;
+    }
+
+    table.form-table th:nth-child(10),
+    table.form-table td:nth-child(10) {
+      width: 11% !important;
+    }
+
+    .footer-section {
+      margin-top: 15px;
+      text-align: center;
+      width: 95%;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .logo {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .logo h3 {
+      margin: 0;
+      font-size: 9px;
+      position: absolute;
+      top: 60px;
+      right: 5px;
+    }
+
+    .logo img {
+      height: 50px !important;
+      width: 50px !important;
+      margin: -20px 0px 0px -40px
+    }
+
+    .signs {
+      margin: 15px auto;
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+      align-items: flex-end;
+      width: 95%;
+    }
+
+    .sign {
+      width: 30%;
+      text-align: center;
+      font-size: 12px;
+    }
+
+    .sign-line {
+      padding-top: 4px;
+    }
+
+    .text-right {
+      margin: 0;
+      font-size: 9px;
+      position: absolute;
+      top: 20px;
+      left: 15px;
+    }
+
+    @media print {
+      body {
+        background: white;
+        margin: 0;
+        padding: 0;
+        -webkit-print-color-adjust: exact;
+        color-adjust: exact;
+      }
+
+      .page {
+        box-shadow: none;
+        margin: 0;
+        width: 100%;
+        min-height: 100vh;
+        padding: 8mm;
+        page-break-inside: avoid;
+      }
+
+      table.form-table {
+        font-size: 10px;
+      }
+
+      .no-print {
+        display: none;
+      }
+    }
+
+    /* PDF-specific fixes */
+    @page {
+      size: A4;
+      margin: 0;
+    }
+
+    /* WeasyPrint specific fixes */
+    @media {
+      .page {
+        width: 210mm;
+        height: 297mm;
+      }
+
+      table.form-table {
+        max-width: 95%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page">
+    <div class="text-right">
+      <h3>
+        namozag
+      </h3>
+    </div>
+
+    <div class="logo">
+      <img src="{{absolute_path_img}}" alt="university logo">
+      <h3>
+        الإدارة العامة لرعاية الطالب<br>
+        صندوق التكافل الاجتماعي<br>
+        بكلية الحاسبات والمعلومات
+      </h3>
+    </div>
+
+    <header>
+      <h1>كشف توزيع الأعلانات</h1>
+      <div class="subhead">الفرقة: ......</div>
+    </header>
+
+    <table class="form-table" role="table" aria-label="نموذج كشف الإعانات">
+      <thead>
+        <tr>
+          <th>م</th>
+          <th>اسم الطالب</th>
+          <th>وظيفة الأب</th>
+          <th>وظيفة الأم</th>
+          <th>الدخل الشهري</th> <!-- Shortened -->
+          <th>عدد الأفراد</th> <!-- Shortened -->
+          <th>متوسط الدخل</th> <!-- Shortened -->
+          <th>المبلغ</th> <!-- Shortened -->
+          <th>نوع الإعانة</th>
+          <th>ملاحظات</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in data %}
+        <tr>
+          <td>{{ forloop.counter }}</td>
+          <td>
+            {% if item.student %}
+            {{ item.student.name|default:"" }}
+            {% endif %}
+          </td>
+          <td>{{ item.father_status|default:"-" }}</td>
+          <td>{{ item.mother_status|default:"-" }}</td>
+          <td>
+            {% if item.total_income %}
+            {{ item.total_income }}
+            {% elif item.father_income %}
+            {{ item.father_income }}
+            {% else %}
+            -
+            {% endif %}
+          </td>
+          <td>{{ item.family_numbers|default:"-" }}</td>
+          <td>{{ item.average_income }} </td>
+          <td>
+            {% if item.total_discount %}
+            {{ item.total_discount }}
+            {% else %}
+            -
+            {% endif %}
+          </td>
+          <td>{{ item.discount_type|join:"," }}</td>
+          <td>{{ item.reason|truncatewords:1|default:"-" }}</td> <!-- Further reduced -->
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+
+    <div class="footer-section" style="display: flex; justify-content: space-between;">
+      <h3 style="border:1px solid #333; border-left: none; font-size: 9px; padding: 2px 6px 0px 6px">الإجمالي</h3>
+      <div style="min-width:90px; border:1px solid #333; text-align:center; width: 100%; font-size: 9px; padding-top: 10px">
+        {{ total_amount_spent }}
+      </div>
+    </div>
+
+    <div class="signs">
+      <div class="sign">
+        <div class="sign-line">أخصائي الفرقة</div>
+        <div>( ........................... )</div>
+      </div>
+      <div class="sign">
+        <div class="sign-line">رئيس قسم رعاية الطالب</div>
+        <div>( ........................... )</div>
+      </div>
+      <div class="sign" style="
+        width: 70px; /* Further reduced */
+        height: 60px; /* Further reduced */
+        border-radius: 50%;
+        border: 2px solid black;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 8px; /* Further reduced */
+      ">
+        ختم الكلية
+      </div>
+      <div class="sign" style="margin-right: 40px">
+        <div class="sign-line">
+          يعتمد...<br>
+          وكيل الكلية لشئون التعليم والطالب
+          <div>
+            <div>( ........................... )</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>

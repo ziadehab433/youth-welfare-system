@@ -135,7 +135,8 @@ def handle_report_data(data):
 
     return { 
         "data": data,
-        "total_amount_spent": total_amount_spent
+        "total_amount_spent": total_amount_spent,
+        "absolute_path_img": "file:///home/ziad/Personal/youth-welfare-system/apps/solidarity/static/solidarity/images/uni-logo.png"
     }
 
 def get_client_ip(request):
@@ -145,28 +146,3 @@ def get_client_ip(request):
     else:
         ip = request.META.get('REMOTE_ADDR')
     return ip
-
-async def html_to_pdf_buffer(html):
-    browser = await launch(
-        headless=True,
-        args=[
-            '--no-sandbox',
-            '--disable-setuid-sandbox'
-        ],
-        handleSIGINT=False,
-        handleSIGTERM=False,
-        handleSIGHUP=False
-    )
-
-    page = await browser.newPage()
-    await page.setContent(html)
-    pdf = await page.pdf({
-        "format": "A4",
-        "printBackground": True
-    })
-
-    await browser.close()
-
-    buffer = BytesIO(pdf)
-    buffer.seek(0)
-    return buffer
