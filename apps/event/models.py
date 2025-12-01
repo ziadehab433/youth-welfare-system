@@ -6,8 +6,8 @@
 #   * Remove `managed = False` lines if you wish to allow Django to create, modify, and delete the table
 # Feel free to rename the models, but don't rename db_table values or field names.
 from django.db import models
-from solidarity.models import Departments
-from family.models import Families
+from apps.solidarity.models import Departments 
+from apps.family.models import Families , Faculties , Admins
 
 class Events(models.Model):
     event_id = models.AutoField(primary_key=True)
@@ -21,14 +21,14 @@ class Events(models.Model):
         db_column='dept_id'
     )
     faculty = models.ForeignKey(
-        'Faculties', 
+        Faculties, 
         models.SET_NULL, 
         blank=True, 
         null=True,
         db_column='faculty_id'
     )
     created_by = models.ForeignKey(
-        'Admins', 
+        Admins, 
         models.RESTRICT,
         db_column='created_by'
     )

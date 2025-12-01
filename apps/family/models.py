@@ -6,7 +6,10 @@
 #   * Remove `managed = False` lines if you wish to allow Django to create, modify, and delete the table
 # Feel free to rename the models, but don't rename db_table values or field names.
 from django.db import models
-from solidarity.models import Departments 
+from apps.solidarity.models import Departments 
+from apps.accounts.models import Students
+from apps.solidarity.models import Faculties , Admins
+
 
 
 class Families(models.Model):
@@ -14,14 +17,14 @@ class Families(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
     faculty = models.ForeignKey(
-        'Faculties', 
+        Faculties, 
         models.DO_NOTHING, 
         blank=True, 
         null=True,
         db_column='faculty_id'
     )
     created_by = models.ForeignKey(
-        'Admins', 
+        Admins, 
         models.DO_NOTHING, 
         db_column='created_by', 
         blank=True, 
@@ -29,7 +32,7 @@ class Families(models.Model):
         related_name='families_created_by_set'
     )
     approved_by = models.ForeignKey(
-        'Admins', 
+        Admins, 
         models.DO_NOTHING, 
         db_column='approved_by', 
         blank=True, 
@@ -60,7 +63,7 @@ class FamilyMembers(models.Model):
         db_column='family_id'
     )
     student = models.ForeignKey(
-        'Students', 
+        Students, 
         models.CASCADE,
         db_column='student_id'
     )
