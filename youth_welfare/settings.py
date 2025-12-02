@@ -168,7 +168,7 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 RATE_LIMIT_CONFIG = {
     # Authentication endpoints (strictest)
     'auth': {
-        'max_requests': 2,        # 10 attempts per hour
+        'max_requests': 20,        # 10 attempts per hour
         'window_seconds': 3600,
         'endpoints': [
             '/api/accounts/login/',
@@ -178,7 +178,7 @@ RATE_LIMIT_CONFIG = {
     
     # Signup endpoints (strictest)
     'signup': {
-        'max_requests': 5,         # 5 signups per hour
+        'max_requests': 10,         # 5 signups per hour
         'window_seconds': 3600,
         'endpoints': [
             '/api/accounts/signup/',
@@ -188,7 +188,7 @@ RATE_LIMIT_CONFIG = {
     
     # Read operations (most permissive)
     'read': {
-        'max_requests': 2,       # 100 reads per hour
+        'max_requests': 200,       # 100 reads per hour
         'window_seconds': 3600,
         'endpoints': [
             '/api/accounts/profile/',
