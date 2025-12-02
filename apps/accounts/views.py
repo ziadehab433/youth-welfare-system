@@ -37,6 +37,8 @@ from rest_framework.viewsets import ViewSet, GenericViewSet # ADD GenericViewSet
 from apps.accounts.serializers import StudentDetailSerializer, StudentSignUpSerializer, StudentUpdateSerializer
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import action
+from .encryption import encryption_service
+
 @extend_schema(
     tags=["Authentication"],
     description="Login and get JWT tokens",
@@ -56,20 +58,35 @@ class LoginView(APIView):
             return faculty_id, faculty.name  
         except Faculties.DoesNotExist:
             return faculty_id, None
+    
+    def log_login_attempt(self, identifier, success=False):
+        """
+        Safely log login attempts without exposing sensitive data
+        SECURITY: Hash the identifier before logging
+        """
+        from django.contrib.auth.hashers import make_password
+        hashed_identifier = make_password(identifier)[:20]  # First 20 chars only
+        
+        if success:
+            logger.info(f"Successful login attempt: {hashed_identifier}")
+        else:
+            logger.warning(f"Failed login attempt: {hashed_identifier}")
 
     def post(self, request):
         identifier = request.data.get('email') or request.data.get('username')
         password = request.data.get('password')
+        
         if not identifier or not password:
             return Response({'detail': 'email and password required'}, status=400)
 
-        # 1) Try to authenticate admin via custom backend
+        # Log attempt (hashed)
+        self.log_login_attempt(identifier)
+
+        # Try admin authentication
         user = authenticate(request, username=identifier, password=password)
         if user:
-            # CHECK: Prevent inactive admins from logging in
             if hasattr(user, 'acc_status') and user.acc_status != 'active':
                 logger.warning(f"Login attempt by inactive admin: {user.admin_id}")
-                #  Return Response and STOP execution here
                 return Response(
                     {
                         'detail': f'حسابك غير مفعل. الحالة الحالية: {user.acc_status}',
@@ -78,14 +95,12 @@ class LoginView(APIView):
                     status=status.HTTP_401_UNAUTHORIZED
                 )
             
-            # Only reach here if account_status is 'active'
             refresh = RefreshToken.for_user(user)
             refresh['user_type'] = 'admin'
             refresh['admin_id'] = user.admin_id
             refresh['role'] = user.role
             refresh['name'] = user.name
             
-            # Get the access token from refresh token
             access_token = refresh.access_token
             access_token['user_type'] = 'admin'
             access_token['admin_id'] = user.admin_id
@@ -101,36 +116,27 @@ class LoginView(APIView):
                 'name': user.name,
             }
             
-            # Add faculty_id and faculty_name for specific admin roles
             if user.role in ['مسؤول كلية', 'مدير كلية']:
                 faculty_id, faculty_name = self.get_faculty_info(user.faculty_id)
-                
-                # Add to refresh token payload
                 refresh['faculty_id'] = faculty_id
                 refresh['faculty_name'] = faculty_name
-                
-                # Add to access token payload
                 access_token['faculty_id'] = faculty_id
                 access_token['faculty_name'] = faculty_name
-                
-                # Add to response
                 response_data['faculty_id'] = faculty_id
                 response_data['faculty_name'] = faculty_name
-                
-            # Update tokens in response after modifications
+            
             response_data['refresh'] = str(refresh)
             response_data['access'] = str(access_token)
-                
+            
+            self.log_login_attempt(identifier, success=True)
             return Response(response_data, status=status.HTTP_200_OK)
 
-        # 2) Fallback: try student manually
+        # Fallback: try student
         student = Students.objects.filter(email=identifier).first()
         
         if student and bcrypt.checkpw(password.encode(), student.password.encode()):
-            # Get faculty info for student
             faculty_id, faculty_name = self.get_faculty_info(student.faculty_id)
             
-            # Create a token manually
             refresh = RefreshToken()
             refresh['user_type'] = 'student'
             refresh['student_id'] = student.student_id
@@ -145,6 +151,8 @@ class LoginView(APIView):
             access_token['faculty_id'] = faculty_id
             access_token['faculty_name'] = faculty_name
             
+            self.log_login_attempt(identifier, success=True)
+            
             return Response({
                 'refresh': str(refresh),
                 'access': str(access_token),         
@@ -155,7 +163,6 @@ class LoginView(APIView):
                 'faculty_name': faculty_name,
             }, status=status.HTTP_200_OK)
         
-        #  If no user or student found, return invalid credentials
         return Response(
             {'detail': 'Invalid credentials'}, 
             status=status.HTTP_401_UNAUTHORIZED

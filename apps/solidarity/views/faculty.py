@@ -298,7 +298,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         admin = get_current_admin(request)
 
         try: 
-            data = Solidarities.objects.filter(faculty=admin.faculty)
+            data = Solidarities.objects.filter(faculty=admin.faculty, req_status="مقبول")
         except DatabaseError:
             return Response({'detail': 'database error while fetching data'}, status=500)
 

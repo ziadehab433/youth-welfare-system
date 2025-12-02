@@ -1,3 +1,8 @@
+to restore the db ---> 
+
+psql -h localhost -U postgres -d db_Name -f GP_full_backup.sql
+
+
 /* ──────────────────────────────────────────────── *
  * 1.  Function                                    *
  * ──────────────────────────────────────────────── */
@@ -274,3 +279,198 @@ ADD COLUMN dept_fac_ls text[] DEFAULT '{}';
 ALTER TABLE public.solidarities
 ADD COLUMN discount_type text[] DEFAULT '{}';
 
+
+
+--------------------------------------------------------------
+-----FAMILY-----------------------
+
+
+-- (families , family_members , departments , events)
+
+
+TRUNCATE TABLE families RESTART IDENTITY Cascade;
+
+ALTER TABLE families
+ADD COLUMN min_limit INTEGER NOT NULL DEFAULT 50,
+ADD COLUMN type VARCHAR(50) NOT NULL ;
+
+
+ALTER TABLE family_members
+ADD COLUMN dept_id INTEGER,
+ADD CONSTRAINT fk_family_members_dept 
+FOREIGN KEY (dept_id) REFERENCES departments(dept_id);
+
+
+ALTER TABLE departments
+ADD COLUMN for_env_fam BOOLEAN NOT NULL DEFAULT FALSE;
+
+ALTER TABLE events
+ADD COLUMN family_id INTEGER,
+ADD CONSTRAINT fk_events_family 
+FOREIGN KEY (family_id) REFERENCES families(family_id);
+
+
+
+ALTER TYPE event_type ADD VALUE 'نشاط رياضي';
+ALTER TYPE event_type ADD VALUE 'نشاط ثقافي';
+ALTER TYPE event_type ADD VALUE 'نشاط بيئي';
+ALTER TYPE event_type ADD VALUE 'نشاط اجتماعي';
+ALTER TYPE event_type ADD VALUE 'نشاط علمي';
+ALTER TYPE event_type ADD VALUE 'نشاط خدمة عامة';
+ALTER TYPE event_type ADD VALUE 'نشاط فني';
+ALTER TYPE event_type ADD VALUE 'نشاط معسكرات';
+
+
+
+
+--INSERTIONS---------
+
+-- DELETE EXISTING DATA (Optional - if needed)
+-- ============================================
+DELETE FROM public.events;
+DELETE FROM public.family_members;
+DELETE FROM public.families;
+DELETE FROM public.departments;
+
+-- ============================================
+-- INSERT DEPARTMENTS
+-- ============================================
+INSERT INTO public.departments (name, description, for_env_fam, created_at)
+VALUES 
+    ('الأنشطة الرياضية', 'قسم الأنشطة والفعاليات الرياضية', false, now()),
+    ('الأنشطة الثقافية', 'قسم الأنشطة الثقافية والفنية', false, now()),
+    ('الأنشطة البيئية', 'قسم الأنشطة البيئية والاستدامة', true, now()),
+    ('الأنشطة الاجتماعية', 'قسم الأنشطة الاجتماعية والخدمة المجتمعية', false, now()),
+    ('الأنشطة العلمية', 'قسم الأنشطة العلمية والبحثية', false, now());
+
+-- ============================================
+-- INSERT FAMILIES
+-- ============================================
+INSERT INTO public.families (name, description, faculty_id, created_by, approved_by, status, min_limit, type, created_at, updated_at)
+VALUES 
+    ('أسرة نوعية', 'أسرة نوعية متخصصة في الأنشطة الرياضية والثقافية', 1, 1, 1, 'منتظر'::general_status, 50, 'نوعية', now(), now()),
+    ('أسرة مركزية', 'أسرة مركزية على مستوى الجامعة غير مرتبطة بكلية معينة', NULL, 1, 1, 'منتظر'::general_status, 100, 'مركزية', now(), now()),
+    ('أصدقاء البيئة', 'أسرة متخصصة في الأنشطة البيئية والاستدامة', 1, 1, 1, 'منتظر'::general_status, 30, 'اصدقاء البيئة', now(), now());
+
+-- ============================================
+-- INSERT FAMILY MEMBERS
+-- ============================================
+INSERT INTO public.family_members (family_id, student_id, role, status, dept_id, joined_at)
+VALUES 
+    -- Family 1: أسرة نوعية
+    (1, 11, 'رئيس', NULL, 3, now()),
+    (1, 13, 'عضو', NULL, 3, now()),
+    (1, 14, 'عضو', NULL, 3, now()),
+    
+    -- Family 2: أسرة مركزية
+    (2, 15, 'رئيس', NULL, 4, now()),
+    (2, 16, 'نائب رئيس', NULL, 4, now()),
+    (2, 17, 'عضو', NULL, 4, now()),
+    (2, 18, 'عضو', NULL, 4, now()),
+    
+    -- Family 3: أصدقاء البيئة
+    (3, 19, 'رئيس', NULL, 5, now()),
+    (3, 20, 'نائب رئيس', NULL, 5, now()),
+    (3, 21, 'عضو', NULL, 5, now()),
+    (3, 22, 'عضو', NULL, 5, now()),
+    
+    -- Additional members across families
+    (1, 15, 'عضو', NULL, 3, now()),
+    (2, 11, 'عضو', NULL, 4, now()),
+    (3, 16, 'عضو', NULL, 5, now());
+
+-- ============================================
+-- INSERT EVENTS
+-- ============================================
+INSERT INTO public.events (title, description, dept_id, faculty_id, created_by, cost, location, restrictions, reward, status, st_date, end_date, s_limit, type, family_id, created_at, updated_at)
+VALUES 
+    (
+        'ماراثون العدو السنوي',
+        'فعالية رياضية سنوية تجمع طلاب الجامعة للمشاركة في ماراثون العدو',
+        3, 1, 1,
+        50.00,
+        'الملعب الرياضي',
+        'يجب أن يكون المشارك طالباً حالياً بالجامعة',
+        'جوائز نقدية وشهادات تقدير',
+        'منتظر'::general_status,
+        '2024-03-15', '2024-03-16', 200, 'نشاط رياضي', 1,
+        now(), now()
+    ),
+    (
+        'مسابقة الخطابة والإلقاء',
+        'مسابقة لاختبار مهارات الخطابة والإلقاء لدى الطلاب',
+        4, 2, 1,
+        30.00,
+        'الحاضرة الكبرى',
+        'يجب أن يكون المشارك متقنًا للغة العربية',
+        'جوائز نقدية وشهادات دولية',
+        'منتظر'::general_status,
+        '2024-04-05', '2024-04-07', 120, 'نشاط ثقافي', 1,
+        now(), now()
+    ),
+    (
+        'يوم التطوع الاجتماعي',
+        'فعالية تطوعية للمساهمة في الخدمة المجتمعية والنشاطات الاجتماعية',
+        6, 1, 1,
+        0.00,
+        'مراكز الخدمة الاجتماعية',
+        'لا توجد قيود',
+        'شهادات تطوع معترف بها',
+        'منتظر'::general_status,
+        '2024-03-25', '2024-03-26', 250, 'نشاط اجتماعي', 2,
+        now(), now()
+    ),
+    (
+        'حملة البيئة النظيفة',
+        'حملة تطوعية للحفاظ على نظافة الحرم الجامعي والبيئة المحيطة',
+        5, 1, 1,
+        0.00,
+        'الحرم الجامعي',
+        'يفضل المشاركة في الأنشطة البيئية السابقة',
+        'شهادات تطوع وجوائز رمزية',
+        'منتظر'::general_status,
+        '2024-03-20', '2024-03-21', 100, 'نشاط بيئي', 3,
+        now(), now()
+    ),
+    (
+        'ندوة البحث العلمي',
+        'ندوة علمية لمناقشة أحدث الأبحاث العلمية في المجالات المختلفة',
+        5, 3, 1,
+        25.00,
+        'قاعة المؤتمرات',
+        'يفضل أن يكون المشارك من طلاب الدراسات العليا',
+        'شهادات حضور وفرص تعاون بحثي',
+        'منتظر'::general_status,
+        '2024-05-01', '2024-05-02', 80, 'نشاط علمي', 2,
+        now(), now()
+    ),
+    (
+        'بطولة كرة القدم الثلاثية',
+        'بطولة رياضية لكرة القدم تجمع بين فرق من مختلف الكليات',
+        3, 1, 1,
+        40.00,
+        'ملعب كرة القدم',
+        'يجب أن تكون الفرق من طلاب الجامعة فقط',
+        'كأس ودروع تذكارية وشهادات',
+        'منتظر'::general_status,
+        '2024-04-20', '2024-04-25', 180, 'نشاط رياضي', 2,
+        now(), now()
+    );
+
+----------------------------------------------------------------------------
+/*
+-- i will delete this CONSTRAINT temporary to check enc
+
+    CONSTRAINT students_phone_number_check CHECK ((phone_number ~ '^\+?[0-9]{6,15}$'::text))
+*/
+
+ALTER TABLE students DROP CONSTRAINT students_phone_number_check;
+
+
+-- Add Google OAuth columns to students table
+ALTER TABLE students ADD COLUMN google_id VARCHAR(255) UNIQUE;
+ALTER TABLE students ADD COLUMN google_picture VARCHAR(500);
+ALTER TABLE students ADD COLUMN is_google_auth BOOLEAN DEFAULT FALSE;
+ALTER TABLE students ADD COLUMN auth_method VARCHAR(20) DEFAULT 'email';
+ALTER TABLE students ADD COLUMN last_login_method VARCHAR(20);
+ALTER TABLE students ADD COLUMN last_google_login TIMESTAMP;

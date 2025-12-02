@@ -96,11 +96,15 @@ class Departments(models.Model):
     dept_id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
-    created_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    for_env_fam = models.BooleanField(default=False)
 
     class Meta:
         managed = False
         db_table = 'departments'
+
+    def __str__(self):
+        return self.name
 
 
 

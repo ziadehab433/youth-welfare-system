@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 from decouple import config
 
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -70,16 +71,229 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    # 1. Security first
     'django.middleware.security.SecurityMiddleware',
+    
+    # 2. Session management
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    
+    # 3. CORS handling (before common middleware)
     'corsheaders.middleware.CorsMiddleware',
+    
+    # 4. Common utilities
     'django.middleware.common.CommonMiddleware',
+    
+    # 5. CSRF protection
+    'django.middleware.csrf.CsrfViewMiddleware',
+    
+    # 6. Authentication
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    
+    # 7. Messages framework
+    'django.contrib.messages.middleware.MessageMiddleware',
+    
+    # 8. Clickjacking protection
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    
+    # 9. Your custom middleware (last)
+    'apps.accounts.middleware.SecurityHeadersMiddleware',
+    'apps.accounts.middleware.AuditLoggingMiddleware',
+    'apps.accounts.middleware.RateLimitMiddleware',
 ]
+
+# Cache Configuration for Rate Limiting
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'youth-welfare-cache',
+        'OPTIONS': {
+            'MAX_ENTRIES': 10000
+        }
+    }
+}
+
+# For production, use Redis:
+# CACHES = {
+#     'default': {
+#         'BACKEND': 'django_redis.cache.RedisCache',
+#         'LOCATION': 'redis://127.0.0.1:6379/1',
+#         'OPTIONS': {
+#             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+#         }
+#     }
+# }
+
+
+# Security Headers
+SECURE_BROWSER_XSS_FILTER = True
+if DEBUG:
+    # Development: Allow CDN resources
+    SECURE_CONTENT_SECURITY_POLICY = {
+        "default-src": ("'self'",),
+        "script-src": (
+            "'self'",
+            "'unsafe-inline'",
+            "https://cdn.jsdelivr.net",
+            "https://cdnjs.cloudflare.com",
+        ),
+        "style-src": (
+            "'self'",
+            "'unsafe-inline'",
+            "https://cdn.jsdelivr.net",
+            "https://cdnjs.cloudflare.com",
+        ),
+        "img-src": ("'self'", "data:", "https:"),
+        "font-src": ("'self'", "https://cdn.jsdelivr.net"),
+    }
+else:
+    # Production: Stricter policy
+    SECURE_CONTENT_SECURITY_POLICY = {
+        "default-src": ("'self'",),
+        "script-src": ("'self'",),
+        "style-src": ("'self'", "'unsafe-inline'"),
+    }
+
+# CSRF Protection
+CSRF_COOKIE_SECURE = not DEBUG  # True in production
+CSRF_COOKIE_HTTPONLY = True
+CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='http://localhost:3000', cast=lambda v: [s.strip() for s in v.split(',')])
+
+# Session Security
+SESSION_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+
+# ============ RATE LIMITING CONFIGURATION ============
+
+RATE_LIMIT_CONFIG = {
+    # Authentication endpoints (strictest)
+    'auth': {
+        'max_requests': 2,        # 10 attempts per hour
+        'window_seconds': 3600,
+        'endpoints': [
+            '/api/accounts/login/',
+            '/api/accounts/auth/google/login/',
+        ]
+    },
+    
+    # Signup endpoints (strictest)
+    'signup': {
+        'max_requests': 5,         # 5 signups per hour
+        'window_seconds': 3600,
+        'endpoints': [
+            '/api/accounts/signup/',
+            '/api/accounts/auth/google/signup/',
+        ]
+    },
+    
+    # Read operations (most permissive)
+    'read': {
+        'max_requests': 2,       # 100 reads per hour
+        'window_seconds': 3600,
+        'endpoints': [
+            '/api/accounts/profile/',
+            '/api/accounts/admins/',
+            '/api/solidarity/student/status/'
+
+
+
+        ]
+    },
+    
+    # Write operations (moderate)
+    'write': {
+        'max_requests': 30,        # 30 writes per hour
+        'window_seconds': 3600,
+        'endpoints': [
+            '/api/accounts/profile/update_profile/',
+        ]
+    },
+    
+    # Default for all other endpoints
+    'default': {
+        'max_requests': 100,
+        'window_seconds': 3600,
+    }
+}
+
+# ===================================================
+# ========================================
+
+
+
+# ============ LOGGING ============
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '[{levelname}] {asctime} {name} {message}',
+            'style': '{',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
+        },
+        'simple': {
+            'format': '[{levelname}] {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'app.log'),
+            'maxBytes': 1024 * 1024 * 10,  # 10MB
+            'backupCount': 5,
+            'formatter': 'verbose',
+        },
+        'audit_file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'audit.log'),
+            'maxBytes': 1024 * 1024 * 50,  # 50MB
+            'backupCount': 10,
+            'formatter': 'verbose',
+        },
+        'security_file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'security.log'),
+            'maxBytes': 1024 * 1024 * 20,  # 20MB
+            'backupCount': 10,
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'audit': {
+            'handlers': ['audit_file', 'console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'security': {
+            'handlers': ['security_file', 'console'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'apps': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'propagate': False,
+        },
+    },
+}
+
+# Create logs directory if it doesn't exist
+LOGS_DIR = os.path.join(BASE_DIR, 'logs')
+if not os.path.exists(LOGS_DIR):
+    os.makedirs(LOGS_DIR)
+
+# ================================
 
 CORS_ALLOW_ALL_ORIGINS = True
 
@@ -139,6 +353,23 @@ DATABASES = {
 
 
 
+# ============ ENCRYPTION SETTINGS ============
+# AES Encryption Key for sensitive data at rest
+ENCRYPTION_KEY = config('ENCRYPTION_KEY', default=None)
+
+if not ENCRYPTION_KEY:
+    raise ValueError(
+        "ENCRYPTION_KEY not found in environment variables. "
+        "Generate one using: from cryptography.fernet import Fernet; "
+        "print(Fernet.generate_key().decode())"
+    )
+
+# Encrypted fields configuration
+ENCRYPTED_FIELDS = {
+    'Students': ['nid', 'uid', 'phone_number', 'address'],
+}
+# =============================================
+
 
 
 # Password validation
@@ -166,7 +397,7 @@ REST_FRAMEWORK = {
         "apps.accounts.authentication.CustomJWTAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": (
-        "rest_framework.permissions.IsAuthenticated",
+        "rest_framework.permissions.AllowAny",
     ),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
@@ -202,13 +433,42 @@ SPECTACULAR_SETTINGS = {
         'persistAuthorization': True,
         'displayRequestDuration': True,
     },
+
+    'SERVERS': [
+        {
+            'url': 'http://localhost:8000',
+            'description': 'Local Development Server',
+        },
+        {
+            'url': 'http://127.0.0.1:8000',
+            'description': 'Local Development Server (127.0.0.1)',
+        },
+    ],
 }
 ##################
 
+# ============ GOOGLE OAUTH CONFIGURATION ============
+from decouple import config
 
+# Google OAuth Credentials (from .env file)
+GOOGLE_CLIENT_ID = config('GOOGLE_OAUTH_CLIENT_ID', default=None)
+GOOGLE_CLIENT_SECRET = config('GOOGLE_OAUTH_CLIENT_SECRET', default=None)
+GOOGLE_REDIRECT_URI = config(
+    'GOOGLE_OAUTH_REDIRECT_URI',
+    default='http://localhost:8000/api/auth/google/callback/'
+)
 
+# Validate credentials are set
+if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.warning("⚠️ Google OAuth credentials not fully configured")
 
-
+# Debug (development only)
+if DEBUG:
+    print(f"\n✓ Google OAuth Configuration Loaded:")
+    print(f"  - Client ID: {GOOGLE_CLIENT_ID[:30] if GOOGLE_CLIENT_ID else 'NOT SET'}...")
+    print(f"  - Redirect URI: {GOOGLE_REDIRECT_URI}\n")
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
