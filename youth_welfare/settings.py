@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 from decouple import config
 
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -139,6 +140,23 @@ DATABASES = {
 
 
 
+# ============ ENCRYPTION SETTINGS ============
+# AES Encryption Key for sensitive data at rest
+ENCRYPTION_KEY = config('ENCRYPTION_KEY', default=None)
+
+if not ENCRYPTION_KEY:
+    raise ValueError(
+        "ENCRYPTION_KEY not found in environment variables. "
+        "Generate one using: from cryptography.fernet import Fernet; "
+        "print(Fernet.generate_key().decode())"
+    )
+
+# Encrypted fields configuration
+ENCRYPTED_FIELDS = {
+    'Students': ['nid', 'uid', 'phone_number', 'address'],
+}
+# =============================================
+
 
 
 # Password validation
@@ -202,13 +220,42 @@ SPECTACULAR_SETTINGS = {
         'persistAuthorization': True,
         'displayRequestDuration': True,
     },
+
+    'SERVERS': [
+        {
+            'url': 'http://localhost:8000',
+            'description': 'Local Development Server',
+        },
+        {
+            'url': 'http://127.0.0.1:8000',
+            'description': 'Local Development Server (127.0.0.1)',
+        },
+    ],
 }
 ##################
 
+# ============ GOOGLE OAUTH CONFIGURATION ============
+from decouple import config
 
+# Google OAuth Credentials (from .env file)
+GOOGLE_CLIENT_ID = config('GOOGLE_OAUTH_CLIENT_ID', default=None)
+GOOGLE_CLIENT_SECRET = config('GOOGLE_OAUTH_CLIENT_SECRET', default=None)
+GOOGLE_REDIRECT_URI = config(
+    'GOOGLE_OAUTH_REDIRECT_URI',
+    default='http://localhost:8000/api/auth/google/callback/'
+)
 
+# Validate credentials are set
+if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.warning("⚠️ Google OAuth credentials not fully configured")
 
-
+# Debug (development only)
+if DEBUG:
+    print(f"\n✓ Google OAuth Configuration Loaded:")
+    print(f"  - Client ID: {GOOGLE_CLIENT_ID[:30] if GOOGLE_CLIENT_ID else 'NOT SET'}...")
+    print(f"  - Redirect URI: {GOOGLE_REDIRECT_URI}\n")
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
