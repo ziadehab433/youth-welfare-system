@@ -97,8 +97,9 @@ MIDDLEWARE = [
     
     # 9. Your custom middleware (last)
     'apps.accounts.middleware.SecurityHeadersMiddleware',
-    'apps.accounts.middleware.AuditLoggingMiddleware',
     'apps.accounts.middleware.RateLimitMiddleware',
+    'apps.accounts.middleware.AuditLoggingMiddleware',
+
 ]
 
 # Cache Configuration for Rate Limiting
@@ -168,7 +169,7 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 RATE_LIMIT_CONFIG = {
     # Authentication endpoints (strictest)
     'auth': {
-        'max_requests': 200,        # 10 attempts per hour
+        'max_requests': 10,        # 10 attempts per hour
         'window_seconds': 3600,
         'endpoints': [
             '/api/accounts/login/',
@@ -211,7 +212,7 @@ RATE_LIMIT_CONFIG = {
     
     # Default for all other endpoints
     'default': {
-        'max_requests': 100,
+        'max_requests': 2000,
         'window_seconds': 3600,
     }
 }
@@ -222,7 +223,6 @@ RATE_LIMIT_CONFIG = {
 
 
 # ============ LOGGING ============
-
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -232,36 +232,39 @@ LOGGING = {
             'style': '{',
             'datefmt': '%Y-%m-%d %H:%M:%S',
         },
-        'simple': {
-            'format': '[{levelname}] {message}',
-            'style': '{',
-        },
     },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
+            'level': 'DEBUG',
         },
         'file': {
             'class': 'logging.handlers.RotatingFileHandler',
             'filename': os.path.join(BASE_DIR, 'logs', 'app.log'),
-            'maxBytes': 1024 * 1024 * 10,  # 10MB
+            'maxBytes': 1024 * 1024 * 10,
             'backupCount': 5,
             'formatter': 'verbose',
+            'level': 'INFO',
+            'encoding': 'utf-8',  
         },
         'audit_file': {
             'class': 'logging.handlers.RotatingFileHandler',
             'filename': os.path.join(BASE_DIR, 'logs', 'audit.log'),
-            'maxBytes': 1024 * 1024 * 50,  # 50MB
+            'maxBytes': 1024 * 1024 * 50,
             'backupCount': 10,
             'formatter': 'verbose',
+            'level': 'INFO',
+            'encoding': 'utf-8',  
         },
         'security_file': {
             'class': 'logging.handlers.RotatingFileHandler',
             'filename': os.path.join(BASE_DIR, 'logs', 'security.log'),
-            'maxBytes': 1024 * 1024 * 20,  # 20MB
+            'maxBytes': 1024 * 1024 * 20,
             'backupCount': 10,
             'formatter': 'verbose',
+            'level': 'DEBUG',  
+            'encoding': 'utf-8', 
         },
     },
     'loggers': {
@@ -277,9 +280,14 @@ LOGGING = {
         },
         'security': {
             'handlers': ['security_file', 'console'],
-            'level': 'WARNING',
+            'level': 'DEBUG',  
             'propagate': False,
         },
+        'apps.accounts.security': {     
+        'handlers': ['security_file', 'console'],
+        'level': 'DEBUG',
+        'propagate': False,
+    },
         'apps': {
             'handlers': ['console', 'file'],
             'level': 'DEBUG' if DEBUG else 'INFO',
@@ -288,11 +296,11 @@ LOGGING = {
     },
 }
 
-# Create logs directory if it doesn't exist
+# Create logs directory
 LOGS_DIR = os.path.join(BASE_DIR, 'logs')
 if not os.path.exists(LOGS_DIR):
-    os.makedirs(LOGS_DIR)
-
+    os.makedirs(LOGS_DIR, exist_ok=True)
+    print(f"✓ Created logs directory: {LOGS_DIR}")
 # ================================
 
 CORS_ALLOW_ALL_ORIGINS = True
