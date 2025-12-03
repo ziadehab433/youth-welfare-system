@@ -168,7 +168,7 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 RATE_LIMIT_CONFIG = {
     # Authentication endpoints (strictest)
     'auth': {
-        'max_requests': 2,        # 10 attempts per hour
+        'max_requests': 200,        # 10 attempts per hour
         'window_seconds': 3600,
         'endpoints': [
             '/api/accounts/login/',
@@ -178,7 +178,7 @@ RATE_LIMIT_CONFIG = {
     
     # Signup endpoints (strictest)
     'signup': {
-        'max_requests': 5,         # 5 signups per hour
+        'max_requests': 500,         # 5 signups per hour
         'window_seconds': 3600,
         'endpoints': [
             '/api/accounts/signup/',
@@ -188,7 +188,7 @@ RATE_LIMIT_CONFIG = {
     
     # Read operations (most permissive)
     'read': {
-        'max_requests': 2,       # 100 reads per hour
+        'max_requests': 200,       # 100 reads per hour
         'window_seconds': 3600,
         'endpoints': [
             '/api/accounts/profile/',
@@ -455,8 +455,10 @@ GOOGLE_CLIENT_ID = config('GOOGLE_OAUTH_CLIENT_ID', default=None)
 GOOGLE_CLIENT_SECRET = config('GOOGLE_OAUTH_CLIENT_SECRET', default=None)
 GOOGLE_REDIRECT_URI = config(
     'GOOGLE_OAUTH_REDIRECT_URI',
-    default='http://localhost:8000/api/auth/google/callback/'
+    default='http://localhost:3000/auth/google-callback'
 )
+
+GOOGLE_FRONTEND_CALLBACK_URL = "http://localhost:3000/auth/google-callback"
 
 # Validate credentials are set
 if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:

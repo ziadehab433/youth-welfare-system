@@ -819,37 +819,17 @@ class GoogleOAuthSignUpView(APIView):
 
 @extend_schema(
     tags=["Google OAuth"],
-    description="Google OAuth callback endpoint. This receives the authorization code from Google.",
+    description="Google OAuth callback endpoint. This receives the authorization code from Google after user authorizes.",
     responses={
-        200: OpenApiResponse(
-            description="Authorization code received",
-            examples=[
-                OpenApiExample(
-                    "Success",
-                    value={
-                        "message": "Authorization code received",
-                        "code": "4/0AY-t...",
-                        "instruction": "Send this code to POST /api/auth/google/login/"
-                    },
-                    response_only=True,
-                )
-            ]
-        ),
-        400: OpenApiResponse(
-            description="Error from Google or missing code",
-            examples=[
-                OpenApiExample(
-                    "Error",
-                    value={"error": "access_denied"}
-                )
-            ]
-        ),
+        302: OpenApiResponse(description="Redirect to frontend with code"),
+        400: OpenApiResponse(description="Error from Google or missing code"),
     }
 )
 class GoogleOAuthCallbackView(APIView):
     """
     Handle Google OAuth callback
     This is called by Google after user authorizes
+    Redirects to frontend with the authorization code
     """
     permission_classes = []
     
@@ -859,30 +839,38 @@ class GoogleOAuthCallbackView(APIView):
         
         This endpoint receives the authorization code from Google
         after the user has authorized the application.
+        Then redirects to frontend callback page.
         """
         code = request.query_params.get('code')
         error = request.query_params.get('error')
         
+        # Get frontend callback URL from settings
+        frontend_callback = getattr(settings, 'GOOGLE_FRONTEND_CALLBACK_URL', 
+                                   'http://localhost:3000/auth/google-callback')
+        
         # Handle errors from Google
         if error:
             logger.error(f"Google OAuth error: {error}")
+            error_url = f"{frontend_callback}?error={error}"
             return Response(
                 {'error': f'Google OAuth error: {error}'},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_302_FOUND,
+                headers={'Location': error_url}
             )
         
         # Check if authorization code is present
         if not code:
             logger.warning("No authorization code received from Google")
+            error_url = f"{frontend_callback}?error=no_code"
             return Response(
                 {'error': 'No authorization code provided'},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_302_FOUND,
+                headers={'Location': error_url}
             )
         
-        # Return the code for the frontend to use
-        logger.info("Authorization code received from Google")
-        return Response({
-            'message': 'Authorization code received',
-            'code': code,
-            'instruction': 'Send this code to POST /api/auth/google/login/'
-        }, status=status.HTTP_200_OK)
+        # Redirect to frontend with the code
+        logger.info("Authorization code received from Google, redirecting to frontend")
+        redirect_url = f"{frontend_callback}?code={code}"
+        
+        from django.http import HttpResponseRedirect
+        return HttpResponseRedirect(redirect_url)
