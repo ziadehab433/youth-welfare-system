@@ -9,12 +9,12 @@ class StudentSignUpSerializer(serializers.ModelSerializer):
     """
     Serializer for student registration with encrypted sensitive fields
     """
-    password_confirm = serializers.CharField(write_only=True, required=True)
+    # password_confirm = serializers.CharField(write_only=True, required=True)
     
     class Meta:
         model = Students
         fields = [
-            'name', 'email', 'password', 'password_confirm',
+            'name', 'email', 'password', 
             'faculty', 'gender', 'nid', 'uid', 'phone_number',
             'address', 'acd_year', 'major'
         ]
@@ -28,8 +28,8 @@ class StudentSignUpSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         """Validate passwords match and nid/uid are valid"""
-        if data['password'] != data.pop('password_confirm'):
-            raise serializers.ValidationError("Passwords do not match")
+        # if data['password'] != data.pop('password_confirm'):
+        #     raise serializers.ValidationError("Passwords do not match")
         
         # Validate NID (example: should be 14 digits for Egyptian ID)
         nid = data.get('nid', '')

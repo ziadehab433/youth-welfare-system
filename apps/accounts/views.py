@@ -197,9 +197,13 @@ class StudentSignUpView(APIView):
     parser_classes = [MultiPartParser, FormParser, JSONParser]  
 
     def post(self, request):
+        print("📍 SIGNUP REQUEST DATA:", request.data)  # Log incoming data
+        print("📍 SIGNUP REQUEST FILES:", request.FILES)  # Log files if any
+        
         serializer = StudentSignUpSerializer(data=request.data)
         
         if not serializer.is_valid():
+            print("❌ SERIALIZER ERRORS:", serializer.errors)  # Log all validation errors
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         student = serializer.save()
