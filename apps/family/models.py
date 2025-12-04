@@ -8,7 +8,8 @@
 from django.db import models
 from apps.solidarity.models import Departments 
 from apps.accounts.models import Students
-from apps.solidarity.models import Faculties , Admins
+from apps.solidarity.models import Faculties 
+from apps.accounts.models import AdminsUser
 
 
 
@@ -24,7 +25,7 @@ class Families(models.Model):
         db_column='faculty_id'
     )
     created_by = models.ForeignKey(
-        Admins, 
+        AdminsUser, 
         models.DO_NOTHING, 
         db_column='created_by', 
         blank=True, 
@@ -32,7 +33,7 @@ class Families(models.Model):
         related_name='families_created_by_set'
     )
     approved_by = models.ForeignKey(
-        Admins, 
+        AdminsUser, 
         models.DO_NOTHING, 
         db_column='approved_by', 
         blank=True, 

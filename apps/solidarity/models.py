@@ -8,6 +8,7 @@
 from django.db import models
 from django.contrib.postgres.fields import ArrayField 
 from django.db import models
+from apps.accounts.models import AdminsUser
 
 class Solidarities(models.Model):
     solidarity_id = models.AutoField(primary_key=True)
@@ -29,7 +30,7 @@ class Solidarities(models.Model):
     grade = models.CharField(max_length=50, blank=True, null=True)
     acd_status = models.CharField(max_length=50, blank=True, null=True)
     address = models.CharField(max_length=255)
-    approved_by = models.ForeignKey('Admins', models.DO_NOTHING, db_column='approved_by', blank=True, null=True)
+    approved_by = models.ForeignKey(AdminsUser, models.DO_NOTHING, db_column='approved_by', blank=True, null=True)
     updated_at = models.DateTimeField(blank=True, null=True)
     req_type = models.TextField(blank=True, null=True)  # This field type is a guess.
     housing_status = models.TextField(blank=True, null=True)  # This field type is a guess.
@@ -49,7 +50,7 @@ class Solidarities(models.Model):
 
 class Logs(models.Model):
     log_id = models.AutoField(primary_key=True)
-    actor = models.ForeignKey('Admins', models.DO_NOTHING)
+    actor = models.ForeignKey(AdminsUser, models.DO_NOTHING)
     action = models.CharField(max_length=100)
     #event = models.ForeignKey('Events', models.DO_NOTHING, blank=True, null=True)
     solidarity = models.ForeignKey(Solidarities, models.DO_NOTHING, blank=True, null=True)
@@ -145,24 +146,24 @@ class Faculties(models.Model):
         managed = False
         db_table = 'faculties'
 
-class Admins(models.Model):
-    admin_id = models.AutoField(primary_key=True)
-    name = models.CharField(max_length=100)
-    email = models.CharField(unique=True, max_length=100)
-    password = models.CharField()
-    faculty = models.ForeignKey(Faculties, models.DO_NOTHING, blank=True, null=True)
-    dept = models.ForeignKey(Departments, models.DO_NOTHING, blank=True, null=True)
-    created_at = models.DateTimeField(blank=True, null=True)
-    can_create = models.BooleanField(blank=True, null=True)
-    can_update = models.BooleanField(blank=True, null=True)
-    can_read = models.BooleanField(blank=True, null=True)
-    can_delete = models.BooleanField(blank=True, null=True)
-    acc_status = models.CharField(max_length=20, blank=True, null=True)
-    role = models.TextField(blank=True, null=True)  # This field type is a guess.
+# class Admins(models.Model):
+#     admin_id = models.AutoField(primary_key=True)
+#     name = models.CharField(max_length=100)
+#     email = models.CharField(unique=True, max_length=100)
+#     password = models.CharField()
+#     faculty = models.ForeignKey(Faculties, models.DO_NOTHING, blank=True, null=True)
+#     dept = models.ForeignKey(Departments, models.DO_NOTHING, blank=True, null=True)
+#     created_at = models.DateTimeField(blank=True, null=True)
+#     can_create = models.BooleanField(blank=True, null=True)
+#     can_update = models.BooleanField(blank=True, null=True)
+#     can_read = models.BooleanField(blank=True, null=True)
+#     can_delete = models.BooleanField(blank=True, null=True)
+#     acc_status = models.CharField(max_length=20, blank=True, null=True)
+#     role = models.TextField(blank=True, null=True)  # This field type is a guess.
 
-    class Meta:
-        managed = False
-        db_table = 'admins'
+#     class Meta:
+#         managed = False
+#         db_table = 'admins'
 
 
 #not needed tables (models) just quick fix

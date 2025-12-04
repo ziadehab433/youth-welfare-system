@@ -1,0 +1,154 @@
+[INFO] 2025-12-03 20:15:25 apps.accounts.encryption Encryption service initialized successfully
+[INFO] 2025-12-03 20:15:26 apps.accounts.encryption Encryption service initialized successfully
+[INFO] 2025-12-03 20:15:26 django.utils.autoreload Watching for file changes with StatReloader
+[ERROR] 2025-12-03 20:15:36 django.request Internal Server Error: /api/auth/google/init/
+Traceback (most recent call last):
+  File "D:\Collage\GP_2026\youth-welfare-system\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "D:\Collage\GP_2026\youth-welfare-system\venv\Lib\site-packages\django\utils\deprecation.py", line 119, in __call__
+    response = self.process_request(request)
+  File "D:\Collage\GP_2026\youth-welfare-system\apps\accounts\middleware.py", line 68, in process_request
+    max_req, window = RateLimiter.get_limit_for_endpoint(path)
+                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "D:\Collage\GP_2026\youth-welfare-system\apps\accounts\security.py", line 164, in get_limit_for_endpoint
+    if any(path.startswith(ep) for ep in endpoints):
+       ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Collage\GP_2026\youth-welfare-system\apps\accounts\security.py", line 164, in <genexpr>
+    if any(path.startswith(ep) for ep in endpoints):
+           ^^^^^^^^^^^^^^^
+AttributeError: module 'ntpath' has no attribute 'startswith'
+[ERROR] 2025-12-03 20:15:36 django.server "GET /api/auth/google/init/ HTTP/1.1" 500 88862
+[INFO] 2025-12-03 20:16:04 django.utils.autoreload D:\Collage\GP_2026\youth-welfare-system\apps\accounts\security.py changed, reloading.
+[INFO] 2025-12-03 20:16:05 apps.accounts.encryption Encryption service initialized successfully
+[INFO] 2025-12-03 20:16:05 django.utils.autoreload Watching for file changes with StatReloader
+[INFO] 2025-12-03 20:16:06 django.utils.autoreload D:\Collage\GP_2026\youth-welfare-system\apps\accounts\security.py changed, reloading.
+[INFO] 2025-12-03 20:16:07 apps.accounts.encryption Encryption service initialized successfully
+[INFO] 2025-12-03 20:16:07 django.utils.autoreload Watching for file changes with StatReloader
+[INFO] 2025-12-03 20:16:15 django.utils.autoreload D:\Collage\GP_2026\youth-welfare-system\apps\accounts\security.py changed, reloading.
+[INFO] 2025-12-03 20:16:16 apps.accounts.encryption Encryption service initialized successfully
+[INFO] 2025-12-03 20:16:16 django.utils.autoreload Watching for file changes with StatReloader
+[INFO] 2025-12-03 20:16:19 django.utils.autoreload D:\Collage\GP_2026\youth-welfare-system\apps\accounts\security.py changed, reloading.
+[INFO] 2025-12-03 20:16:20 apps.accounts.encryption Encryption service initialized successfully
+[INFO] 2025-12-03 20:16:20 django.utils.autoreload Watching for file changes with StatReloader
+[INFO] 2025-12-03 20:16:43 django.utils.autoreload D:\Collage\GP_2026\youth-welfare-system\apps\accounts\middleware.py changed, reloading.
+[INFO] 2025-12-03 20:16:44 apps.accounts.encryption Encryption service initialized successfully
+[INFO] 2025-12-03 20:16:44 django.utils.autoreload Watching for file changes with StatReloader
+[INFO] 2025-12-03 20:16:46 django.utils.autoreload D:\Collage\GP_2026\youth-welfare-system\apps\accounts\middleware.py changed, reloading.
+[INFO] 2025-12-03 20:16:47 apps.accounts.encryption Encryption service initialized successfully
+[INFO] 2025-12-03 20:16:47 django.utils.autoreload Watching for file changes with StatReloader
+[INFO] 2025-12-03 20:16:50 django.utils.autoreload D:\Collage\GP_2026\youth-welfare-system\apps\accounts\middleware.py changed, reloading.
+[INFO] 2025-12-03 20:16:51 apps.accounts.encryption Encryption service initialized successfully
+[INFO] 2025-12-03 20:16:51 django.utils.autoreload Watching for file changes with StatReloader
+[INFO] 2025-12-03 20:17:01 django.server "OPTIONS /api/auth/google/init/ HTTP/1.1" 200 0
+[INFO] 2025-12-03 20:17:01 apps.accounts.google_auth_views Generated auth URL with redirect_uri: http://localhost:8000/api/auth/google/callback/
+[INFO] 2025-12-03 20:17:01 apps.accounts.middleware method=GET | path=/api/auth/google/init/ | status=200 | duration=0.002s | ip=127.0.0.1
+[INFO] 2025-12-03 20:17:01 django.server "GET /api/auth/google/init/ HTTP/1.1" 200 354
+[INFO] 2025-12-03 20:17:02 apps.accounts.google_auth_views Authorization code received from Google, redirecting to frontend
+[INFO] 2025-12-03 20:17:02 apps.accounts.middleware method=GET | path=/api/auth/google/callback/ | status=302 | duration=0.001s | ip=127.0.0.1
+[INFO] 2025-12-03 20:17:02 django.server "GET /api/auth/google/callback/?code=4%2F0Ab32j90olNIdjb8k9OfLyLpJYADkG5P456GhfD1C-ALppCt6uOi_qZVYj7ebswz15hlVxA&scope=email+profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile+openid&authuser=0&prompt=none HTTP/1.1" 302 0
+[INFO] 2025-12-03 20:17:02 django.server "OPTIONS /api/auth/google/login/ HTTP/1.1" 200 0
+[INFO] 2025-12-03 20:17:02 apps.accounts.google_auth_views ✓ Google OAuth login request received | ip=127.0.0.1
+[INFO] 2025-12-03 20:17:03 apps.accounts.google_auth_views ✓ Google authentication successful | email=omarsomaa1na@gmail.com
+[WARNING] 2025-12-03 20:17:03 apps.accounts.google_auth_views ❌ Student not found | google_id=101628875608602818195 | email=omarsomaa1na@gmail.com
+[INFO] 2025-12-03 20:17:03 apps.accounts.middleware method=POST | path=/api/auth/google/login/ | status=404 | duration=1.277s | ip=127.0.0.1
+[WARNING] 2025-12-03 20:17:03 django.request Not Found: /api/auth/google/login/
+[WARNING] 2025-12-03 20:17:03 django.server "POST /api/auth/google/login/ HTTP/1.1" 404 151
+[INFO] 2025-12-03 20:17:10 apps.accounts.google_auth_views Generated auth URL with redirect_uri: http://localhost:8000/api/auth/google/callback/
+[INFO] 2025-12-03 20:17:10 apps.accounts.middleware method=GET | path=/api/auth/google/init/ | status=200 | duration=0.001s | ip=127.0.0.1
+[INFO] 2025-12-03 20:17:10 django.server "GET /api/auth/google/init/ HTTP/1.1" 200 354
+[INFO] 2025-12-03 20:17:11 apps.accounts.google_auth_views Authorization code received from Google, redirecting to frontend
+[INFO] 2025-12-03 20:17:11 apps.accounts.middleware method=GET | path=/api/auth/google/callback/ | status=302 | duration=0.002s | ip=127.0.0.1
+[INFO] 2025-12-03 20:17:11 django.server "GET /api/auth/google/callback/?code=4%2F0Ab32j90RoFGdtSydp4h84y807MlnGawZALYV-SnM365kH_lz34_9VYqkxEGPB4mx36eMgQ&scope=email+profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile+openid&authuser=0&prompt=none HTTP/1.1" 302 0
+[INFO] 2025-12-03 20:17:11 apps.accounts.google_auth_views ✓ Google OAuth login request received | ip=127.0.0.1
+[INFO] 2025-12-03 20:17:13 apps.accounts.google_auth_views ✓ Google authentication successful | email=omarsomaa1na@gmail.com
+[WARNING] 2025-12-03 20:17:13 apps.accounts.google_auth_views ❌ Student not found | google_id=101628875608602818195 | email=omarsomaa1na@gmail.com
+[INFO] 2025-12-03 20:17:13 apps.accounts.middleware method=POST | path=/api/auth/google/login/ | status=404 | duration=1.171s | ip=127.0.0.1
+[WARNING] 2025-12-03 20:17:13 django.request Not Found: /api/auth/google/login/
+[WARNING] 2025-12-03 20:17:13 django.server "POST /api/auth/google/login/ HTTP/1.1" 404 151
+[WARNING] 2025-12-03 20:17:18 django.request Too Many Requests: /api/auth/google/init/
+[WARNING] 2025-12-03 20:17:18 django.server "GET /api/auth/google/init/ HTTP/1.1" 429 75
+[INFO] 2025-12-03 20:17:44 django.utils.autoreload D:\Collage\GP_2026\youth-welfare-system\youth_welfare\settings.py changed, reloading.
+[INFO] 2025-12-03 20:18:03 apps.accounts.encryption Encryption service initialized successfully
+[INFO] 2025-12-03 20:18:04 apps.accounts.encryption Encryption service initialized successfully
+[INFO] 2025-12-03 20:18:04 django.utils.autoreload Watching for file changes with StatReloader
+[INFO] 2025-12-03 20:18:20 django.utils.autoreload D:\Collage\GP_2026\youth-welfare-system\youth_welfare\settings.py changed, reloading.
+[INFO] 2025-12-03 20:18:21 apps.accounts.encryption Encryption service initialized successfully
+[INFO] 2025-12-03 20:18:21 django.utils.autoreload Watching for file changes with StatReloader
+[INFO] 2025-12-03 20:18:23 django.utils.autoreload D:\Collage\GP_2026\youth-welfare-system\youth_welfare\settings.py changed, reloading.
+[INFO] 2025-12-03 20:18:24 apps.accounts.encryption Encryption service initialized successfully
+[INFO] 2025-12-03 20:18:24 django.utils.autoreload Watching for file changes with StatReloader
+[INFO] 2025-12-04 23:04:05 apps.accounts.encryption Encryption service initialized successfully
+[INFO] 2025-12-04 23:04:06 apps.accounts.encryption Encryption service initialized successfully
+[INFO] 2025-12-04 23:04:06 django.utils.autoreload Watching for file changes with StatReloader
+[INFO] 2025-12-04 23:04:59 apps.accounts.middleware method=GET | path=/api/docs/swagger/ | status=200 | duration=0.075s | ip=127.0.0.1
+[INFO] 2025-12-04 23:04:59 django.server "GET /api/docs/swagger/ HTTP/1.1" 200 4716
+[INFO] 2025-12-04 23:05:02 apps.accounts.middleware method=GET | path=/api/schema/ | status=200 | duration=0.062s | ip=127.0.0.1
+[INFO] 2025-12-04 23:05:02 django.server "GET /api/schema/ HTTP/1.1" 200 104895
+[INFO] 2025-12-04 23:05:27 django.server "OPTIONS /api/auth/google/init/ HTTP/1.1" 200 0
+[INFO] 2025-12-04 23:05:27 apps.accounts.google_auth_views Generated auth URL with redirect_uri: http://localhost:8000/api/auth/google/callback/
+[INFO] 2025-12-04 23:05:27 apps.accounts.middleware method=GET | path=/api/auth/google/init/ | status=200 | duration=0.002s | ip=127.0.0.1
+[INFO] 2025-12-04 23:05:27 django.server "GET /api/auth/google/init/ HTTP/1.1" 200 354
+[INFO] 2025-12-04 23:05:28 apps.accounts.google_auth_views Authorization code received from Google, redirecting to frontend
+[INFO] 2025-12-04 23:05:28 apps.accounts.middleware method=GET | path=/api/auth/google/callback/ | status=302 | duration=0.003s | ip=127.0.0.1
+[INFO] 2025-12-04 23:05:28 django.server "GET /api/auth/google/callback/?code=4%2F0Ab32j91UMYOa_mnlxeFvtRWmtj0jvRlmRkXfvkA-qDpaTZqNs8DCvyNjAjFbjTinVlU3Bw&scope=email+profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile+openid&authuser=0&prompt=none HTTP/1.1" 302 0
+[INFO] 2025-12-04 23:05:28 django.server "OPTIONS /api/auth/google/login/ HTTP/1.1" 200 0
+[INFO] 2025-12-04 23:05:28 apps.accounts.google_auth_views ✓ Google OAuth login request received | ip=127.0.0.1
+[INFO] 2025-12-04 23:05:30 apps.accounts.google_auth_views ✓ Google authentication successful | email=teempoomail00@gmail.com
+[INFO] 2025-12-04 23:05:30 apps.accounts.google_auth_views ✓ Existing student found via Google ID | student_id=29
+[INFO] 2025-12-04 23:05:30 apps.accounts.google_auth_views 🔄 Generating JWT tokens...
+[INFO] 2025-12-04 23:05:30 apps.accounts.google_auth_views ✅ Google OAuth login successful | student_id=29 | email=teempoomail00@gmail.com
+[INFO] 2025-12-04 23:05:30 apps.accounts.middleware method=POST | path=/api/auth/google/login/ | status=200 | duration=1.472s | ip=127.0.0.1
+[INFO] 2025-12-04 23:05:30 django.server "POST /api/auth/google/login/ HTTP/1.1" 200 1115
+[INFO] 2025-12-04 23:06:07 django.server "OPTIONS /api/auth/google/init/ HTTP/1.1" 200 0
+[INFO] 2025-12-04 23:06:07 apps.accounts.google_auth_views Generated auth URL with redirect_uri: http://localhost:8000/api/auth/google/callback/
+[INFO] 2025-12-04 23:06:07 apps.accounts.middleware method=GET | path=/api/auth/google/init/ | status=200 | duration=0.001s | ip=127.0.0.1
+[INFO] 2025-12-04 23:06:07 django.server "GET /api/auth/google/init/ HTTP/1.1" 200 354
+[INFO] 2025-12-04 23:08:36 apps.accounts.google_auth_views Authorization code received from Google, redirecting to frontend
+[INFO] 2025-12-04 23:08:36 apps.accounts.middleware method=GET | path=/api/auth/google/callback/ | status=302 | duration=0.001s | ip=127.0.0.1
+[INFO] 2025-12-04 23:08:36 django.server "GET /api/auth/google/callback/?code=4%2F0Ab32j91bEPl2Oyo3df4yy3HcHqsWz4QwDPklE8_aorfecI7_tohnGMGRIRKJcgxaZBtj7w&scope=email+profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+openid&authuser=0&prompt=consent HTTP/1.1" 302 0
+[INFO] 2025-12-04 23:08:36 django.server "OPTIONS /api/auth/google/login/ HTTP/1.1" 200 0
+[INFO] 2025-12-04 23:08:36 apps.accounts.google_auth_views ✓ Google OAuth login request received | ip=127.0.0.1
+[INFO] 2025-12-04 23:08:37 apps.accounts.google_auth_views ✓ Google authentication successful | email=teempoomail00@gmail.com
+[INFO] 2025-12-04 23:08:37 apps.accounts.google_auth_views ✓ Existing student found via Google ID | student_id=29
+[INFO] 2025-12-04 23:08:37 apps.accounts.google_auth_views 🔄 Generating JWT tokens...
+[INFO] 2025-12-04 23:08:37 apps.accounts.google_auth_views ✅ Google OAuth login successful | student_id=29 | email=teempoomail00@gmail.com
+[INFO] 2025-12-04 23:08:37 apps.accounts.middleware method=POST | path=/api/auth/google/login/ | status=200 | duration=1.221s | ip=127.0.0.1
+[INFO] 2025-12-04 23:08:37 django.server "POST /api/auth/google/login/ HTTP/1.1" 200 1115
+[INFO] 2025-12-04 23:08:56 django.server "OPTIONS /api/auth/google/init/ HTTP/1.1" 200 0
+[INFO] 2025-12-04 23:08:56 apps.accounts.google_auth_views Generated auth URL with redirect_uri: http://localhost:8000/api/auth/google/callback/
+[INFO] 2025-12-04 23:08:56 apps.accounts.middleware method=GET | path=/api/auth/google/init/ | status=200 | duration=0.001s | ip=127.0.0.1
+[INFO] 2025-12-04 23:08:56 django.server "GET /api/auth/google/init/ HTTP/1.1" 200 354
+[INFO] 2025-12-04 23:08:57 apps.accounts.google_auth_views Authorization code received from Google, redirecting to frontend
+[INFO] 2025-12-04 23:08:57 apps.accounts.middleware method=GET | path=/api/auth/google/callback/ | status=302 | duration=0.002s | ip=127.0.0.1
+[INFO] 2025-12-04 23:08:57 django.server "GET /api/auth/google/callback/?code=4%2F0Ab32j92iJj7RktJ-ocHLXUYtWNpvgyTkoUu12nsifjLLBBe1hoqjEg9efx0mb8n6qNabLA&scope=email+profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile+openid&authuser=0&prompt=none HTTP/1.1" 302 0
+[INFO] 2025-12-04 23:08:57 django.server "OPTIONS /api/auth/google/login/ HTTP/1.1" 200 0
+[INFO] 2025-12-04 23:08:57 apps.accounts.google_auth_views ✓ Google OAuth login request received | ip=127.0.0.1
+[INFO] 2025-12-04 23:08:58 apps.accounts.google_auth_views ✓ Google authentication successful | email=ssh493147@gmail.com
+[INFO] 2025-12-04 23:08:58 apps.accounts.google_auth_views ✓ Existing student found via Google ID | student_id=33
+[INFO] 2025-12-04 23:08:58 apps.accounts.google_auth_views 🔄 Generating JWT tokens...
+[INFO] 2025-12-04 23:08:58 apps.accounts.google_auth_views ✅ Google OAuth login successful | student_id=33 | email=ssh493147@gmail.com
+[INFO] 2025-12-04 23:08:58 apps.accounts.middleware method=POST | path=/api/auth/google/login/ | status=200 | duration=1.198s | ip=127.0.0.1
+[INFO] 2025-12-04 23:08:58 django.server "POST /api/auth/google/login/ HTTP/1.1" 200 1104
+[INFO] 2025-12-04 23:10:11 django.server "OPTIONS /api/auth/google/init/ HTTP/1.1" 200 0
+[INFO] 2025-12-04 23:10:11 apps.accounts.google_auth_views Generated auth URL with redirect_uri: http://localhost:8000/api/auth/google/callback/
+[INFO] 2025-12-04 23:10:11 apps.accounts.middleware method=GET | path=/api/auth/google/init/ | status=200 | duration=0.001s | ip=127.0.0.1
+[INFO] 2025-12-04 23:10:11 django.server "GET /api/auth/google/init/ HTTP/1.1" 200 354
+[INFO] 2025-12-04 23:10:12 apps.accounts.google_auth_views Authorization code received from Google, redirecting to frontend
+[INFO] 2025-12-04 23:10:12 apps.accounts.middleware method=GET | path=/api/auth/google/callback/ | status=302 | duration=0.001s | ip=127.0.0.1
+[INFO] 2025-12-04 23:10:12 django.server "GET /api/auth/google/callback/?code=4%2F0Ab32j91mQZ5Abc71pkXsj6C-8fwvgEJnjJlwYq-o4Cw1J5b25BE0QC5qIwNQQqCkcsnXIg&scope=email+profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+openid+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile&authuser=0&prompt=none HTTP/1.1" 302 0
+[INFO] 2025-12-04 23:10:12 django.server "OPTIONS /api/auth/google/login/ HTTP/1.1" 200 0
+[INFO] 2025-12-04 23:10:12 apps.accounts.google_auth_views ✓ Google OAuth login request received | ip=127.0.0.1
+[INFO] 2025-12-04 23:10:13 apps.accounts.google_auth_views ✓ Google authentication successful | email=omarahmed404a@gmail.com
+[WARNING] 2025-12-04 23:10:14 apps.accounts.google_auth_views ❌ Student not found | google_id=118186808585869008918 | email=omarahmed404a@gmail.com
+[INFO] 2025-12-04 23:10:14 apps.accounts.middleware method=POST | path=/api/auth/google/login/ | status=404 | duration=1.336s | ip=127.0.0.1
+[WARNING] 2025-12-04 23:10:14 django.request Not Found: /api/auth/google/login/
+[WARNING] 2025-12-04 23:10:14 django.server "POST /api/auth/google/login/ HTTP/1.1" 404 152
+[INFO] 2025-12-04 23:10:41 apps.accounts.middleware method=GET | path=/api/solidarity/super_dept/faculties/ | status=200 | duration=0.047s | ip=127.0.0.1
+[INFO] 2025-12-04 23:10:41 django.server "GET /api/solidarity/super_dept/faculties/ HTTP/1.1" 200 134
+[INFO] 2025-12-04 23:10:41 apps.accounts.middleware method=GET | path=/api/solidarity/super_dept/faculties/ | status=200 | duration=0.043s | ip=127.0.0.1
+[INFO] 2025-12-04 23:10:41 django.server "GET /api/solidarity/super_dept/faculties/ HTTP/1.1" 200 134
+[INFO] 2025-12-04 23:12:39 apps.accounts.middleware method=POST | path=/api/auth/signUp/ | status=201 | duration=0.253s | ip=127.0.0.1
+[INFO] 2025-12-04 23:12:39 django.server "POST /api/auth/signUp/ HTTP/1.1" 201 721
+[INFO] 2025-12-04 23:12:51 django.server "OPTIONS /api/auth/login/ HTTP/1.1" 200 0
+[INFO] 2025-12-04 23:12:53 apps.accounts.middleware method=POST | path=/api/auth/login/ | status=200 | duration=2.253s | ip=127.0.0.1
+[INFO] 2025-12-04 23:12:53 django.server "POST /api/auth/login/ HTTP/1.1" 200 874

@@ -1,5 +1,4 @@
 from django.shortcuts import get_object_or_404
-from apps.solidarity.models import Admins
 from apps.accounts.models import Students
 import os
 import uuid
@@ -13,7 +12,7 @@ from pyppeteer import launch
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 from django.shortcuts import get_object_or_404
-# from apps.accounts.models import Admins
+from apps.accounts.models import AdminsUser
 
 # utils.py or constants.py
 
@@ -104,7 +103,7 @@ def get_current_admin(request):
             raise AuthenticationFailed("لم يتم العثور على مستخدم مرتبط .")
         
         # the user should already be an instance of Admins
-        if isinstance(user, Admins):
+        if isinstance(user, AdminsUser):
             return user
         
         # fallback if token payload has admin_id
@@ -112,7 +111,7 @@ def get_current_admin(request):
         if not admin_id:
             raise AuthenticationFailed("لا يحتوي  على admin_id.")
         
-        return get_object_or_404(Admins, pk=admin_id)
+        return get_object_or_404(AdminsUser, pk=admin_id)
 
     except Exception as e:
         raise AuthenticationFailed(f"خطأ في التوكن: {str(e)}")
