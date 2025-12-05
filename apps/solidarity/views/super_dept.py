@@ -38,8 +38,10 @@ from apps.solidarity.serializers import DeptFacultySummarySerializer
 from apps.solidarity.services.solidarity_service import SolidarityService
 # from ..serializers import FacultyApprovedResponseSerializer, SolidarityApprovedRowSerializer
 from ..serializers import DiscountAssignSerializer, SolidarityDocsSerializer
-from apps.solidarity.utils import get_current_student, get_current_admin, handle_report_data, html_to_pdf_buffer, get_client_ip
+from apps.accounts.utils import get_client_ip,get_current_admin,get_current_student,get_object_or_404
+from apps.solidarity.utils import  handle_report_data, html_to_pdf_buffer
 from apps.solidarity.services.solidarity_service import SolidarityService
+from apps.accounts.utils import *
 
 class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
     permission_classes = [ IsRole]
@@ -48,7 +50,7 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
     queryset = Solidarities.objects.all()
 
     @extend_schema(
-        tags=["Dept&Super Admin APIs"],
+        tags=["Solidarity Dept&Super Admin APIs"],
         description="Retrieve all solidarity applications with optional filters",
         parameters=[
             OpenApiParameter('faculty', str, description="Filter by faculty ID"),
@@ -76,7 +78,7 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
         return Response(SolidarityListSerializer(queryset, many=True).data)
 
     @extend_schema(
-        tags=["Dept&Super Admin APIs"],
+        tags=["Solidarity Dept&Super Admin APIs"],
         description="Retrieve detailed application data for a specific student",
         responses={200: SolidarityDetailSerializer, 404: OpenApiResponse(description="Not found")}
     )
@@ -88,7 +90,7 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
         admin = get_current_admin(request)
         solidarity = SolidarityService.get_app_dtl(pk, admin)
 
-        SolidarityService.log_data_access(
+        log_data_access(
         actor_id=admin.admin_id,
         actor_type=admin.role,
         action='عرض بيانات الطلب',
@@ -101,7 +103,7 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
 
 
     @extend_schema(
-        tags=["Dept&Super Admin APIs"],
+        tags=["Solidarity Dept&Super Admin APIs"],
         description="Retrieve all uploaded documents for a specific solidarity application",
         responses={200: SolidarityDocsSerializer(many=True)}
     )
@@ -118,7 +120,7 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
             return Response({'detail': 'No documents found for this solidarity_id'}, status=404)
        
            # # Log document access
-        SolidarityService.log_data_access(
+        log_data_access(
         actor_id=admin.admin_id,
         actor_type=admin.role,
         action='عرض مستندات الطلب',     # “Viewed solidarity documents”
@@ -133,7 +135,7 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
 
 
     @extend_schema(
-        tags=["Dept&Super Admin APIs"],
+        tags=["Solidarity Dept&Super Admin APIs"],
         description="Change status of request to 'Approved'",
         responses={200: SolidarityDetailSerializer, 404: OpenApiResponse(description="Not found")}
     )
@@ -146,7 +148,7 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
         return Response(result)
 
     @extend_schema(
-        tags=["Dept&Super Admin APIs"],
+        tags=["Solidarity Dept&Super Admin APIs"],
         description="Change status of request to 'Rejected'",
         responses={200: SolidarityDetailSerializer, 404: OpenApiResponse(description="Not found")}
     )
@@ -182,14 +184,14 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
         }
         filters = {k: v for k, v in filters.items() if v is not None}
         
-        queryset = SolidarityService.get_all_logs(filters=filters)
+        queryset = get_all_logs(filters=filters)
         
         return Response(LogSerializer(queryset, many=True).data)
     
 # ... (داخل كلاس SuperDeptSolidarityViewSet) ...
 
     @extend_schema(
-        tags=["Dept&Super Admin APIs"],
+        tags=["Solidarity Dept&Super Admin APIs"],
         description="Get Faculty Summary (name, approved amount, approved count, pending count)",
         # نستخدم OpenApiResponse هنا لأن شكل الرد مخصص (Custom Dictionary)
         responses={200: OpenApiResponse(description="Returns rows list and totals object")}
@@ -228,7 +230,7 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
     
     
     @extend_schema(
-        tags=["Dept&Super Admin APIs"],
+        tags=["Solidarity Dept&Super Admin APIs"],
         description="Get Faculties",
         responses={200: OpenApiResponse(description="Returns a list of faculties in the db")}
     )

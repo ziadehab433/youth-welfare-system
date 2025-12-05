@@ -37,7 +37,8 @@ from apps.solidarity.serializers import DeptFacultySummarySerializer
 from apps.solidarity.services.solidarity_service import SolidarityService
 from ..serializers import FacultyApprovedResponseSerializer, SolidarityApprovedRowSerializer
 from ..serializers import DiscountAssignSerializer, SolidarityDocsSerializer
-from apps.solidarity.utils import get_current_student, get_current_admin, handle_report_data, html_to_pdf_buffer, get_client_ip
+from apps.accounts.utils import get_current_admin , get_client_ip , get_current_student
+from apps.solidarity.utils import  handle_report_data, html_to_pdf_buffer
 from apps.solidarity.services.solidarity_service import SolidarityService
 
 class StudentSolidarityViewSet(viewsets.GenericViewSet):
@@ -46,7 +47,7 @@ class StudentSolidarityViewSet(viewsets.GenericViewSet):
     parser_classes = [MultiPartParser, FormParser]
 
     @extend_schema(
-        tags=["Student APIs"],
+        tags=["Solidarity Student APIs"],
         description="Submit solidarity application with file uploads (max 5MB each). "
                     "Allowed formats: PDF, JPG, JPEG, PNG",
         request=SolidarityApplySerializer,
@@ -103,7 +104,7 @@ class StudentSolidarityViewSet(viewsets.GenericViewSet):
             )
 
     @extend_schema(
-        tags=["Student APIs"],
+        tags=["Solidarity Student APIs"],
         description="Get the list of solidarity applications for the logged-in student",
         responses={200: SolidarityStatusSerializer(many=True)}
     )
@@ -114,7 +115,7 @@ class StudentSolidarityViewSet(viewsets.GenericViewSet):
         return Response(SolidarityStatusSerializer(qs, many=True).data)
 
     @extend_schema(
-        tags=["Student APIs"],
+        tags=["Solidarity Student APIs"],
         description="Get detailed information for a specific solidarity application (including all documents)",
         responses={
             200: SolidarityDetailSerializer, 

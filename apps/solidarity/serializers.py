@@ -236,7 +236,7 @@ class SolidarityDocsSerializer(serializers.ModelSerializer):
     class Meta:
         model = SolidarityDocs
         fields = ['doc_id', 'solidarity', 'doc_type', 'file_url', 'mime_type', 'file_size', 'uploaded_at']
-
+    @extend_schema_field(serializers.URLField)
     def get_file_url(self, obj):
         request = self.context.get('request')
         url = obj.file.url if obj.file else None
@@ -256,7 +256,7 @@ class LogSerializer(serializers.ModelSerializer):
             'log_id', 'actor_name','actor_id', 'actor_role', 'faculty_name','action',  'target_type', 
             'solidarity_id', 'ip_address', 'logged_at'
         ]
-
+    @extend_schema_field(serializers.StringRelatedField)
     def get_faculty_name(self, obj):
         # Safely access faculty through actor
         try:

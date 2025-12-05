@@ -146,26 +146,6 @@ class Faculties(models.Model):
         managed = False
         db_table = 'faculties'
 
-# class Admins(models.Model):
-#     admin_id = models.AutoField(primary_key=True)
-#     name = models.CharField(max_length=100)
-#     email = models.CharField(unique=True, max_length=100)
-#     password = models.CharField()
-#     faculty = models.ForeignKey(Faculties, models.DO_NOTHING, blank=True, null=True)
-#     dept = models.ForeignKey(Departments, models.DO_NOTHING, blank=True, null=True)
-#     created_at = models.DateTimeField(blank=True, null=True)
-#     can_create = models.BooleanField(blank=True, null=True)
-#     can_update = models.BooleanField(blank=True, null=True)
-#     can_read = models.BooleanField(blank=True, null=True)
-#     can_delete = models.BooleanField(blank=True, null=True)
-#     acc_status = models.CharField(max_length=20, blank=True, null=True)
-#     role = models.TextField(blank=True, null=True)  # This field type is a guess.
 
-#     class Meta:
-#         managed = False
-#         db_table = 'admins'
-
-
-#not needed tables (models) just quick fix
 
 

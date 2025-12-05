@@ -92,8 +92,7 @@ class StudentDetailSerializer(serializers.ModelSerializer):
             'nid', 'uid', 'phone_number', 'address',
             'acd_year', 'grade', 'major', 'profile_photo_url'
         ]
-
-    def get_profile_photo_url(self, obj):
+    def get_profile_photo_url(self, obj) -> str:
         request = self.context.get('request')
         if obj.profile_photo and request:
             return request.build_absolute_uri(f'/media/{obj.profile_photo}')

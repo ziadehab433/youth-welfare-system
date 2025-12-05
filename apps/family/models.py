@@ -1,16 +1,8 @@
-# This is an auto-generated Django model module.
-# You'll have to do the following manually to clean this up:
-#   * Rearrange models' order
-#   * Make sure each model has one field with primary_key=True
-#   * Make sure each ForeignKey and OneToOneField has `on_delete` set to the desired behavior
-#   * Remove `managed = False` lines if you wish to allow Django to create, modify, and delete the table
-# Feel free to rename the models, but don't rename db_table values or field names.
 from django.db import models
 from apps.solidarity.models import Departments 
 from apps.accounts.models import Students
 from apps.solidarity.models import Faculties 
 from apps.accounts.models import AdminsUser
-
 
 
 class Families(models.Model):
@@ -22,7 +14,7 @@ class Families(models.Model):
         models.DO_NOTHING, 
         blank=True, 
         null=True,
-        db_column='faculty_id'
+        db_column='faculty_id',
     )
     created_by = models.ForeignKey(
         AdminsUser, 
@@ -52,21 +44,21 @@ class Families(models.Model):
 
     def __str__(self):
         return self.name
-    
-
 
 
 class FamilyMembers(models.Model):
+    # REMOVE the id field - database doesn't have it
     family = models.ForeignKey(
         Families, 
-        models.CASCADE, 
-        primary_key=False,
-        db_column='family_id'
+        models.CASCADE,
+        db_column='family_id',
+        related_name='family_members'
     )
     student = models.ForeignKey(
         Students, 
         models.CASCADE,
-        db_column='student_id'
+        db_column='student_id',
+        primary_key=True  # Use student as part of composite key
     )
     role = models.CharField(max_length=30, default='member')
     status = models.TextField(blank=True, null=True)
@@ -82,11 +74,10 @@ class FamilyMembers(models.Model):
     class Meta:
         managed = False
         db_table = 'family_members'
-        unique_together = ('family', 'student')  # Composite Primary Key
+        unique_together = ('family', 'student')
         indexes = [
             models.Index(fields=['student'], name='idx_family_members_student'),
         ]
 
     def __str__(self):
         return f"{self.family.name} - {self.student}"
-
