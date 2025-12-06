@@ -1,0 +1,349 @@
+from jsonschema import ValidationError
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from drf_spectacular.utils import extend_schema
+from apps.family.serializers import AvailableFamiliesSerializer, CreateFamilyRequestSerializer, FamilyMembersDetailSerializer, JoinFamilySerializer
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse, OpenApiTypes
+
+from apps.family.serializers import * 
+from apps.family.services.family_service import FamilyService
+from apps.accounts.utils import get_current_student
+from apps.accounts.permissions import IsRole
+
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from drf_spectacular.utils import extend_schema
+
+class StudentFamilyViewSet(viewsets.GenericViewSet):
+    permission_classes = [IsRole]
+    allowed_roles = ['student']  # Student role - adjust based on your role names
+    serializer_class = StudentFamiliesSerializer
+    
+    @extend_schema(
+        tags=["Student Family APIs"],
+        description="Retrieve all families the student is a member of",
+        responses={200: StudentFamiliesSerializer(many=True)}
+    )
+    @action(detail=False, methods=['get'], url_path='families')
+    def list_families(self, request):
+        """Get all families where current student is a member"""
+        try:
+            student = get_current_student(request)  # You'll need to implement this
+            
+            family_memberships = FamilyService.get_families_for_student(student)
+            serializer = StudentFamiliesSerializer(family_memberships, many=True)
+            
+            return Response({
+                'count': family_memberships.count(),
+                'data': serializer.data
+            })
+        except Exception as e:
+            return Response(
+                {'error': str(e)}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+
+
+
+    
+    @extend_schema(
+        tags=["Student Family APIs"],
+        description="Get all families available for student to join",
+        responses={200: AvailableFamiliesSerializer(many=True)}
+    )
+    @action(detail=False, methods=['get'], url_path='available')
+    def available_families(self, request):
+        """Get families student can join (not full, not member, meets faculty/type criteria)"""
+        try:
+            student = get_current_student(request)
+            
+            # Check if student has a faculty assigned
+            if not student.faculty:
+                return Response(
+                    {'error': 'Student is not assigned to any faculty'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            available_families = FamilyService.get_available_families_for_student(student)
+            serializer = AvailableFamiliesSerializer(available_families, many=True)
+            
+            return Response({
+                'count': len(available_families),
+                'data': serializer.data
+            })
+            
+        except ValidationError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        except Exception as e:
+            return Response(
+                {'error': f'Unexpected error: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+
+
+
+    @extend_schema(
+        tags=["Student Family APIs"],
+        description="Get all members of a family (founders only)",
+        responses={200: FamilyMembersDetailSerializer(many=True)}
+    )
+    @action(detail=True, methods=['get'], url_path='members')
+    def family_members(self, request, pk=None):
+        """Get all members of a family - FOUNDERS ONLY"""
+        try:
+            student = get_current_student(request)
+            
+            family, members = FamilyService.get_family_members(
+                family_id=pk,
+                requester_student=student
+            )
+            
+            # Optional: Filter by role
+            role = request.query_params.get('role')
+            if role:
+                members = members.filter(role=role)
+            
+            # Optional: Filter by status
+            status_filter = request.query_params.get('status')
+            if status_filter:
+                members = members.filter(status=status_filter)
+            
+            # Optional: Search by name
+            search = request.query_params.get('search')
+            if search:
+                members = members.filter(student__name__icontains=search)
+            
+            serializer = FamilyMembersDetailSerializer(members, many=True)
+            
+            return Response({
+                'family_id': family.family_id,
+                'family_name': family.name,
+                'total_members': members.count(),
+                'members': serializer.data
+            })
+        
+        except ValidationError as e:
+            error_msg = str(e)
+            if "founders" in error_msg.lower():
+                return Response(
+                    {'error': error_msg},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            elif "not found" in error_msg.lower():
+                return Response(
+                    {'error': error_msg},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            return Response(
+                {'error': error_msg},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+
+
+
+
+    
+    @extend_schema(
+        tags=["Student Family APIs"],
+        description="Join a family",
+        request=None,
+        responses={
+            201: JoinFamilySerializer,
+            400: OpenApiResponse(description="Bad request"),
+            403: OpenApiResponse(description="Forbidden"),
+            404: OpenApiResponse(description="Not found")
+        }
+    )
+    @action(detail=True, methods=['post'], url_path='join')
+    def join_family(self, request, pk=None):
+        """Join a family"""
+        try:
+            student = get_current_student(request)
+            
+            # Join the family
+            member = FamilyService.join_family(
+                family_id=pk,
+                student=student
+            )
+            
+            # Get family info for response
+            family = member.family
+            
+            return Response({
+                'message': f'Successfully joined {family.name}',
+                'family_id': family.family_id,
+                'family_name': family.name,
+                'role': member.role,
+                'status': member.status,
+                'joined_at': member.joined_at
+            }, status=status.HTTP_201_CREATED)
+        
+        except ValidationError as e:
+            error_msg = str(e)
+            
+            if "already a member" in error_msg:
+                return Response(
+                    {'error': error_msg},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            elif "not found" in error_msg.lower():
+                return Response(
+                    {'error': error_msg},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            elif "full" in error_msg.lower():
+                return Response(
+                    {'error': error_msg},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            elif "only for" in error_msg.lower():
+                return Response(
+                    {'error': error_msg},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            elif "not assigned" in error_msg:
+                return Response(
+                    {'error': error_msg},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            else:
+                return Response(
+                    {'error': error_msg},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        except Exception as e:
+            return Response(
+                {'error': f'Unexpected error: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+
+    @extend_schema(
+        tags=["Student Family APIs"],
+        description="Create a new family request",
+        request=CreateFamilyRequestSerializer,
+        responses={
+            201: {
+                'type': 'object',
+                'properties': {
+                    'message': {'type': 'string'},
+                    'family_id': {'type': 'integer'},
+                    'family_name': {'type': 'string'},
+                    'status': {'type': 'string'},
+                    'created_at': {'type': 'string', 'format': 'date-time'},
+                    'total_members': {'type': 'integer'}
+                }
+            },
+            400: OpenApiResponse(description="Validation error"),
+            409: OpenApiResponse(description="Conflict - already has pending request")
+        }
+    )
+    @action(detail=False, methods=['post'], url_path='create')
+    def create_family_request(self, request):
+
+        """Create a new family request with founders"""
+        try:
+            student = get_current_student(request)
+            
+            # Validate request data
+            serializer = CreateFamilyRequestSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(
+                    {'errors': serializer.errors},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            validated_data = serializer.validated_data
+            
+            # Create family request
+            family = FamilyService.create_family_request(
+                request_data=validated_data,
+                created_by_student=student
+            )
+            
+            return Response({
+                'message': f'Family request "{family.name}" created successfully',
+                'family_id': family.family_id,
+                'family_name': family.name,
+                'status': family.status,
+                'type': family.type,
+                'created_at': family.created_at,
+                'total_members': family.family_members.count(),
+                'faculty_id': family.faculty_id
+            }, status=status.HTTP_201_CREATED)
+        
+        except ValidationError as e:
+            error_msg = str(e)
+            
+            # Check if it's a conflict error (already has pending request)
+            if "already have a pending" in error_msg or "already president" in error_msg:
+                return Response(
+                    {'error': error_msg},
+                    status=status.HTTP_409_CONFLICT
+                )
+            
+            return Response(
+                {'error': error_msg},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            return Response(
+                {'error': f'Unexpected error: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+
+
+
+    
+    @extend_schema(
+        tags=["Student Family APIs"],
+        description="Retrieve all family creation requests submitted by the student",
+        responses={200: FamilyRequestListSerializer(many=True)}
+    )
+    @action(detail=False, methods=['get'], url_path='family_creation_request')
+    def family_creation_requests(self, request):
+        """Get all family creation requests submitted by student"""
+        try:
+            student = get_current_student(request)
+            
+            # Get all requests
+            requests_qs = FamilyService.get_student_family_requests(student)
+            
+            # Optional: Filter by status
+            status_filter = request.query_params.get('status')
+            if status_filter:
+                requests_qs = requests_qs.filter(status=status_filter)
+            
+            # Serialize
+            serializer = FamilyRequestListSerializer(requests_qs, many=True)
+            
+            # Get statistics
+            stats = FamilyService.get_request_statistics(student)
+            
+            return Response({
+                'count': requests_qs.count(),
+                'statistics': stats,
+                'requests': serializer.data
+            })
+        
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    

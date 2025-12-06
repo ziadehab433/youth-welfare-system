@@ -458,3 +458,10 @@ VALUES
     );
 
 ----------------------------------------------------------------------------
+
+/* std families
+
+*/
+
+update family_members set status = 'مقبول' 
+update families set status = 'مقبول' 
