@@ -152,7 +152,7 @@ class StudentFamilyViewSet(viewsets.GenericViewSet):
             )
         
 
-
+#join
 
 
     
@@ -232,6 +232,8 @@ class StudentFamilyViewSet(viewsets.GenericViewSet):
             )
         
 
+
+#create fam
     @extend_schema(
         tags=["Student Family APIs"],
         description="Create a new family request",
@@ -457,6 +459,221 @@ class StudentFamilyViewSet(viewsets.GenericViewSet):
             return Response({
                 'count': posts.count(),
                 'posts': serializer.data
+            })
+        
+        except ValidationError as e:
+            error_msg = str(e)
+            
+            if "not found" in error_msg.lower():
+                return Response(
+                    {'error': error_msg},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            elif "not a member" in error_msg.lower():
+                return Response(
+                    {'error': error_msg},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            else:
+                return Response(
+                    {'error': error_msg},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        except Exception as e:
+            return Response(
+                {'error': f'Unexpected error: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+
+
+
+# fam std dash board
+    
+    @extend_schema(
+        tags=["Student Family APIs"],
+        description="Get family dashboard data (founders only)",
+        responses={
+            200: FamilyDashboardSerializer,
+            403: OpenApiResponse(description="Not a founder"),
+            404: OpenApiResponse(description="Family not found")
+        }
+    )
+    @action(detail=True, methods=['get'], url_path='dashboard')
+    def family_dashboard(self, request, pk=None):
+        """Get family dashboard for founder"""
+        try:
+            student = get_current_student(request)
+            
+            # Get dashboard data
+            dashboard_data = FamilyService.get_family_dashboard(
+                family_id=pk,
+                student=student
+            )
+            
+            return Response(dashboard_data)
+        
+        except ValidationError as e:
+            error_msg = str(e)
+            
+            if "not found" in error_msg.lower():
+                return Response(
+                    {'error': error_msg},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            elif "not a founder" in error_msg.lower():
+                return Response(
+                    {'error': error_msg},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            else:
+                return Response(
+                    {'error': error_msg},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        except Exception as e:
+            return Response(
+                {'error': f'Unexpected error: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+
+# fam events
+
+
+    @extend_schema(
+        tags=["Student Family Event Requests"],
+        description="Create a new event request (president/vice president only)",
+        request=CreateEventRequestSerializer,
+        responses={
+            201: EventRequestResponseSerializer,
+            400: OpenApiResponse(description="Validation error"),
+            403: OpenApiResponse(description="Forbidden"),
+            404: OpenApiResponse(description="Family not found")
+        }
+    )
+    @action(detail=True, methods=['post'], url_path='event_request')
+    def create_event_request(self, request, pk=None):
+        """Create a new event request"""
+        try:
+            student = get_current_student(request)
+            
+            # Validate request data
+            serializer = CreateEventRequestSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(
+                    {'errors': serializer.errors},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            validated_data = serializer.validated_data
+            
+            # Create event request
+            event, student_creator, admin = FamilyService.create_event_request(
+                family_id=pk,
+                student=student,
+                event_data=validated_data
+            )
+            
+            # Refresh with related data
+            event = Events.objects.select_related(
+                'family', 'faculty', 'created_by'
+            ).get(event_id=event.event_id)
+            
+            result_serializer = EventRequestResponseSerializer(
+                event,
+                context={'created_by_student': student_creator}
+            )
+            return Response(
+                {
+                    'message': 'Event request created successfully. Waiting for faculty admin approval.',
+                    'event': result_serializer.data
+                },
+                status=status.HTTP_201_CREATED
+            )
+        
+        except ValidationError as e:
+            error_msg = str(e)
+            
+            if "not found" in error_msg.lower():
+                return Response(
+                    {'error': error_msg},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            elif "president" in error_msg.lower():
+                return Response(
+                    {'error': error_msg},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            elif "no admin" in error_msg.lower():
+                return Response(
+                    {'error': error_msg},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            else:
+                return Response(
+                    {'error': error_msg},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        except Exception as e:
+            return Response(
+                {'error': f'Unexpected error: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+    @extend_schema(
+        tags=["Student Family Event Requests"],
+        description="Get all event requests for a family",
+        responses={200: EventRequestResponseSerializer(many=True)}
+    )
+    @action(detail=True, methods=['get'], url_path='event_requests')
+    def list_event_requests(self, request, pk=None):
+        """Get all event requests for the family"""
+        try:
+            student = get_current_student(request)
+            
+            # Check if user is president
+            is_president = FamilyMembers.objects.filter(
+                family_id=pk,
+                student=student,
+                role__in=['رئيس', 'نائب رئيس']
+            ).exists()
+            
+            if is_president:
+                # Presidents see all event requests
+                events = FamilyService.get_family_event_requests(
+                    family_id=pk,
+                    student=student
+                )
+            else:
+                # Regular members see only approved events
+                events = FamilyService.get_family_approved_events(
+                    family_id=pk,
+                    student=student
+                )
+            
+            # Optional: Filter by status (presidents only)
+            if is_president:
+                status_filter = request.query_params.get('status')
+                if status_filter:
+                    events = events.filter(status=status_filter)
+            
+            events = events.select_related('family', 'faculty', 'created_by')
+            
+            serializer = EventRequestResponseSerializer(
+                events,
+                many=True,
+                context={'created_by_student': student}
+            )
+            
+            return Response({
+                'count': events.count(),
+                'is_president': is_president,
+                'events': serializer.data
             })
         
         except ValidationError as e:

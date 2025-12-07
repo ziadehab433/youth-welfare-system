@@ -2,6 +2,7 @@ from rest_framework import serializers
 from apps.family.models import *
 from apps.accounts.models import Students 
 from apps.solidarity.models import Faculties ,Departments
+from apps.event.models import Events
 
 class FamilyMembersSerializer(serializers.ModelSerializer):
     # These fields extract nested data from the student object
@@ -53,6 +54,10 @@ class FamiliesDetailSerializer(serializers.ModelSerializer):
         return FamilyMembersSerializer(members, many=True).data
     
 
+class CentralFamilyCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Families
+        fields = ['name', 'description']
 
 
 
@@ -351,3 +356,141 @@ class FamilyPostSerializer(serializers.ModelSerializer):
             'faculty', 'faculty_name', 'created_at', 'updated_at'
         ]
         read_only_fields = ['post_id', 'created_at', 'updated_at']
+
+
+
+
+
+
+
+class FamilyDashboardSerializer(serializers.Serializer):
+    """Serializer for family dashboard"""
+    
+    family = serializers.DictField()
+    statistics = serializers.DictField()
+    members = serializers.DictField()
+    leadership = serializers.DictField()
+    recent_activities = serializers.ListField()
+    recent_posts = serializers.ListField()
+
+
+
+#fam events
+
+class CreateEventRequestSerializer(serializers.Serializer):
+    """Serializer for creating event requests"""
+    title = serializers.CharField(max_length=150)
+    description = serializers.CharField()
+    type = serializers.CharField(max_length=100)
+    st_date = serializers.DateField()
+    end_date = serializers.DateField()
+    location = serializers.CharField(max_length=150)
+    s_limit = serializers.IntegerField(required=False, allow_null=True)
+    cost = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, allow_null=True)
+    restrictions = serializers.CharField(required=False, allow_blank=True)
+    reward = serializers.CharField(required=False, allow_blank=True)
+    dept_id = serializers.PrimaryKeyRelatedField(
+        queryset=Departments.objects.all(),
+        source='dept',
+        required=True
+    )
+
+    def validate(self, data):
+        """Validate dates"""
+        if data['end_date'] < data['st_date']:
+            raise serializers.ValidationError(
+                "End date must be after or equal to start date"
+            )
+        return data
+    
+    def validate_title(self, value):
+        if not value or len(value.strip()) == 0:
+            raise serializers.ValidationError("Title cannot be empty")
+        return value
+    
+    def validate_description(self, value):
+        if not value or len(value.strip()) == 0:
+            raise serializers.ValidationError("Description cannot be empty")
+        return value
+    def validate_dept_id(self, value):
+        if not Departments.objects.filter(dept_id=value.dept_id).exists():
+            raise serializers.ValidationError("Invalid dept_id")
+        return value
+
+
+
+class EventRequestResponseSerializer(serializers.ModelSerializer):
+    """Serializer for event request response"""
+    family_name = serializers.CharField(source='family.name', read_only=True, allow_null=True)
+    faculty_name = serializers.CharField(source='faculty.name', read_only=True, allow_null=True)
+    created_by_admin_info = serializers.SerializerMethodField()
+    created_by_student_info = serializers.SerializerMethodField()
+    dept_id = serializers.IntegerField(source='department.dept_id', read_only=True)
+
+    class Meta:
+        model = Events
+        fields = [
+            'event_id', 'title', 'description', 'type', 'st_date', 'end_date',
+            'location', 's_limit', 'cost', 'restrictions', 'reward', 'status',
+            'family', 'family_name', 'faculty', 'faculty_name','dept_id',
+            'created_by', 'created_by_admin_info','created_by_student_info',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = [
+            'event_id', 'status', 'created_at', 'updated_at', 'created_by' 
+        ]
+    
+    def get_family_name(self, obj):
+        """Get family name"""
+        if obj.family:
+            return obj.family.name
+        return None
+    
+    def get_faculty_name(self, obj):
+        """Get faculty name"""
+        if obj.faculty:
+            return obj.faculty.name
+        return None
+    
+    def get_created_by_admin_info(self, obj):
+        """Get faculty admin info who will review this event"""
+        if obj.created_by:
+            return {
+                'admin_id': obj.created_by.admin_id,
+                'name': getattr(obj.created_by, 'name', None) or 
+                        getattr(obj.created_by, 'full_name', None) or
+                        getattr(obj.created_by, 'admin_name', None),
+                'faculty_id': obj.created_by.faculty_id,
+                'email': getattr(obj.created_by, 'email', None),
+                'role': 'مسؤول كلية'
+            }
+        return None
+    
+    def get_created_by_student_info(self, obj):
+        """Get student creator info from context"""
+        student = self.context.get('created_by_student')
+        if student:
+            return {
+                'student_id': student.student_id,
+                'name': student.name,
+                'email': student.email,
+                'faculty_id': student.faculty_id if student.faculty else None,
+                'role': 'Family President/Vice President'
+            }
+        return None
+
+    
+    def get_created_by_student_info(self, obj):
+        """
+        Get student creator info from context
+        This is passed when creating the event
+        """
+        student = self.context.get('created_by_student')
+        if student:
+            return {
+                'student_id': student.student_id,
+                'name': student.name,
+                'email': student.email,
+                'faculty_id': student.faculty_id if student.faculty else None
+            }
+        return None

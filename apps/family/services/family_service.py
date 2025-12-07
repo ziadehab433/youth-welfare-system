@@ -5,6 +5,7 @@ from django.db.models import Count, F
 from django.utils import timezone
 from django.db import transaction
 from apps.family.models import Posts    
+from apps.event.models import Events
 class FamilyService:
     
     @staticmethod
@@ -546,3 +547,431 @@ class FamilyService:
     #     ).select_related('family', 'faculty').order_by('-created_at')
         
     #     return posts                    
+
+
+
+# DASHBOARD
+
+
+
+    
+    @staticmethod
+    def get_family_dashboard(family_id, student):
+        """
+        Get comprehensive family dashboard data for founder
+        
+        Args:
+            family_id: ID of family
+            student: Student object (must be founder/president)
+            
+        Returns:
+            Dict with dashboard data
+            
+        Raises:
+            ValidationError: If not found or not founder
+        """
+        
+        try:
+            family = Families.objects.select_related('faculty').get(
+                family_id=family_id
+            )
+        except Families.DoesNotExist:
+            raise ValidationError("Family not found")
+        
+        # Check if student is founder (president or vice president)
+        is_founder = FamilyMembers.objects.filter(
+            family=family,
+            student=student,
+            role__in=['رئيس', 'نائب رئيس']
+        ).exists()
+        
+        if not is_founder:
+            raise ValidationError("You are not a founder of this family")
+        
+        # Get statistics
+        stats = FamilyService._get_statistics(family)
+        
+        # Get members info
+        members_info = FamilyService._get_members_info(family)
+        
+        # Get leadership (president, vice president, committee heads)
+        leadership = FamilyService._get_leadership(family)
+        
+        # Get recent activities/events
+        recent_activities = FamilyService._get_recent_activities(family)
+        
+        # Get recent posts
+        recent_posts = FamilyService._get_recent_posts(family)
+        
+        return {
+            'family': {
+                'family_id': family.family_id,
+                'name': family.name,
+                'description': family.description,
+                'type': family.type,
+                'status': family.status,
+                'faculty': {
+                    'faculty_id': family.faculty.faculty_id if family.faculty else None,
+                    'name': family.faculty.name if family.faculty else None
+                },
+                'created_at': family.created_at,
+                'updated_at': family.updated_at
+            },
+            'statistics': stats,
+            'members': members_info,
+            'leadership': leadership,
+            'recent_activities': recent_activities,
+            'recent_posts': recent_posts
+        }
+    
+    
+    @staticmethod
+    def _get_statistics(family):
+        """Get family statistics"""
+        total_members = FamilyMembers.objects.filter(family=family).count()
+        
+        roles_breakdown = FamilyMembers.objects.filter(
+            family=family
+        ).values('role').annotate(count=Count('student_id'))
+        
+        # Count events (from Events table)
+        try:
+            from apps.accounts.models import Events
+            events_count = Events.objects.filter(family=family).count()
+        except:
+            events_count = 0
+        
+        # Count posts
+        posts_count = Posts.objects.filter(family=family).count()
+        
+        return {
+            'total_members': total_members,
+            'events_count': events_count,
+            'posts_count': posts_count,
+            'roles_breakdown': [
+                {
+                    'role': item['role'],
+                    'count': item['count']
+                }
+                for item in roles_breakdown
+            ]
+        }
+    
+    
+    @staticmethod
+    def _get_members_info(family):
+        """Get active members count and breakdown"""
+        active_members = FamilyMembers.objects.filter(
+            family=family,
+            status='مقبول'
+        ).count()
+        
+        pending_members = FamilyMembers.objects.filter(
+            family=family,
+            status='منتظر'
+        ).count()
+        
+        return {
+            'total': FamilyMembers.objects.filter(family=family).count(),
+            'active': active_members,
+            'pending': pending_members
+        }
+    
+    
+    @staticmethod
+    def _get_leadership(family):
+        """Get leadership structure"""
+        leadership = {
+            'president': None,
+            'vice_president': None,
+            'committee_heads': [],
+            'committee_assistants': []
+        }
+        
+        # Get president
+        president = FamilyMembers.objects.filter(
+            family=family,
+            role='رئيس'
+        ).select_related('student').first()
+        
+        if president:
+            leadership['president'] = {
+                'student_id': president.student.student_id,
+                'name': president.student.name,
+                'email': president.student.email,
+                'faculty_id': president.student.faculty_id if president.student.faculty else None,
+                'role': president.role
+            }
+        
+        # Get vice president
+        vice_president = FamilyMembers.objects.filter(
+            family=family,
+            role='نائب رئيس'
+        ).select_related('student').first()
+        
+        if vice_president:
+            leadership['vice_president'] = {
+                'student_id': vice_president.student.student_id,
+                'name': vice_president.student.name,
+                'email': vice_president.student.email,
+                'faculty_id': vice_president.student.faculty_id if vice_president.student.faculty else None,
+                'role': vice_president.role
+            }
+        
+        # Get committee heads
+        heads = FamilyMembers.objects.filter(
+            family=family,
+            role='رئيس لجنة'
+        ).select_related('student', 'dept')
+        
+        leadership['committee_heads'] = [
+            {
+                'student_id': head.student.student_id,
+                'name': head.student.name,
+                'email': head.student.email,
+                'dept_id': head.dept.dept_id if head.dept else None,
+                'dept_name': head.dept.name if head.dept else None,
+                'role': head.role
+            }
+            for head in heads
+        ]
+        
+        # Get committee assistants
+        assistants = FamilyMembers.objects.filter(
+            family=family,
+            role='نائب رئيس لجنة'
+        ).select_related('student', 'dept')
+        
+        leadership['committee_assistants'] = [
+            {
+                'student_id': assistant.student.student_id,
+                'name': assistant.student.name,
+                'email': assistant.student.email,
+                'dept_id': assistant.dept.dept_id if assistant.dept else None,
+                'dept_name': assistant.dept.name if assistant.dept else None,
+                'role': assistant.role
+            }
+            for assistant in assistants
+        ]
+        
+        return leadership
+    
+    
+    @staticmethod
+    def _get_recent_activities(family, limit=5):
+        """Get recent events/activities"""
+        try:
+            from apps.accounts.models import Events
+            events = Events.objects.filter(
+                family=family
+            ).select_related('dept').order_by('-created_at')[:limit]
+            
+            return [
+                {
+                    'event_id': event.event_id,
+                    'title': event.title,
+                    'description': event.description,
+                    'start_date': event.st_date,
+                    'end_date': event.end_date,
+                    'location': event.location,
+                    'status': event.status,
+                    'type': event.type,
+                    'created_at': event.created_at
+                }
+                for event in events
+            ]
+        except:
+            return []
+    
+    
+    @staticmethod
+    def _get_recent_posts(family, limit=5):
+        """Get recent posts"""
+        posts = Posts.objects.filter(
+            family=family
+        ).select_related('family', 'faculty').order_by('-created_at')[:limit]
+        
+        return [
+            {
+                'post_id': post.post_id,
+                'title': post.title,
+                'description': post.description,
+                'created_at': post.created_at,
+                'updated_at': post.updated_at
+            }
+            for post in posts
+        ]
+    
+
+########## Fam Events 
+
+
+    
+    @staticmethod
+    def create_event_request(family_id, student, event_data):
+        """
+        Create a new event request for a family using Events model
+        
+        Only president and vice president can create events
+        The faculty admin of the family's faculty becomes the created_by admin
+        Status will be 'منتظر' until faculty admin approves
+        
+        Args:
+            family_id: ID of family
+            student: Student object (president/vice president)
+            event_data: Dict with event details
+            
+        Returns:
+            Tuple of (Events instance, student creator, admin)
+            
+        Raises:
+            ValidationError: If validation fails
+        """
+        
+        try:
+            family = Families.objects.get(family_id=family_id)
+        except Families.DoesNotExist:
+            raise ValidationError("Family not found")
+        
+        # Check if student is president or vice president
+        allowed_roles = ['رئيس', 'نائب رئيس']
+        
+        member = FamilyMembers.objects.filter(
+            family=family,
+            student=student,
+            role__in=allowed_roles
+        ).first()
+        
+        if not member:
+            raise ValidationError(
+                "Only family president or vice president can create events"
+            )
+        
+        # Ensure family has faculty assigned
+        if not family.faculty:
+            raise ValidationError("Family must have a faculty assigned")
+        
+        # Get the admin for the family's faculty
+        try:
+            admin = AdminsUser.objects.filter(faculty=family.faculty).first()
+            
+            if not admin:
+                raise ValidationError(
+                    f"No admin found for {family.faculty.name}. "
+                    f"Please contact the faculty administration."
+                )
+        except ValidationError:
+            raise
+        except Exception as e:
+            raise ValidationError(f"Error finding faculty admin: {str(e)}")
+        
+        # Create event request in Events table
+        try:
+            with transaction.atomic():
+                event = Events.objects.create(
+                    title=event_data['title'],
+                    description=event_data['description'],
+                    type=event_data['type'],
+                    st_date=event_data['st_date'],
+                    end_date=event_data['end_date'],
+                    location=event_data['location'],
+                    s_limit=event_data.get('s_limit'),
+                    cost=event_data.get('cost'),
+                    dept=event_data.get('dept'),
+                    restrictions=event_data.get('restrictions', ''),
+                    reward=event_data.get('reward', ''),
+                    family=family,
+                    faculty=family.faculty,
+                    
+                    created_by=admin,  # Faculty admin of the family's faculty
+                    status='منتظر',  # Pending review
+                    created_at=timezone.now()
+                )
+                
+                # Refresh to get all related data
+                event = Events.objects.select_related(
+                    'family', 'faculty', 'created_by'
+                ).get(event_id=event.event_id)
+                
+                return event, student, admin
+        
+        except Exception as e:
+            raise ValidationError(f"Error creating event request: {str(e)}")
+    
+    
+    @staticmethod
+    def get_family_event_requests(family_id, student):
+        """Get all event requests for a family"""
+        
+        try:
+            family = Families.objects.get(family_id=family_id)
+        except Families.DoesNotExist:
+            raise ValidationError("Family not found")
+        
+        # Check if student is member
+        is_member = FamilyMembers.objects.filter(
+            family=family,
+            student=student
+        ).exists()
+        
+        if not is_member:
+            raise ValidationError("You are not a member of this family")
+        
+        # Get all events for this family with related data
+        events = Events.objects.filter(
+            family=family
+        ).select_related(
+            'family', 'faculty', 'created_by', 'dept'
+        ).order_by('-created_at')
+        
+        return events
+    
+    
+    @staticmethod
+    def get_family_approved_events(family_id, student):
+        """Get all APPROVED events for a family (visible to all members)"""
+        
+        try:
+            family = Families.objects.get(family_id=family_id)
+        except Families.DoesNotExist:
+            raise ValidationError("Family not found")
+        
+        # Check if student is member
+        is_member = FamilyMembers.objects.filter(
+            family=family,
+            student=student
+        ).exists()
+        
+        if not is_member:
+            raise ValidationError("You are not a member of this family")
+        
+        # Get only approved events with related data
+        events = Events.objects.filter(
+            family=family,
+            status='مقبول'
+        ).select_related(
+            'family', 'faculty', 'created_by', 'dept'
+        ).order_by('-created_at')
+        
+        return events
+    
+    
+    @staticmethod
+    def get_pending_event_requests(faculty_id, admin):
+        """Get all pending event requests for a faculty (for admin review)"""
+        
+        # Check if admin belongs to this faculty
+        if admin.faculty_id != faculty_id:
+            raise ValidationError("You don't have access to this faculty")
+        
+        # Get all pending event requests with related data
+        events = Events.objects.filter(
+            faculty_id=faculty_id,
+            status='منتظر'
+        ).select_related(
+            'family', 'faculty', 'created_by', 'dept'
+        ).order_by('-created_at')
+        
+        return events
+    
+    
