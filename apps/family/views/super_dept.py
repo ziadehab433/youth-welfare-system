@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from apps.family.models import Families
 from rest_framework.permissions import IsAuthenticated
+from apps.accounts.permissions import IsRole
 from apps.family.serializers import (
     FamiliesListSerializer, 
     FamiliesDetailSerializer, 
@@ -13,7 +14,8 @@ from apps.family.serializers import (
 class SuperDeptFamilyViewSet(viewsets.ModelViewSet):
     queryset = Families.objects.all()
     http_method_names = ['get', 'post']
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsRole]   
+    allowed_roles = ['مدير ادارة', 'مشرف النظام']
     def get_serializer_class(self):
         if self.action == 'create':
             return CentralFamilyCreateSerializer
