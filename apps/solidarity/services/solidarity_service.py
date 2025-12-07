@@ -445,33 +445,11 @@ class SolidarityService:
 
 
 
-    # for read logs
-
-    @staticmethod
-    def log_data_access(actor_id, actor_type, action, target_type, solidarity_id=None , ip_address=None):
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                INSERT INTO logs (actor_id, actor_type, action, target_type, solidarity_id, ip_address)
-                VALUES (%s, %s, %s, %s, %s, %s)
-            """, [actor_id, actor_type, action, target_type, solidarity_id, ip_address])
 
 
 
 
-    @staticmethod
-    def get_all_logs(filters=None):
-        queryset = Logs.objects.select_related('actor', 'solidarity').order_by('-logged_at')
 
-        if filters:
-            if filters.get('actor_id'):
-                queryset = queryset.filter(actor__admin_id=filters['actor_id'])
-            if filters.get('action'):
-                queryset = queryset.filter(action__icontains=filters['action'])
-            if filters.get('target_type'):
-                queryset = queryset.filter(target_type=filters['target_type'])
-                
-        return queryset
-    
 
 
 

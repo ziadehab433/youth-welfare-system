@@ -7,7 +7,8 @@
 # Feel free to rename the models, but don't rename db_table values or field names.
 from django.db import models
 from apps.solidarity.models import Departments 
-from apps.family.models import Families , Faculties , Admins
+from apps.family.models import Families , Faculties 
+from apps.accounts.models import AdminsUser
 
 class Events(models.Model):
     event_id = models.AutoField(primary_key=True)
@@ -28,7 +29,7 @@ class Events(models.Model):
         db_column='faculty_id'
     )
     created_by = models.ForeignKey(
-        Admins, 
+        AdminsUser, 
         models.RESTRICT,
         db_column='created_by'
     )

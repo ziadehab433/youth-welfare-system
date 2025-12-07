@@ -33,10 +33,11 @@ from apps.solidarity.serializers import DeptFacultySummarySerializer
 from apps.solidarity.services.solidarity_service import SolidarityService
 from ..serializers import FacultyApprovedResponseSerializer, SolidarityApprovedRowSerializer
 from ..serializers import DiscountAssignSerializer, SolidarityDocsSerializer
-from apps.solidarity.utils import get_current_student, get_current_admin, handle_report_data, html_to_pdf_buffer, get_client_ip
+from apps.accounts.utils import get_current_student , get_current_admin , get_client_ip
+from apps.solidarity.utils import   handle_report_data, html_to_pdf_buffer
 from apps.solidarity.services.solidarity_service import SolidarityService
 from ..utils import get_arabic_discount_type
-
+from apps.accounts.utils import log_data_access
 
 class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
     permission_classes = [ IsRole]
@@ -44,7 +45,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
     serializer_class = SolidarityListSerializer
 
     @extend_schema(
-        tags=["Faculty Admin APIs"],
+        tags=["Solidarity Fac Admin APIs"],
         description="List all solidarity applications for the current faculty admin",
         responses={200: SolidarityListSerializer(many=True)}
     )
@@ -56,7 +57,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         return Response(SolidarityListSerializer(qs, many=True).data)
 
     @extend_schema(
-        tags=["Faculty Admin APIs"],
+        tags=["Solidarity Fac Admin APIs"],
         description="Retrieve details of a specific solidarity application",
         responses={200: SolidarityDetailSerializer, 403: OpenApiResponse(description="Forbidden"), 404: OpenApiResponse(description="Not found")}
     )
@@ -77,7 +78,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
             return Response({'error': msg}, status=status.HTTP_400_BAD_REQUEST)
             #  Log that this admin viewed the solidarity details
 
-        SolidarityService.log_data_access(
+        log_data_access(
             actor_id=admin.admin_id,
             actor_type=admin.role,
             action='عرض بيانات الطلب',      # “Viewed solidarity details”
@@ -89,7 +90,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         return Response(SolidarityDetailSerializer(solidarity).data)
 
     @extend_schema(
-        tags=["Faculty Admin APIs"],
+        tags=["Solidarity Fac Admin APIs"],
         description="Retrieve all uploaded documents for a specific solidarity application",
         responses={200: SolidarityDocsSerializer(many=True)}
     )
@@ -109,7 +110,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
            raise PermissionDenied("You can only view applications from your faculty.")      
         client_ip = get_client_ip(request)
 
-        SolidarityService.log_data_access(
+        log_data_access(
         actor_id=admin.admin_id,
         actor_type=admin.role,
         action='عرض مستندات الطلب',     # “Viewed solidarity documents”
@@ -123,7 +124,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
 
 
     @extend_schema(
-        tags=["Faculty Admin APIs"],
+        tags=["Solidarity Fac Admin APIs"],
         description="Approve a solidarity application",
         responses={200: OpenApiResponse(description="Application approved successfully")}
     )
@@ -135,7 +136,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         return Response({'message': result['message']})
 
     @extend_schema(
-        tags=["Faculty Admin APIs"],
+        tags=["Solidarity Fac Admin APIs"],
         description="Pre-approve a solidarity application before final approval",
         responses={200: OpenApiResponse(description="Application pre-approved successfully")}
     )
@@ -147,7 +148,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         return Response({'message': result['message']})
 
     @extend_schema(
-        tags=["Faculty Admin APIs"],
+        tags=["Solidarity Fac Admin APIs"],
         description="Reject a solidarity application",
         responses={200: OpenApiResponse(description="Application rejected successfully")}
     )
@@ -163,7 +164,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
 
 
     @extend_schema(
-        tags=["Faculty Admin APIs"],
+        tags=["Solidarity Fac Admin APIs"],
         description="Assign discount(s) to a solidarity application",
         request=DiscountAssignSerializer,
         responses={
@@ -212,7 +213,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
     
 
     @extend_schema(
-        tags=["Faculty Admin APIs"],
+        tags=["Solidarity Fac Admin APIs"],
         description="Update faculty discount values for the current faculty",
         request=FacultyDiscountUpdateSerializer,
         responses={200: OpenApiResponse(description="Faculty discounts updated successfully")}
@@ -236,7 +237,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         })
 
     @extend_schema(
-        tags=["Faculty Admin APIs"],
+        tags=["Solidarity Fac Admin APIs"],
         description="Get current faculty discount values",
         responses={200: OpenApiResponse(description="Faculty discounts retrieved successfully")}
     )
@@ -256,7 +257,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
             "discounts": data
         })
     @extend_schema(
-        tags=["Faculty Admin APIs"],
+        tags=["Solidarity Fac Admin APIs"],
         description="Get approved applications summary for faculty admin",
         responses={200: FacultyApprovedResponseSerializer}  
     )
@@ -284,7 +285,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         })
 
     @extend_schema(
-        tags=["Faculty Admin APIs"],
+        tags=["Solidarity Fac Admin APIs"],
         description="pdf",
         responses={
             200: OpenApiResponse(

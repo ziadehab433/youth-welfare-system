@@ -79,9 +79,7 @@ class StudentDetailSerializer(serializers.ModelSerializer):
         read_only_fields = [
             'student_id', 'join_date', 'email'  # Email shouldn't be changed
         ]
-
-    def get_profile_photo_url(self, obj):
-        """Build absolute URL for profile photo"""
+    def get_profile_photo_url(self, obj) -> str:
         request = self.context.get('request')
         if obj.profile_photo and request:
             return request.build_absolute_uri(f'/media/{obj.profile_photo}')
