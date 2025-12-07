@@ -11,12 +11,18 @@ from apps.accounts.utils import get_current_admin, get_client_ip , log_data_acce
 from apps.accounts.permissions import IsRole, require_permission
 
 from django.core.exceptions import ValidationError
-
+from rest_framework.viewsets import ViewSet
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework import status
+from apps.event.models import Events
+from apps.event.serializers import EventSerializer
 class FamilyFacultyAdminViewSet(viewsets.GenericViewSet):
     permission_classes = [IsRole]
     allowed_roles = ['مسؤول كلية']  # Faculty Admin
     serializer_class = FamiliesListSerializer
-
+    queryset = Events.objects.all()
+    serializer_class = EventSerializer
     @extend_schema(
         tags=["Family Fac Admin APIs"],
         description="List all families for the current faculty",
@@ -73,3 +79,54 @@ class FamilyFacultyAdminViewSet(viewsets.GenericViewSet):
             elif "not found" in msg.lower():
                 return Response({'error': msg}, status=status.HTTP_404_NOT_FOUND)
             return Response({'error': msg}, status=status.HTTP_400_BAD_REQUEST)
+        
+    @extend_schema(
+        tags=["Family Fac Admin APIs"],
+        description="Get event details by ID",
+        responses={200: EventSerializer}
+    )
+    @action(detail=True, methods=['get'], url_path='events')
+    def details(self, request, pk=None):
+        try:
+            event = Events.objects.get(pk=pk)
+        except Events.DoesNotExist:
+            return Response({"error": "Event not found"}, status=404)
+        return Response(EventSerializer(event).data, status=200)
+    
+    @extend_schema(
+        tags=["Family Fac Admin APIs"],
+        description="List all events pending approval",
+        responses={200: EventSerializer(many=True)}
+    )
+    @action(detail=False, methods=['get'], url_path='pending') 
+    def pending(self, request):
+        events = self.get_queryset().filter(status="منتظر") 
+        return Response(EventSerializer(events, many=True).data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        tags=["Family Fac Admin APIs"],
+        description="Approve an event",
+        request=None,
+        responses={200: OpenApiResponse(description="Event Approved")}
+    )
+    @action(detail=True, methods=['post'], url_path='approve')
+    def approve(self, request, pk=None):
+        event = self.get_object() 
+        
+        event.status = "مقبول"
+        event.save()
+        return Response({"message": "Event approved successfully"}, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        tags=["Family Fac Admin APIs"],
+        description="Reject an event",
+        request=None,
+        responses={200: OpenApiResponse(description="Event Rejected")}
+    )
+    @action(detail=True, methods=['post'], url_path='reject')
+    def reject(self, request, pk=None):
+        event = self.get_object()
+        
+        event.status = "مرفوض"
+        event.save()
+        return Response({"message": "Event rejected successfully"}, status=status.HTTP_200_OK)
