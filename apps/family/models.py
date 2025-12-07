@@ -81,3 +81,34 @@ class FamilyMembers(models.Model):
 
     def __str__(self):
         return f"{self.family.name} - {self.student}"
+    
+
+
+class Posts(models.Model):
+    post_id = models.AutoField(primary_key=True)
+    title = models.CharField(max_length=255)
+    description = models.TextField()
+    family = models.ForeignKey(
+        Families,
+        models.CASCADE,
+        db_column='family_id'
+    )
+    faculty = models.ForeignKey(
+        Faculties,
+        models.CASCADE,
+        db_column='faculty_id'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        managed = False
+        db_table = 'posts'
+        indexes = [
+            models.Index(fields=['family_id'], name='idx_posts_family_id'),
+            models.Index(fields=['faculty_id'], name='idx_posts_faculty_id'),
+            models.Index(fields=['-created_at'], name='idx_posts_created_at'),
+        ]
+
+    def __str__(self):
+        return self.title

@@ -458,3 +458,34 @@ VALUES
     );
 
 ----------------------------------------------------------------------------
+
+/* std families
+
+*/
+
+update family_members set status = 'مقبول' 
+update families set status = 'مقبول' 
+----------------------------------------------------
+
+-- Create posts table
+CREATE TABLE posts (
+    post_id SERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL,
+    family_id INTEGER NOT NULL,
+    faculty_id INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_posts_family FOREIGN KEY (family_id) 
+        REFERENCES families(family_id) ON DELETE CASCADE,
+    CONSTRAINT fk_posts_faculty FOREIGN KEY (faculty_id) 
+        REFERENCES faculties(faculty_id) ON DELETE CASCADE
+);
+
+-- Create indexes for better query performance
+CREATE INDEX idx_posts_family_id ON posts(family_id);
+CREATE INDEX idx_posts_faculty_id ON posts(faculty_id);
+CREATE INDEX idx_posts_created_at ON posts(created_at DESC);
+
+
+---------------------------------------------
