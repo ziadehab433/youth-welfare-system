@@ -49,3 +49,9 @@ class FamiliesDetailSerializer(serializers.ModelSerializer):
             members = FamilyMembers.objects.filter(family_id=obj.family_id).select_related('student', 'dept')
         
         return FamilyMembersSerializer(members, many=True).data
+
+class CentralFamilyCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Families
+        fields = ['name', 'description']
+        
