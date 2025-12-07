@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Count, F
 from django.utils import timezone
 from django.db import transaction
+from apps.family.models import Posts    
 class FamilyService:
     
     @staticmethod
@@ -156,7 +157,7 @@ class FamilyService:
         except Families.DoesNotExist:
             raise ValidationError("Family not found")
         
-        # Check 1: Family status must be active
+        # Check 1: Family status must be approved
         if family.status != 'مقبول':
             raise ValidationError(f"Family is not open for joining (Status: {family.status})")
         
@@ -423,3 +424,125 @@ class FamilyService:
             'approved': approved,
             'rejected': rejected
         }
+    
+########POSTS#########
+
+
+    
+    @staticmethod
+    def create_family_post(family_id, student, title, description):
+        """
+        Create a new post in a family
+        
+        Only students with role 'رئيس' or 'نائب رئيس' can create posts
+        
+        Args:
+            family_id: ID of family
+            student: Student object
+            title: Post title
+            description: Post description
+            
+        Returns:
+            Posts instance
+            
+        Raises:
+            ValidationError: If validation fails
+        """
+        
+        try:
+            family = Families.objects.get(family_id=family_id)
+        except Families.DoesNotExist:
+            raise ValidationError("Family not found")
+        
+        # Check if student is member of family with required role
+        allowed_roles = ['رئيس', 'نائب رئيس']
+        
+        member = FamilyMembers.objects.filter(
+            family=family,
+            student=student,
+            role__in=allowed_roles
+        ).first()
+        
+        if not member:
+            raise ValidationError(
+                "Only family president or vice president can create posts"
+            )
+        
+        # Create post
+        try:
+            post = Posts.objects.create(
+                title=title,
+                description=description,
+                family=family,
+                faculty=family.faculty
+            )
+            return post
+        except Exception as e:
+            raise ValidationError(f"Error creating post: {str(e)}")
+    
+    
+    @staticmethod
+    def get_family_posts(family_id, student):
+        """
+        Get all posts in a family
+        
+        Only students who are members of the family can view posts
+        
+        Args:
+            family_id: ID of family
+            student: Student object
+            
+        Returns:
+            QuerySet of Posts
+            
+        Raises:
+            ValidationError: If student is not member
+        """
+        
+        try:
+            family = Families.objects.get(family_id=family_id)
+        except Families.DoesNotExist:
+            raise ValidationError("Family not found")
+        
+        # Check if student is member of family
+        is_member = FamilyMembers.objects.filter(
+            family=family,
+            student=student
+        ).exists()
+        
+        if not is_member:
+            raise ValidationError("You are not a member of this family")
+        
+        # Get all posts for this family
+        posts = Posts.objects.filter(
+            family=family
+        ).select_related('family', 'faculty').order_by('-created_at')
+        
+        return posts
+    
+    #If we need to get a publia access for all students for all posts    
+    # @staticmethod
+    # def get_family_posts_no_restriction(family_id):
+    #     """
+    #     Get all posts in a family (for public viewing, no member check)
+        
+    #     Args:
+    #         family_id: ID of family
+            
+    #     Returns:
+    #         QuerySet of Posts
+            
+    #     Raises:
+    #         ValidationError: If family not found
+    #     """
+        
+    #     try:
+    #         family = Families.objects.get(family_id=family_id)
+    #     except Families.DoesNotExist:
+    #         raise ValidationError("Family not found")
+        
+    #     posts = Posts.objects.filter(
+    #         family=family
+    #     ).select_related('family', 'faculty').order_by('-created_at')
+        
+    #     return posts                    

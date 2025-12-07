@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from apps.family.models import Families, FamilyMembers
+from apps.family.models import *
 from apps.accounts.models import Students 
 from apps.solidarity.models import Faculties ,Departments
 
@@ -316,3 +316,38 @@ class FamilyRequestDetailSerializer(serializers.ModelSerializer):
         ]   
 
 
+
+
+
+
+
+
+
+class CreatePostSerializer(serializers.Serializer):
+    """Serializer for creating posts"""
+    title = serializers.CharField(max_length=255)
+    description = serializers.CharField()
+    
+    def validate_title(self, value):
+        if not value or len(value.strip()) == 0:
+            raise serializers.ValidationError("Title cannot be empty")
+        return value
+    
+    def validate_description(self, value):
+        if not value or len(value.strip()) == 0:
+            raise serializers.ValidationError("Description cannot be empty")
+        return value
+
+
+class FamilyPostSerializer(serializers.ModelSerializer):
+    """Serializer for family posts"""
+    family_name = serializers.CharField(source='family.name', read_only=True)
+    faculty_name = serializers.CharField(source='faculty.name', read_only=True, allow_null=True)
+    
+    class Meta:
+        model = Posts
+        fields = [
+            'post_id', 'title', 'description', 'family', 'family_name',
+            'faculty', 'faculty_name', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['post_id', 'created_at', 'updated_at']

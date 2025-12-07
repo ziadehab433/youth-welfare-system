@@ -347,3 +347,139 @@ class StudentFamilyViewSet(viewsets.GenericViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
+
+
+
+#Posts
+
+    
+    @extend_schema(
+        tags=["Student Family APIs"],
+        description="Create a new post in a family (president/vice president only)",
+        request=CreatePostSerializer,
+        responses={
+            201: FamilyPostSerializer,
+            400: OpenApiResponse(description="Validation error"),
+            403: OpenApiResponse(description="Forbidden - not president/vice president"),
+            404: OpenApiResponse(description="Family not found")
+        }
+    )
+    @action(detail=True, methods=['post'], url_path='post')
+    def create_family_post(self, request, pk=None):
+        """Create a new post in a family (president/vice president only)"""
+        try:
+            student = get_current_student(request)
+            
+            # Validate request data
+            serializer = CreatePostSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(
+                    {'errors': serializer.errors},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            validated_data = serializer.validated_data
+            
+            # Create post
+            post = FamilyService.create_family_post(
+                family_id=pk,
+                student=student,
+                title=validated_data['title'],
+                description=validated_data['description']
+            )
+
+            
+            result_serializer = FamilyPostSerializer(post)
+            return Response(
+                {
+                    'message': 'Post created successfully',
+                    'post': result_serializer.data
+                },
+                status=status.HTTP_201_CREATED
+            )
+        
+        except ValidationError as e:
+            error_msg = str(e)
+            
+            if "not found" in error_msg.lower():
+                return Response(
+                    {'error': error_msg},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            elif "president" in error_msg.lower() or "vice president" in error_msg.lower():
+                return Response(
+                    {'error': error_msg},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            else:
+                return Response(
+                    {'error': error_msg},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        except Exception as e:
+            return Response(
+                {'error': f'Unexpected error: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    
+    @extend_schema(
+        tags=["Student Family APIs"],
+        description="Get all posts in a family (members only)",
+        responses={200: FamilyPostSerializer(many=True)}
+    )
+    @action(detail=True, methods=['get'], url_path='posts')
+    def list_family_posts(self, request, pk=None):
+        """Get all posts in a family (members only)"""
+        try:
+            student = get_current_student(request)
+            
+            # Get posts
+            posts = FamilyService.get_family_posts(
+                family_id=pk,
+                student=student
+            )
+            
+            # Optional: Filter by search
+            search = request.query_params.get('search')
+            if search:
+                posts = posts.filter(title__icontains=search) | \
+                        posts.filter(description__icontains=search)
+            
+            # Optional: Sort (default: newest first)
+            sort_by = request.query_params.get('sort_by', '-created_at')
+            if sort_by in ['created_at', '-created_at', 'updated_at', '-updated_at']:
+                posts = posts.order_by(sort_by)
+            
+            serializer = FamilyPostSerializer(posts, many=True)
+            
+            return Response({
+                'count': posts.count(),
+                'posts': serializer.data
+            })
+        
+        except ValidationError as e:
+            error_msg = str(e)
+            
+            if "not found" in error_msg.lower():
+                return Response(
+                    {'error': error_msg},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            elif "not a member" in error_msg.lower():
+                return Response(
+                    {'error': error_msg},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            else:
+                return Response(
+                    {'error': error_msg},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        except Exception as e:
+            return Response(
+                {'error': f'Unexpected error: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
