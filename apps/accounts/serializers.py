@@ -133,7 +133,7 @@ class AdminsUserSerializer(serializers.ModelSerializer):
             'admin_id', 'name', 'email', 'password', 'faculty', 'faculty_name',
             'dept', 'dept_name', 'role', 'acc_status', 'can_create', 
             'can_update', 'can_read', 'can_delete', 'created_at',
-            "dept_fac_ls"
+            "dept_fac_ls",'nid','phone_number'
         ]
         read_only_fields = ['admin_id', 'created_at']
         

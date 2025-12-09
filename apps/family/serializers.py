@@ -389,6 +389,7 @@ class CreateEventRequestSerializer(serializers.Serializer):
     cost = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, allow_null=True)
     restrictions = serializers.CharField(required=False, allow_blank=True)
     reward = serializers.CharField(required=False, allow_blank=True)
+    resource = models.TextField(blank=True, null=True)
     dept_id = serializers.PrimaryKeyRelatedField(
         queryset=Departments.objects.all(),
         source='dept',
