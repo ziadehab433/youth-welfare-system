@@ -640,7 +640,7 @@ class StudentFamilyViewSet(viewsets.GenericViewSet):
             is_president = FamilyMembers.objects.filter(
                 family_id=pk,
                 student=student,
-                role__in=['رئيس', 'نائب رئيس']
+                role__in=['أخ أكبر', 'أخت كبرى']
             ).exists()
             
             if is_president:

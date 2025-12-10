@@ -559,5 +559,51 @@ ADD CONSTRAINT admins_National_Id_unique UNIQUE (nid);
 
 ALTER TABLE events ADD COLUMN resource VARCHAR(100);
 
+
+
+
+--enum for family members roles 
+
+CREATE TYPE public.family_members_roles AS ENUM (
+    'رائد',
+    'نائب رائد',
+    'مسؤول',
+    'أمين صندوق',
+    'أخ أكبر',
+    'أخت كبرى',
+    'أمين سر',
+    'عضو منتخب',
+    'أمين لجنة',
+    'أمين مساعد لجنة',
+    'عضو'
+);
+
+
+
+
+SELECT DISTINCT role 
+FROM public.family_members;
+
+
+--change every value
+UPDATE public.family_members
+SET role = 'أمين مساعد لجنة'
+WHERE role = 'نائب رئيس لجنة';
+
+
+
+ALTER TABLE public.family_members
+ALTER COLUMN role TYPE public.family_members_roles
+USING role::public.family_members_roles;
+
+
+
+--families
+ALTER TABLE public.families
+ADD COLUMN closing_date DATE NULL;
+
+UPDATE public.families
+SET closing_date = '2025-01-01'
+WHERE closing_date IS NULL;
 --------------------------------------------------------------------
 ----------------------------------------------------------------------------------------

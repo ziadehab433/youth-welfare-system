@@ -35,6 +35,7 @@ class Families(models.Model):
     status = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    closing_date = models.DateField(blank=True, null=True)
     min_limit = models.IntegerField(default=50)
     type = models.CharField(max_length=50)
 

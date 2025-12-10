@@ -110,7 +110,7 @@ class FamilyService:
         if not requester_student:
             raise ValidationError("Authentication required")
         
-        founder_roles = ['اخ اكبر', 'اخت كبرى' ,'رئيس' , 'نائب رئيس']
+        founder_roles = ['اخ اكبر', 'اخت كبرى' ,'أخ أكبر' , 'أخت كبرى']
         
         is_founder = FamilyMembers.objects.filter(
             family=family,
@@ -198,7 +198,7 @@ class FamilyService:
                     family=family,
                     student=student,
                     role='عضو',  # Default role for new members
-                    status='مقبول',  # Default status
+                    status='منتظر',  # Default status
                     joined_at=timezone.now(),
                     dept=None  # Can be updated later by admin
                 )
@@ -228,7 +228,7 @@ class FamilyService:
         # Check if this student is a president (رئيس) of any pending family
         pending_family = FamilyMembers.objects.filter(
             student=student,
-            role='رئيس',
+            role='أخ أكبر',
             family__status='منتظر'
         ).select_related('family').first()
         
@@ -263,7 +263,7 @@ class FamilyService:
         # Additional check: Ensure president is not already president of an approved family
         existing_family = FamilyMembers.objects.filter(
             student=request_data['founders']['president'],
-            role='رئيس',
+            role='أخ أكبر',
             family__status__in=['مقبول']
         ).select_related('family').first()
         
@@ -292,7 +292,7 @@ class FamilyService:
                 FamilyMembers.objects.create(
                     family=family,
                     student=president,
-                    role='رئيس',
+                    role='أخ أكبر',
                     status='مقبول',
                     joined_at=timezone.now(),
                     dept_id=None
@@ -303,7 +303,7 @@ class FamilyService:
                 FamilyMembers.objects.create(
                     family=family,
                     student=vice_president,
-                    role='نائب رئيس',
+                    role='أخت كبرى',
                     status='مقبول',
                     joined_at=timezone.now(),
                     dept_id=None
@@ -355,7 +355,7 @@ class FamilyService:
         
         family_requests = Families.objects.filter(
             family_members__student=student,
-            family_members__role='رئيس'
+            family_members__role='أخ أكبر'
         ).select_related('faculty').distinct().order_by('-created_at')
         
         return family_requests
@@ -388,7 +388,7 @@ class FamilyService:
         is_president = FamilyMembers.objects.filter(
             family=family,
             student=student,
-            role='رئيس'
+            role='أخ أكبر'
         ).exists()
         
         if not is_president:
@@ -411,7 +411,7 @@ class FamilyService:
         
         requests = Families.objects.filter(
             family_members__student=student,
-            family_members__role='رئيس'
+            family_members__role='أخ أكبر'
         ).distinct()
         
         total = requests.count()
@@ -435,7 +435,7 @@ class FamilyService:
         """
         Create a new post in a family
         
-        Only students with role 'رئيس' or 'نائب رئيس' can create posts
+        Only students with role 'أخ أكبر' or 'أخت كبرى' can create posts
         
         Args:
             family_id: ID of family
@@ -456,7 +456,7 @@ class FamilyService:
             raise ValidationError("Family not found")
         
         # Check if student is member of family with required role
-        allowed_roles = ['رئيس', 'نائب رئيس']
+        allowed_roles = ['أخ أكبر', 'أخت كبرى']
         
         member = FamilyMembers.objects.filter(
             family=family,
@@ -582,7 +582,7 @@ class FamilyService:
         is_founder = FamilyMembers.objects.filter(
             family=family,
             student=student,
-            role__in=['رئيس', 'نائب رئيس']
+            role__in=['أخ أكبر', 'أخت كبرى']
         ).exists()
         
         if not is_founder:
@@ -691,7 +691,7 @@ class FamilyService:
         # Get president
         president = FamilyMembers.objects.filter(
             family=family,
-            role='رئيس'
+            role='أخ أكبر'
         ).select_related('student').first()
         
         if president:
@@ -706,7 +706,7 @@ class FamilyService:
         # Get vice president
         vice_president = FamilyMembers.objects.filter(
             family=family,
-            role='نائب رئيس'
+            role='أخت كبرى'
         ).select_related('student').first()
         
         if vice_president:
@@ -834,7 +834,7 @@ class FamilyService:
             raise ValidationError("Family not found")
         
         # Check if student is president or vice president
-        allowed_roles = ['رئيس', 'نائب رئيس']
+        allowed_roles = ['أخ أكبر', 'أخت كبرى']
         
         member = FamilyMembers.objects.filter(
             family=family,
