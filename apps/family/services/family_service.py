@@ -1,11 +1,18 @@
-from apps.family.models import Families, FamilyMembers
-from apps.accounts.models import AdminsUser
+from apps.family.models import *
+from apps.accounts.models import AdminsUser , Students
+from apps.solidarity.models import Departments, Faculties
 from django.core.exceptions import ValidationError
 from django.db.models import Count, F
 from django.utils import timezone
 from django.db import transaction
 from apps.family.models import Posts    
 from apps.event.models import Events
+from apps.family.constants import COMMITTEES, ADMIN_ROLES, STUDENT_ROLES, COMMITTEE_ROLES
+from django.db import transaction
+from rest_framework.exceptions import ValidationError
+from django.utils import timezone
+from decimal import Decimal
+
 class FamilyService:
     
     @staticmethod
@@ -110,7 +117,7 @@ class FamilyService:
         if not requester_student:
             raise ValidationError("Authentication required")
         
-        founder_roles = ['اخ اكبر', 'اخت كبرى' ,'أخ أكبر' , 'أخت كبرى']
+        founder_roles = ['أخ أكبر' , 'أخت كبرى']
         
         is_founder = FamilyMembers.objects.filter(
             family=family,
@@ -241,105 +248,298 @@ class FamilyService:
         return None
 
 
+
+##########33
+#CREATE REQUEST TO CREATE A FAMMILY
+
+    @staticmethod
+    def get_committee_by_key(committee_key):
+        """Get committee configuration by key"""
+        for committee in COMMITTEES:
+            if committee['key'] == committee_key:
+                return committee
+        return None
+
+    @staticmethod
+    def check_student_duplicate_roles(student):
+        """
+        Check if student already has a default role in any active family
+        """
+        existing_role = FamilyMembers.objects.filter(
+            student=student,
+            role__in=STUDENT_ROLES,
+            family__status__in=['مقبول']
+        ).select_related('family').first()
+
+        if existing_role:
+            raise ValidationError(
+                f"الطالب برقم {student.student_id} مسؤول بالفعل عن دور '{existing_role.role}' "
+                f"في '{existing_role.family.name}'. كل طالب يمكن أن يكون له دور واحد فقط."
+            )
+
+    @staticmethod
+    def check_student_pending_request(student):
+        """
+        Check if student already has a pending family request
+        """
+        pending_family = FamilyMembers.objects.filter(
+            student=student,
+            family__status='منتظر'
+        ).select_related('family').first()
+
+        if pending_family:
+            raise ValidationError(
+                f"الطالب برقم {student.student_id} لديه بالفعل طلب أسرة قيد الانتظار: "
+                f"'{pending_family.family.name}'. يرجى الانتظار لمراجعته."
+            )
+
+    @staticmethod
+    def get_student_by_uid(uid):
+        """
+        Get student by UID (University ID / student_id)
+        
+        Args:
+            uid: Student University ID
+            
+        Returns:
+            Student object
+            
+        Raises:
+            ValidationError: If student not found
+        """
+        try:
+            return Students.objects.get(uid=uid)
+        except Students.DoesNotExist:
+            raise ValidationError(f"الطالب برقم الجامعة {uid} غير موجود")
+
     @staticmethod
     def create_family_request(request_data, created_by_student):
         """
-        Create a new family request with founders
-        
+        Create a new family request with all founders, committees, and activities
+
         Args:
-            request_data: Dict containing name, description, faculty_id, founders
-            created_by_student: Student creating the request (will be recorded)
-            
+            request_data: Validated dict containing family and member data
+            created_by_student: Student creating the request
+
         Returns:
             Families instance
-            
+
         Raises:
             ValidationError: If validation fails
         """
-        
-        # Check if president already has a pending request
-        FamilyService.check_pending_requests(request_data['founders']['president'])
-        
-        # Additional check: Ensure president is not already president of an approved family
-        existing_family = FamilyMembers.objects.filter(
-            student=request_data['founders']['president'],
-            role='أخ أكبر',
-            family__status__in=['مقبول']
-        ).select_related('family').first()
-        
-        if existing_family:
-            raise ValidationError(
-                f"You are already president of '{existing_family.family.name}'. "
-                f"Each student can only be president of one family."
-            )
-        
+
         try:
             with transaction.atomic():
+                # Get faculty
+                try:
+                    faculty = Faculties.objects.get(
+                        faculty_id=request_data['faculty_id']
+                    )
+                except Faculties.DoesNotExist:
+                    raise ValidationError(
+                        f"الكلية برقم {request_data['faculty_id']} غير موجودة"
+                    )
+
                 # Create the family
                 family = Families.objects.create(
                     name=request_data['name'],
                     description=request_data['description'],
-                    faculty=request_data['faculty'],
-                    type='نوعية',
+                    faculty=faculty,
+                    type=request_data['family_type'],
                     status='منتظر',
-                    min_limit=15,
-                    created_by_id=1,
+                    min_limit=request_data.get('min_limit', 15),
+                    created_by_id=1,  # Admin user ID
                     created_at=timezone.now()
                 )
-                
-                # Create president member
-                president = request_data['founders']['president']
-                FamilyMembers.objects.create(
-                    family=family,
-                    student=president,
-                    role='أخ أكبر',
-                    status='مقبول',
-                    joined_at=timezone.now(),
-                    dept_id=None
+
+                # ===== Create Default Role Members =====
+                FamilyService._create_default_role_members(
+                    family,
+                    request_data['default_roles']
                 )
-                
-                # Create vice president member
-                vice_president = request_data['founders']['vice_president']
-                FamilyMembers.objects.create(
-                    family=family,
-                    student=vice_president,
-                    role='أخت كبرى',
-                    status='مقبول',
-                    joined_at=timezone.now(),
-                    dept_id=None
+
+                # ===== Create Committee Members and Events =====
+                FamilyService._create_committees_with_activities(
+                    family,
+                    request_data['committees']
                 )
-                
-                # Create committee heads (7 total)
-                for head in request_data['founders']['committee_heads']:
-                    FamilyMembers.objects.create(
-                        family=family,
-                        student=head['student'],
-                        role='رئيس لجنة',
-                        status='مقبول',
-                        joined_at=timezone.now(),
-                        dept=head['dept']
-                    )
-                
-                # Create committee assistants (7 total)
-                for assistant in request_data['founders']['committee_assistants']:
-                    FamilyMembers.objects.create(
-                        family=family,
-                        student=assistant['student'],
-                        role='نائب رئيس لجنة',
-                        status='مقبول',
-                        joined_at=timezone.now(),
-                        dept=assistant['dept']
-                    )
-                
+
                 return family
-        
+
+        except ValidationError:
+            raise
         except Exception as e:
-            raise ValidationError(f"Error creating family request: {str(e)}")
-        
+            raise ValidationError(f"خطأ في إنشاء طلب الأسرة: {str(e)}")
 
+    @staticmethod
+    def _create_default_role_members(family, default_roles_data):
+        """
+        Create FamilyAdmins and FamilyMembers for all 9 default roles
 
+        Args:
+            family: Families instance
+            default_roles_data: Dict with role names and person data
+        """
 
+        # ===== Create Admin Roles in FamilyAdmins Table =====
+        admin_roles_mapping = {
+            'رائد': 'رائد',
+            'نائب رائد': 'نائب رائد',
+            'مسؤول': 'مسؤول',
+            'أمين صندوق': 'أمين صندوق',
+        }
 
+        for data_key, role_name in admin_roles_mapping.items():
+            if data_key not in default_roles_data:
+                raise ValidationError(f"الدور المفقود: {data_key}")
+
+            admin_data = default_roles_data[data_key]
+
+            # Create admin record in FamilyAdmins table
+            FamilyAdmins.objects.create(
+                family=family,
+                name=admin_data['name'],
+                nid=admin_data['nid'],
+                ph_no=admin_data['ph_no'],
+                role=role_name
+            )
+
+        # ===== Create Student Roles in FamilyMembers Table =====
+        student_roles_mapping = {
+            'أخ أكبر': 'أخ أكبر',
+            'أخت كبرى': 'أخت كبرى',
+            'أمين سر': 'أمين سر',
+        }
+
+        for data_key, role_name in student_roles_mapping.items():
+            if data_key not in default_roles_data:
+                raise ValidationError(f"الدور المفقود: {data_key}")
+
+            person_data = default_roles_data[data_key]
+            student_uid = person_data['uid']
+
+            # Get student by UID
+            student = FamilyService.get_student_by_uid(student_uid)
+
+            # Check validations
+            FamilyService.check_student_duplicate_roles(student)
+            FamilyService.check_student_pending_request(student)
+
+            FamilyMembers.objects.create(
+                family=family,
+                student=student,
+                role=role_name,
+                status='مقبول',
+                joined_at=timezone.now(),
+                dept=None
+            )
+
+        # ===== Create 2 Elected Members =====
+        elected_members_data = [
+            default_roles_data.get('عضو منتخب 1'),
+            default_roles_data.get('عضو منتخب 2')
+        ]
+
+        for elected_data in elected_members_data:
+            if not elected_data:
+                raise ValidationError("أعضاء منتخبون مفقودون (عضو منتخب)")
+
+            student_uid = elected_data['uid']
+
+            # Get student by UID
+            student = FamilyService.get_student_by_uid(student_uid)
+
+            # Check validations
+            FamilyService.check_student_duplicate_roles(student)
+            FamilyService.check_student_pending_request(student)
+
+            FamilyMembers.objects.create(
+                family=family,
+                student=student,
+                role='عضو منتخب',
+                status='مقبول',
+                joined_at=timezone.now(),
+                dept=None
+            )
+
+    @staticmethod
+    def _create_committees_with_activities(family, committees_data):
+        """
+        Create committee members and their activities/events
+
+        Args:
+            family: Families instance
+            committees_data: List of committee configurations
+        """
+
+        for committee_data in committees_data:
+            committee_key = committee_data['committee_key']
+
+            # Get committee configuration
+            committee_config = FamilyService.get_committee_by_key(committee_key)
+            if not committee_config:
+                raise ValidationError(f"مفتاح اللجنة غير صحيح: {committee_key}")
+
+            # Get head and assistant student objects by UID
+            try:
+                head_student = FamilyService.get_student_by_uid(
+                    committee_data['head']['uid']
+                )
+                assistant_student = FamilyService.get_student_by_uid(
+                    committee_data['assistant']['uid']
+                )
+            except ValidationError as e:
+                raise e
+
+            # Get department
+            try:
+                dept = Departments.objects.get(
+                    dept_id=committee_data['head']['dept_id']
+                )
+            except Departments.DoesNotExist:
+                raise ValidationError(
+                    f"القسم برقم {committee_data['head']['dept_id']} غير موجود"
+                )
+
+            # Create committee head
+            FamilyMembers.objects.create(
+                family=family,
+                student=head_student,
+                role='أمين لجنة',
+                status='مقبول',
+                joined_at=timezone.now(),
+                dept=dept
+            )
+
+            # Create committee assistant
+            FamilyMembers.objects.create(
+                family=family,
+                student=assistant_student,
+                role='أمين مساعد لجنة',
+                status='مقبول',
+                joined_at=timezone.now(),
+                dept=dept
+            )
+
+            # Create activities/events for this committee
+            if 'activities' in committee_data and committee_data['activities']:
+                for activity in committee_data['activities']:
+                    Events.objects.create(
+                        title=activity['title'],
+                        description=activity.get('description', ''),
+                        family=family,
+                        dept=dept,
+                        faculty=family.faculty,
+                        created_by_id=1,  # Admin user
+                        st_date=activity['st_date'],
+                        end_date=activity['end_date'],
+                        location=activity.get('location', ''),
+                        cost=Decimal(str(activity['cost'])) if activity.get('cost') else None,
+                        type='اسر',
+                        status='منتظر'
+                    )
+
+##################################
 
     @staticmethod
     def get_student_family_requests(student):
@@ -721,7 +921,7 @@ class FamilyService:
         # Get committee heads
         heads = FamilyMembers.objects.filter(
             family=family,
-            role='رئيس لجنة'
+            role='أمين لجنة'
         ).select_related('student', 'dept')
         
         leadership['committee_heads'] = [
@@ -739,7 +939,7 @@ class FamilyService:
         # Get committee assistants
         assistants = FamilyMembers.objects.filter(
             family=family,
-            role='نائب رئيس لجنة'
+            role='أمين مساعد لجنة'
         ).select_related('student', 'dept')
         
         leadership['committee_assistants'] = [

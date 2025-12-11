@@ -113,3 +113,20 @@ class Posts(models.Model):
 
     def __str__(self):
         return self.title
+    
+
+class FamilyAdmins(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    name = models.CharField(max_length=255)
+    nid = models.BigIntegerField()
+    ph_no = models.BigIntegerField()
+    role = models.CharField(max_length=100)   
+    family = models.ForeignKey(
+        Families,
+        db_column='family_id',
+        on_delete=models.CASCADE
+    )
+
+    class Meta:
+        managed = False
+        db_table = 'family_admins'

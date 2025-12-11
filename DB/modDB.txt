@@ -605,5 +605,37 @@ ADD COLUMN closing_date DATE NULL;
 UPDATE public.families
 SET closing_date = '2025-01-01'
 WHERE closing_date IS NULL;
+
+
+
+-- add a new table for family admins 
+
+
+CREATE TABLE public.family_admins (
+    id BIGSERIAL PRIMARY KEY,
+
+    name VARCHAR(255) NOT NULL,
+    nid BIGINT NOT NULL,
+    ph_no BIGINT NOT NULL,
+
+    role family_members_roles NOT NULL, 
+
+    family_id BIGINT NOT NULL,
+
+    created_at TIMESTAMP DEFAULT NOW(),
+
+    CONSTRAINT fk_admin_family
+        FOREIGN KEY (family_id)
+        REFERENCES families(family_id)
+        ON DELETE CASCADE
+);
+
+
+CREATE INDEX idx_family_admins_family_id ON family_admins(family_id);
+
+
+ALTER TYPE public.event_type ADD VALUE 'اسر';
+
+----
 --------------------------------------------------------------------
 ----------------------------------------------------------------------------------------
