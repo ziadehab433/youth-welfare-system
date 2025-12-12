@@ -128,9 +128,10 @@ class AdminsUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = AdminsUser
         fields = [
-            'admin_id', 'name', 'email', 'password', 'faculty',
-            'dept', 'role', 'can_create', 'can_read', 'can_update',
-            'can_delete', 'acc_status', 'created_at', 'dept_fac_ls'
+            'admin_id', 'name', 'email', 'password', 'faculty', 'faculty_name',
+            'dept', 'dept_name', 'role', 'acc_status', 'can_create', 
+            'can_update', 'can_read', 'can_delete', 'created_at',
+            "dept_fac_ls"
         ]
         read_only_fields = ['admin_id', 'created_at']
         extra_kwargs = {

@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
 from django.db import models
 from django.contrib.auth.hashers import make_password, check_password
+from django.core.validators import RegexValidator
 
 from django.contrib.postgres.fields import ArrayField
 
@@ -32,6 +33,30 @@ class AdminsUser(AbstractBaseUser, PermissionsMixin):
         base_field=models.CharField(max_length=255),
         blank=True,
         null=True
+    )
+    nid = models.CharField(
+    max_length=14,
+    blank=True,
+    null=True,
+    validators=[
+        RegexValidator(
+            regex=r'^\d{14}$',
+            message='NID must be exactly 14 digits'
+        )
+    ]
+)
+
+    phone_number = models.CharField(
+        max_length=14,
+        blank=True,
+        null=True,
+        unique=True,
+        validators=[
+            RegexValidator(
+                regex=r'^\d{1,14}$',
+                message='Phone number must be between 1 and 14 digits'
+            )
+        ]
     )
 
     

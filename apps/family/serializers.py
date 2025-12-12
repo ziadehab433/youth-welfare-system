@@ -3,6 +3,8 @@ from apps.family.models import *
 from apps.accounts.models import Students 
 from apps.solidarity.models import Faculties ,Departments
 from apps.event.models import Events
+from apps.family.constants import COMMITTEES, ADMIN_ROLES, STUDENT_ROLES, COMMITTEE_ROLES
+from rest_framework.exceptions import ValidationError
 
 class FamilyMembersSerializer(serializers.ModelSerializer):
     # These fields extract nested data from the student object
@@ -143,7 +145,7 @@ class CommitteeMemberSerializer(serializers.Serializer):
     """Serializer for committee members (heads and assistants)"""
     student_id = serializers.IntegerField()
     dept_id = serializers.IntegerField()
-    role = serializers.CharField()  # 'رئيس لجنة' or 'نائب رئيس لجنة'
+    role = serializers.CharField()  # 'أمين لجنة' or 'أمين مساعد لجنة'
     
     def validate(self, data):
         """Validate student and department exist"""
@@ -232,7 +234,7 @@ class FamilyRequestListSerializer(serializers.ModelSerializer):
         """Get president's name"""
         president = FamilyMembers.objects.filter(
             family=obj,
-            role='رئيس'
+            role='أخ أكبر'
         ).select_related('student').first()
         
         return president.student.name if president else None
@@ -241,7 +243,7 @@ class FamilyRequestListSerializer(serializers.ModelSerializer):
         """Get vice president's name"""
         vice_president = FamilyMembers.objects.filter(
             family=obj,
-            role='نائب رئيس'
+            role='أخت كبرى'
         ).select_related('student').first()
         
         return vice_president.student.name if vice_president else None
@@ -271,7 +273,7 @@ class FamilyRequestDetailSerializer(serializers.ModelSerializer):
         """Get president and vice president"""
         members = FamilyMembers.objects.filter(
             family=obj,
-            role__in=['رئيس', 'نائب رئيس']
+            role__in=['أخ أكبر', 'أخت كبرى']
         ).select_related('student')
         
         return [
@@ -288,7 +290,7 @@ class FamilyRequestDetailSerializer(serializers.ModelSerializer):
         """Get committee heads with departments"""
         heads = FamilyMembers.objects.filter(
             family=obj,
-            role='رئيس لجنة'
+            role='أمين لجنة'
         ).select_related('student', 'dept')
         
         return [
@@ -306,7 +308,7 @@ class FamilyRequestDetailSerializer(serializers.ModelSerializer):
         """Get committee assistants with departments"""
         assistants = FamilyMembers.objects.filter(
             family=obj,
-            role='نائب رئيس لجنة'
+            role='أمين مساعد لجنة'
         ).select_related('student', 'dept')
         
         return [
@@ -389,6 +391,7 @@ class CreateEventRequestSerializer(serializers.Serializer):
     cost = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, allow_null=True)
     restrictions = serializers.CharField(required=False, allow_blank=True)
     reward = serializers.CharField(required=False, allow_blank=True)
+    resource = models.TextField(blank=True, null=True)
     dept_id = serializers.PrimaryKeyRelatedField(
         queryset=Departments.objects.all(),
         source='dept',
@@ -494,3 +497,387 @@ class EventRequestResponseSerializer(serializers.ModelSerializer):
                 'faculty_id': student.faculty_id if student.faculty else None
             }
         return None
+    
+
+##################################################################################
+
+#CREATATION REQUEST FAMILY
+
+
+
+class ActivitySerializer(serializers.Serializer):
+    """Serializer for individual activity/event"""
+    title = serializers.CharField(max_length=150, required=True)
+    description = serializers.CharField(
+        max_length=500,
+        required=False,
+        allow_blank=True
+    )
+    st_date = serializers.DateField(required=True)
+    end_date = serializers.DateField(required=False)
+    location = serializers.CharField(
+        max_length=150,
+        required=False,
+        allow_blank=True
+    )
+    cost = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        required=False,
+        allow_null=True
+    )
+
+    def validate(self, data):
+        """Validate that end_date >= st_date"""
+        if data.get('end_date') and data.get('st_date'):
+            if data['end_date'] < data['st_date']:
+                raise ValidationError(
+                    "تاريخ الانتهاء يجب أن يكون أكبر من أو يساوي تاريخ البداية"
+                )
+        return data
+
+
+# ========== Admin Input Serializer ==========
+
+class AdminDataSerializer(serializers.Serializer):
+    """Serializer for admin/employee person data"""
+    name = serializers.CharField(max_length=255, required=True)
+    nid = serializers.IntegerField(required=True)  # National ID
+    ph_no = serializers.IntegerField(required=True)  # Phone number
+
+    def validate_nid(self, value):
+        """Validate national ID"""
+        if value <= 0:
+            raise ValidationError("رقم الهوية يجب أن يكون رقماً موجباً")
+        return value
+
+    def validate_ph_no(self, value):
+        """Validate phone number"""
+        if value <= 0:
+            raise ValidationError("رقم الهاتف يجب أن يكون رقماً موجباً")
+        return value
+
+
+# ========== Student Input Serializer ==========
+
+class StudentDataSerializer(serializers.Serializer):
+    """Serializer for student person reference using UID (University ID)"""
+    uid = serializers.IntegerField(required=True)  # University ID / student_id
+
+    def validate_uid(self, value):
+        """Validate student exists by UID"""
+        if not Students.objects.filter(uid=value).exists():
+            raise ValidationError(f"الطالب برقم الجامعة {value} غير موجود")
+        return value
+
+
+# ========== Committee Person Serializer ==========
+
+class CommitteePersonSerializer(serializers.Serializer):
+    """Serializer for committee head/assistant using UID (University ID)"""
+    uid = serializers.IntegerField(required=True)  # University ID / student_id
+    dept_id = serializers.IntegerField(required=True)
+
+    def validate_uid(self, value):
+        """Validate student exists by UID"""
+        if not Students.objects.filter(uid=value).exists():
+            raise ValidationError(f"الطالب برقم الجامعة {value} غير موجود")
+        return value
+
+    def validate_dept_id(self, value):
+        """Validate department exists"""
+        if not Departments.objects.filter(dept_id=value).exists():
+            raise ValidationError(f"القسم برقم {value} غير موجود")
+        return value
+
+
+# ========== Committee Data Serializer ==========
+
+class CommitteeDataSerializer(serializers.Serializer):
+    """Serializer for a complete committee with head, assistant, and activities"""
+    committee_key = serializers.ChoiceField(
+        choices=[c['key'] for c in COMMITTEES],
+        required=True
+    )
+    head = CommitteePersonSerializer(required=True)
+    assistant = CommitteePersonSerializer(required=True)
+    activities = ActivitySerializer(many=True, required=False, allow_empty=True)
+
+    def validate(self, data):
+        """Validate head and assistant are different people"""
+        if data['head']['uid'] == data['assistant']['uid']:
+            raise ValidationError(
+                "رئيس اللجنة ونائب الرئيس يجب أن يكونا شخصين مختلفين"
+            )
+
+        # Verify departments match
+        if data['head']['dept_id'] != data['assistant']['dept_id']:
+            raise ValidationError(
+                "رئيس اللجنة ونائب الرئيس يجب أن يكونا من نفس القسم"
+            )
+
+        return data
+
+
+# ========== Default Roles Serializer ==========
+
+class DefaultRolesDataSerializer(serializers.Serializer):
+    """Serializer for default roles with admin and student data"""
+
+    # Admin roles
+    رائد = AdminDataSerializer(required=True)
+    نائب_رائد = AdminDataSerializer(required=True, source='نائب رائد')
+    مسؤول = AdminDataSerializer(required=True)
+    أمين_صندوق = AdminDataSerializer(required=True, source='أمين صندوق')
+
+    # Student roles (using UID instead of student_id)
+    أخ_أكبر = StudentDataSerializer(required=True, source='أخ أكبر')
+    أخت_كبرى = StudentDataSerializer(required=True, source='أخت كبرى')
+    أمين_سر = StudentDataSerializer(required=True, source='أمين سر')
+    عضو_منتخب_1 = StudentDataSerializer(required=True, source='عضو منتخب 1')
+    عضو_منتخب_2 = StudentDataSerializer(required=True, source='عضو منتخب 2')
+
+    def validate(self, data):
+        """Validate no student is assigned twice"""
+        student_uids = [
+            data['أخ أكبر']['uid'],
+            data['أخت كبرى']['uid'],
+            data['أمين سر']['uid'],
+            data['عضو منتخب 1']['uid'],
+            data['عضو منتخب 2']['uid'],
+        ]
+
+        if len(student_uids) != len(set(student_uids)):
+            raise ValidationError("كل طالب يمكن أن يكون له دور واحد فقط")
+
+        return data
+
+
+# ========== Main Create Family Serializer ==========
+
+class CreateFamilyRequestSerializer(serializers.Serializer):
+    """Main serializer for creating family request with all details"""
+
+    # Family Information
+    family_type = serializers.ChoiceField(
+        choices=['نوعية', 'مركزية'],
+        required=True,
+        help_text="نوع الأسرة: نوعية (متخصصة) أو مركزية"
+    )
+    name = serializers.CharField(max_length=100, required=True)
+    description = serializers.CharField(max_length=1000, required=True)
+    min_limit = serializers.IntegerField(
+        default=15,
+        min_value=1,
+        required=False
+    )
+
+    # Faculty
+    faculty_id = serializers.IntegerField(required=True)
+
+    # Default Roles (9 people: 4 admins + 5 students)
+    default_roles = DefaultRolesDataSerializer(required=True)
+
+    # Committees (7 committees with heads, assistants, and activities)
+    committees = CommitteeDataSerializer(
+        many=True,
+        required=True,
+        help_text="7 لجان مع رؤساء ونواب ونشاطات"
+    )
+
+    def validate_faculty_id(self, value):
+        """Validate faculty exists"""
+        if not Faculties.objects.filter(faculty_id=value).exists():
+            raise ValidationError(f"الكلية برقم {value} غير موجودة")
+        return value
+
+    def validate_committees(self, value):
+        """Validate all 7 committees are present with no duplicates"""
+        if len(value) != 7:
+            raise ValidationError(f"يجب أن يكون لديك بالضبط 7 لجان، لديك {len(value)}")
+
+        committee_keys = [c['committee_key'] for c in value]
+        valid_keys = [com['key'] for com in COMMITTEES]
+
+        for key in committee_keys:
+            if key not in valid_keys:
+                raise ValidationError(f"مفتاح اللجنة غير صحيح: {key}")
+
+        if len(committee_keys) != len(set(committee_keys)):
+            raise ValidationError("تم العثور على لجان مكررة")
+
+        # Validate no person is assigned to multiple committee positions
+        all_student_uids = []
+        for committee in value:
+            all_student_uids.append(committee['head']['uid'])
+            all_student_uids.append(committee['assistant']['uid'])
+
+        if len(all_student_uids) != len(set(all_student_uids)):
+            raise ValidationError(
+                "كل طالب يمكن أن يكون مسؤولاً عن لجنة واحدة فقط"
+            )
+
+        return value
+
+    def validate(self, data):
+        """Cross-field validation"""
+        # Ensure default roles students are different from committee students
+        default_role_students = [
+            data['default_roles']['أخ أكبر']['uid'],
+            data['default_roles']['أخت كبرى']['uid'],
+            data['default_roles']['أمين سر']['uid'],
+            data['default_roles']['عضو منتخب 1']['uid'],
+            data['default_roles']['عضو منتخب 2']['uid'],
+        ]
+
+        committee_student_uids = []
+        for committee in data['committees']:
+            committee_student_uids.append(committee['head']['uid'])
+            committee_student_uids.append(committee['assistant']['uid'])
+
+        overlap = set(default_role_students) & set(committee_student_uids)
+        if overlap:
+            raise ValidationError(
+                f"الطلاب برقم الجامعة {list(overlap)} مكلفين بأدوار افتراضية وأدوار لجان في نفس الوقت"
+            )
+
+        return data
+
+
+# ========== Detail Response Serializers ==========
+
+class FamilyAdminDetailSerializer(serializers.ModelSerializer):
+    """Serializer for FamilyAdmin detail response"""
+    class Meta:
+        model = FamilyAdmins
+        fields = ['id', 'name', 'nid', 'ph_no', 'role']
+        read_only_fields = ['id']
+
+
+class FamilyMemberDetailSerializer(serializers.ModelSerializer):
+    """Serializer for FamilyMember detail response"""
+    uid = serializers.CharField(source='student.student_id', read_only=True)
+    student_name = serializers.CharField(source='student.name', read_only=True)
+    student_email = serializers.CharField(source='student.email', read_only=True)
+    dept_name = serializers.CharField(source='dept.name', read_only=True, allow_null=True)
+
+    class Meta:
+        model = FamilyMembers
+        fields = [
+            'uid', 'student_name', 'student_email',
+            'role', 'status', 'joined_at', 'dept_name'
+        ]
+        read_only_fields = ['joined_at']
+
+
+class EventDetailSerializer(serializers.ModelSerializer):
+    """Serializer for Events"""
+    dept_name = serializers.CharField(source='dept.name', read_only=True, allow_null=True)
+
+    class Meta:
+        model = Events
+        fields = [
+            'event_id', 'title', 'description', 'st_date', 'end_date',
+            'location', 'cost', 'dept_name'
+        ]
+
+
+class FamilyRequestDetailSerializer(serializers.ModelSerializer):
+    """Detailed serializer for created family with all members and activities"""
+    faculty_name = serializers.CharField(
+        source='faculty.name',
+        read_only=True,
+        allow_null=True
+    )
+    admins = FamilyAdminDetailSerializer(
+        source='familyadmins_set',
+        many=True,
+        read_only=True
+    )
+    student_members = serializers.SerializerMethodField()
+    committees_data = serializers.SerializerMethodField()
+    events = EventDetailSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Families
+        fields = [
+            'family_id', 'name', 'description', 'faculty', 'faculty_name',
+            'type', 'status', 'min_limit', 'created_at', 'updated_at',
+            'admins', 'student_members', 'committees_data', 'events'
+        ]
+        read_only_fields = ['family_id', 'created_at', 'updated_at']
+
+    def get_student_members(self, obj):
+        """Get all student members grouped by role"""
+        members = FamilyMembers.objects.filter(family=obj).select_related('student')
+
+        result = {}
+        for m in members:
+            if m.role == 'عضو منتخب':
+                if m.role not in result:
+                    result[m.role] = []
+                result[m.role].append({
+                    'uid': m.student.student_id,
+                    'name': m.student.name,
+                    'email': m.student.email,
+                    'role': m.role,
+                    'status': m.status,
+                    'joined_at': m.joined_at.isoformat() if m.joined_at else None
+                })
+            else:
+                result[m.role] = {
+                    'uid': m.student.student_id,
+                    'name': m.student.name,
+                    'email': m.student.email,
+                    'role': m.role,
+                    'status': m.status,
+                    'joined_at': m.joined_at.isoformat() if m.joined_at else None
+                }
+
+        return result
+
+    def get_committees_data(self, obj):
+        """Get all committee data with heads, assistants, and activities"""
+        committees = FamilyMembers.objects.filter(
+            family=obj,
+            role__in=['أمين لجنة', 'أمين مساعد لجنة']
+        ).select_related('student', 'dept').order_by('dept_id')
+
+        # Group by department
+        committees_dict = {}
+        for member in committees:
+            dept_id = member.dept_id
+            if dept_id not in committees_dict:
+                committees_dict[dept_id] = {
+                    'dept_id': dept_id,
+                    'dept_name': member.dept.name if member.dept else None,
+                    'head': None,
+                    'assistant': None,
+                    'activities': []
+                }
+
+            if member.role == 'أمين لجنة':
+                committees_dict[dept_id]['head'] = {
+                    'uid': member.student.student_id,
+                    'name': member.student.name,
+                    'email': member.student.email
+                }
+            elif member.role == 'أمين مساعد لجنة':
+                committees_dict[dept_id]['assistant'] = {
+                    'uid': member.student.student_id,
+                    'name': member.student.name,
+                    'email': member.student.email
+                }
+
+        # Add activities
+        for committee_data in committees_dict.values():
+            events = Events.objects.filter(
+                family=obj,
+                dept_id=committee_data['dept_id']
+            ).values(
+                'event_id', 'title', 'description', 'st_date', 'end_date',
+                'location', 'cost'
+            )
+            committee_data['activities'] = list(events)
+
+        return list(committees_dict.values())

@@ -52,7 +52,7 @@ class Events(models.Model):
         null=True,
         db_column='family_id'
     )
-
+    resource = models.TextField(blank=True, null=True)
     class Meta:
         managed = False
         db_table = 'events'
