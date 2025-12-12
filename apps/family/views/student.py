@@ -22,7 +22,7 @@ class StudentFamilyViewSet(viewsets.GenericViewSet):
     serializer_class = StudentFamiliesSerializer
     
     @extend_schema(
-        tags=["Student Family APIs"],
+        tags=["Family Student APIs"],
         description="Retrieve all families the student is a member of",
         responses={200: StudentFamiliesSerializer(many=True)}
     )
@@ -50,7 +50,7 @@ class StudentFamilyViewSet(viewsets.GenericViewSet):
 
     
     @extend_schema(
-        tags=["Student Family APIs"],
+        tags=["Family Student APIs"],
         description="Get all families available for student to join",
         responses={200: AvailableFamiliesSerializer(many=True)}
     )
@@ -90,7 +90,7 @@ class StudentFamilyViewSet(viewsets.GenericViewSet):
 
 
     @extend_schema(
-        tags=["Student Family APIs"],
+        tags=["Family Student APIs"],
         description="Get all members of a family (founders only)",
         responses={200: FamilyMembersDetailSerializer(many=True)}
     )
@@ -157,7 +157,7 @@ class StudentFamilyViewSet(viewsets.GenericViewSet):
 
     
     @extend_schema(
-        tags=["Student Family APIs"],
+        tags=["Family Student APIs"],
         description="Join a family",
         request=None,
         responses={
@@ -238,7 +238,7 @@ class StudentFamilyViewSet(viewsets.GenericViewSet):
 # CREATE REQUEST TO CREATE FAMILY 
 
     @extend_schema(
-        tags=["Student Family APIs"],
+        tags=["Family Student APIs"],
         description="Create a new family request with detailed configuration",
         request=CreateFamilyRequestSerializer,
         responses={
@@ -314,7 +314,7 @@ class StudentFamilyViewSet(viewsets.GenericViewSet):
 
     
     @extend_schema(
-        tags=["Student Family APIs"],
+        tags=["Family Student APIs"],
         description="Retrieve all family creation requests submitted by the student",
         responses={200: FamilyRequestListSerializer(many=True)}
     )
@@ -357,7 +357,7 @@ class StudentFamilyViewSet(viewsets.GenericViewSet):
 
     
     @extend_schema(
-        tags=["Student Family APIs"],
+        tags=["Family Student APIs"],
         description="Create a new post in a family (president/vice president only)",
         request=CreatePostSerializer,
         responses={
@@ -428,7 +428,7 @@ class StudentFamilyViewSet(viewsets.GenericViewSet):
     
     
     @extend_schema(
-        tags=["Student Family APIs"],
+        tags=["Family Student APIs"],
         description="Get all posts in a family (members only)",
         responses={200: FamilyPostSerializer(many=True)}
     )
@@ -493,7 +493,7 @@ class StudentFamilyViewSet(viewsets.GenericViewSet):
 # fam std dash board
     
     @extend_schema(
-        tags=["Student Family APIs"],
+        tags=["Family Student APIs"],
         description="Get family dashboard data (founders only)",
         responses={
             200: FamilyDashboardSerializer,
@@ -545,7 +545,7 @@ class StudentFamilyViewSet(viewsets.GenericViewSet):
 
 
     @extend_schema(
-        tags=["Student Family Event Requests"],
+        tags=["Family Student APIs"],
         description="Create a new event request (president/vice president only)",
         request=CreateEventRequestSerializer,
         responses={
@@ -627,7 +627,7 @@ class StudentFamilyViewSet(viewsets.GenericViewSet):
 
 
     @extend_schema(
-        tags=["Student Family Event Requests"],
+        tags=["Family Student APIs"],
         description="Get all event requests for a family",
         responses={200: EventRequestResponseSerializer(many=True)}
     )

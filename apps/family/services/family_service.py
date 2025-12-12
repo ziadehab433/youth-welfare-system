@@ -347,7 +347,7 @@ class FamilyService:
                     faculty=faculty,
                     type=request_data['family_type'],
                     status='منتظر',
-                    min_limit=request_data.get('min_limit', 15),
+                    min_limit=request_data.get('min_limit',50),
                     created_by_id=1,  # Admin user ID
                     created_at=timezone.now()
                 )

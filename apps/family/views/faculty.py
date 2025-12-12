@@ -62,14 +62,14 @@ class FamilyFacultyAdminViewSet(viewsets.GenericViewSet):
             family = FamilyService.get_family_detail(pk, admin)
             
              #Optional: Log data access
-            # log_data_access(
-            #     actor_id=admin.admin_id,
-            #     actor_type=admin.role,
-            #     action='عرض تفاصيل الأسرة',
-            #     target_type='اسر',
-            #     family_id=pk,  # do not forget to fix the log_data_fun to be genaric to fit with all actions (osar , tkafol , events)
-            #     ip_address=client_ip
-            # )
+            log_data_access(
+                actor_id=admin.admin_id,
+                actor_type=admin.role,
+                action='عرض تفاصيل الأسرة',
+                target_type='اسر',
+                family_id=pk,  
+                ip_address=client_ip
+            )
             
             return Response(FamiliesDetailSerializer(family).data)
         except ValidationError as e:
