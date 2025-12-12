@@ -4,6 +4,7 @@ Handles Google SSO login and signup flows
 """
 
 from django.conf import settings
+from django.shortcuts import redirect
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -77,23 +78,17 @@ logger = logging.getLogger(__name__)
     }
 )
 class GoogleOAuthInitiateView(APIView):
-    """
-    Step 1: Initiate Google OAuth flow
-    Returns the Google authorization URL
-    """
     permission_classes = []
     
     def get(self, request):
-        """
-        GET /api/auth/google/init/
-        
-        Returns Google authorization URL for frontend to redirect to
-        """
         try:
-            # Use GoogleOAuthService to get authorization URL
             auth_url = GoogleOAuthService.get_authorization_url()
             
-            logger.info(f"Generated auth URL with redirect_uri: {settings.GOOGLE_REDIRECT_URI}")
+            # Debug logging
+            logger.info(f"✅ Generated auth URL")
+            logger.info(f"   Client ID: {settings.GOOGLE_CLIENT_ID[:20]}...")
+            logger.info(f"   Redirect URI: {settings.GOOGLE_REDIRECT_URI}")
+            logger.info(f"   Full URL: {auth_url[:100]}...")
             
             return Response({
                 'authorization_url': auth_url,
@@ -101,7 +96,7 @@ class GoogleOAuthInitiateView(APIView):
             }, status=status.HTTP_200_OK)
             
         except Exception as e:
-            logger.error(f"Failed to generate authorization URL: {e}")
+            logger.error(f"❌ Failed to generate authorization URL: {e}")
             return Response(
                 {'error': 'Failed to initiate Google OAuth'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -846,43 +841,32 @@ class GoogleOAuthSignUpView(APIView):
         ),
     }
 )
+
 class GoogleOAuthCallbackView(APIView):
     """
-    Handle Google OAuth callback
-    This is called by Google after user authorizes
+    Receive authorization code from Google
+    Frontend will handle sending it to /api/auth/google/login/
     """
     permission_classes = []
     
     def get(self, request):
         """
-        GET /api/auth/google/callback/?code=...&state=...
+        GET /auth/google-callback/?code=...&state=...
         
-        This endpoint receives the authorization code from Google
-        after the user has authorized the application.
+        This receives code from Google (via browser redirect)
+        Then frontend sends code to backend POST /api/auth/google/login/
         """
         code = request.query_params.get('code')
         error = request.query_params.get('error')
         
-        # Handle errors from Google
         if error:
-            logger.error(f"Google OAuth error: {error}")
-            return Response(
-                {'error': f'Google OAuth error: {error}'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            # Return error as query param or in response
+            # Frontend will handle it
+            return redirect(f"http://localhost:3000/auth/google-callback?error={error}")
         
-        # Check if authorization code is present
         if not code:
-            logger.warning("No authorization code received from Google")
-            return Response(
-                {'error': 'No authorization code provided'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return redirect("http://localhost:3000/auth/google-callback?error=no_code")
         
-        # Return the code for the frontend to use
-        logger.info("Authorization code received from Google")
-        return Response({
-            'message': 'Authorization code received',
-            'code': code,
-            'instruction': 'Send this code to POST /api/auth/google/login/'
-        }, status=status.HTTP_200_OK)
+        # Redirect to frontend with code
+        # Frontend will send POST to /api/auth/google/login/ with this code
+        return redirect(f"http://localhost:3000/auth/google-callback?code={code}")
