@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict FYBWCjfKQjU3E4dgNjTk9iuDdKNtONIFgXMXFmerRYmHvLCOgiIZvPtGZvuAQuU
+\restrict JThKA1dZhvWacK8PzEXMxJWC2u9966zJaNtr3657fDKNFbYyeNcSejegHv6Ee1S
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.6
@@ -66,11 +66,46 @@ CREATE TYPE public.event_type AS ENUM (
     'نشاط علمي',
     'نشاط خدمة عامة',
     'نشاط فني',
-    'نشاط معسكرات'
+    'نشاط معسكرات',
+    'اسر'
 );
 
 
 ALTER TYPE public.event_type OWNER TO postgres;
+
+--
+-- Name: family_members_roles; Type: TYPE; Schema: public; Owner: postgres
+--
+
+CREATE TYPE public.family_members_roles AS ENUM (
+    'رائد',
+    'نائب رائد',
+    'مسؤول',
+    'أمين صندوق',
+    'أخ أكبر',
+    'أخت كبرى',
+    'أمين سر',
+    'عضو منتخب',
+    'أمين لجنة',
+    'أمين مساعد لجنة',
+    'عضو'
+);
+
+
+ALTER TYPE public.family_members_roles OWNER TO postgres;
+
+--
+-- Name: family_type; Type: TYPE; Schema: public; Owner: postgres
+--
+
+CREATE TYPE public.family_type AS ENUM (
+    'نوعية',
+    'مركزية',
+    'اصدقاء البيئة'
+);
+
+
+ALTER TYPE public.family_type OWNER TO postgres;
 
 --
 -- Name: general_status; Type: TYPE; Schema: public; Owner: postgres
@@ -80,7 +115,8 @@ CREATE TYPE public.general_status AS ENUM (
     'موافقة مبدئية',
     'مقبول',
     'منتظر',
-    'مرفوض'
+    'مرفوض',
+    'قادم'
 );
 
 
@@ -363,7 +399,11 @@ CREATE TABLE public.admins (
     can_delete boolean DEFAULT false,
     acc_status character varying(20) DEFAULT 'active'::character varying,
     role public.admin_role,
-    dept_fac_ls text[] DEFAULT '{}'::text[]
+    dept_fac_ls text[] DEFAULT '{}'::text[],
+    nid character varying(14),
+    phone_number character varying(14),
+    CONSTRAINT check_nid_format CHECK (((nid IS NULL) OR ((nid)::text ~ '^\d{14}$'::text))),
+    CONSTRAINT check_phone_format CHECK (((phone_number IS NULL) OR ((phone_number)::text ~ '^\d{6,14}$'::text)))
 );
 
 
@@ -779,6 +819,7 @@ CREATE TABLE public.events (
     created_at timestamp with time zone DEFAULT now(),
     type public.event_type,
     family_id integer,
+    resource character varying(100),
     CONSTRAINT events_check CHECK ((end_date >= st_date))
 );
 
@@ -846,7 +887,8 @@ CREATE TABLE public.families (
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
     min_limit integer DEFAULT 50 NOT NULL,
-    type character varying(50) NOT NULL
+    type public.family_type NOT NULL,
+    closing_date date
 );
 
 
@@ -867,13 +909,51 @@ ALTER TABLE public.families ALTER COLUMN family_id ADD GENERATED ALWAYS AS IDENT
 
 
 --
+-- Name: family_admins; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.family_admins (
+    id bigint NOT NULL,
+    name character varying(255) NOT NULL,
+    nid bigint NOT NULL,
+    ph_no bigint NOT NULL,
+    role public.family_members_roles NOT NULL,
+    family_id bigint NOT NULL,
+    created_at timestamp without time zone DEFAULT now()
+);
+
+
+ALTER TABLE public.family_admins OWNER TO postgres;
+
+--
+-- Name: family_admins_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.family_admins_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.family_admins_id_seq OWNER TO postgres;
+
+--
+-- Name: family_admins_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.family_admins_id_seq OWNED BY public.family_admins.id;
+
+
+--
 -- Name: family_members; Type: TABLE; Schema: public; Owner: postgres
 --
 
 CREATE TABLE public.family_members (
     family_id integer NOT NULL,
     student_id integer NOT NULL,
-    role character varying(30) DEFAULT 'member'::character varying,
+    role public.family_members_roles,
     status public.general_status DEFAULT 'منتظر'::public.general_status,
     joined_at timestamp with time zone DEFAULT now(),
     dept_id integer
@@ -915,6 +995,45 @@ ALTER TABLE public.logs ALTER COLUMN log_id ADD GENERATED ALWAYS AS IDENTITY (
     NO MAXVALUE
     CACHE 1
 );
+
+
+--
+-- Name: posts; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.posts (
+    post_id integer NOT NULL,
+    title character varying(255) NOT NULL,
+    description text NOT NULL,
+    family_id integer NOT NULL,
+    faculty_id integer NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+ALTER TABLE public.posts OWNER TO postgres;
+
+--
+-- Name: posts_post_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.posts_post_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.posts_post_id_seq OWNER TO postgres;
+
+--
+-- Name: posts_post_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.posts_post_id_seq OWNED BY public.posts.post_id;
 
 
 --
@@ -1045,7 +1164,12 @@ CREATE TABLE public.students (
     gpa numeric(4,2),
     grade character varying(50),
     major character varying(255) NOT NULL,
-    CONSTRAINT students_phone_number_check CHECK ((phone_number ~ '^\+?[0-9]{6,15}$'::text))
+    google_id character varying(255),
+    google_picture character varying(500),
+    is_google_auth boolean DEFAULT false,
+    auth_method character varying(20) DEFAULT 'email'::character varying,
+    last_login_method character varying(20),
+    last_google_login timestamp without time zone
 );
 
 
@@ -1073,659 +1197,24 @@ ALTER TABLE ONLY public.event_docs ALTER COLUMN doc_id SET DEFAULT nextval('publ
 
 
 --
+-- Name: family_admins id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.family_admins ALTER COLUMN id SET DEFAULT nextval('public.family_admins_id_seq'::regclass);
+
+
+--
+-- Name: posts post_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.posts ALTER COLUMN post_id SET DEFAULT nextval('public.posts_post_id_seq'::regclass);
+
+
+--
 -- Name: solidarity_docs doc_id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.solidarity_docs ALTER COLUMN doc_id SET DEFAULT nextval('public.solidarity_docs_doc_id_seq'::regclass);
-
-
---
--- Data for Name: admins; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.admins (admin_id, name, email, password, faculty_id, dept_id, created_at, can_create, can_update, can_read, can_delete, acc_status, role, dept_fac_ls) FROM stdin;
-6	منى يوسف	mona.general@example.com	$2b$12$/yfBp5mpBNUt4EZp1IWEJu22QNUjejzEuBB/0JiUNeZ.32HPn7SOq	\N	\N	2025-10-20 02:53:23.217139+03	t	t	t	t	active	مدير عام	{}
-8	omar	omar@gmail.com	pbkdf2_sha256$1000000$vlZHhPpW9IpNAdiVAlRLoZ$EKZZMi53hEdx/k1aLRSkqXWKnmZgVcXUMN0N8tP7RNQ=	1	\N	2025-10-30 01:10:42.356929+03	t	t	t	t	active	مسؤول كلية	{string,"فني و ثقافي"}
-4	سارة محمد	sara.head@example.com	$2b$12$/yfBp5mpBNUt4EZp1IWEJu22QNUjejzEuBB/0JiUNeZ.32HPn7SOq	1	\N	2025-10-20 02:53:23.217139+03	t	t	t	t	active	مدير كلية	{}
-12	string	user@example.com	pbkdf2_sha256$1000000$IrRY86mbOwprrogP9aOI2H$2RgAvUXSAwxSeNHNhdSuu+RXGdAhwr9bghYxx5mvfZY=	1	\N	2025-11-15 03:13:03.29534+02	t	t	t	t	active	مسؤول كلية	{}
-5	خالد إبراهيم	khaled.manager@example.com	$2b$12$/yfBp5mpBNUt4EZp1IWEJu22QNUjejzEuBB/0JiUNeZ.32HPn7SOq	\N	\N	2025-10-20 02:53:23.217139+03	t	t	t	t	active	مدير ادارة	{}
-16	oo	oo@gmail.com	pbkdf2_sha256$1000000$QXXplajwQLlKBLRkvWyEDG$j2Hy8tqFThcTmWs+C0g6pFfGvVtrklz/leeYU9X0WzI=	\N	\N	2025-11-18 20:45:57.231286+02	t	t	t	t	active	مدير ادارة	{تكافل}
-13	string	admin@example.com	pbkdf2_sha256$1000000$QvWcdHW5PZf3birfhgr1K1$ze8CXVUv+iOXUkR+zOGt0dx9HGx9I5Tsl47DoOmL4KY=	\N	\N	2025-11-15 03:30:33.532263+02	t	t	t	t	string	مشرف النظام	{}
-14	a4	ar@gmail.com.com	pbkdf2_sha256$1000000$zBktzHX9eDrOqSc9VSreRz$eFZqgCmqCYdzJ7TUfKZQoUaOXXPxgicfH1cyjNL31dQ=	\N	\N	2025-11-15 03:36:53.711315+02	t	t	t	t	active	مشرف النظام	{}
-15	ali	alioamar@gmail.com	pbkdf2_sha256$1000000$MYace5Oq8w4z1fOtwxrC3A$d8Vh8UhpL/6nKz4RcdwtRDIWAoso5ZxHTELq+wOJfMs=	1	\N	2025-11-18 20:27:49.844806+02	t	t	t	t	active	مسؤول كلية	{"نشاط فني","نشاط رياضي"}
-17	aa	aa@gmail.com	pbkdf2_sha256$1000000$2dc1qpkT0K2Rvf8jYCZFGr$RYI8fid0TOn0KPMmVGLXDSb+4fCh2gtoN+F/KrCJ0RE=	2	\N	2025-11-18 21:42:50.130782+02	t	t	t	t	active	مسؤول كلية	{"نشاط فمي",تكافل}
-18	admin12	admin12@gmail.com	pbkdf2_sha256$1000000$sZ9BCWoeUQKBmW1h4mY3g8$QqXoHVTnnHG6Xtk3BeqX21BCFPeh1zN6RD1cWtz/Ads=	2	\N	2025-11-18 23:03:16.0987+02	t	t	t	t	نشط	مسؤول كلية	{"فني و رياضي",رياضي}
-1	ahmed	ahmed@gmail.com	pbkdf2_sha256$1000000$dx0GL2Uj1qVCDZa7x83045$0q9vmyfE+Bf0237qGzyUVvtqnJEauuW6eauxJra+CIM=	1	\N	2025-10-20 02:34:30.31113+03	t	t	t	t	active	مسؤول كلية	{"نشاط فني و ثقافي"}
-3	أحمد علي	ahmed.faculty@example.com	pbkdf2_sha256$1000000$k0IQx82TzGMhVAFEe6Y8Zl$oiR9QGJQIceP5VudDGMnLBdeXYfJPbgW1rmeNzobO0g=	3	\N	2025-10-20 02:53:23.217139+03	t	t	t	f	active	مسؤول كلية	{}
-19	admin33	admin33@example.com	pbkdf2_sha256$1000000$rEqE9UmuMQqskvYGjne6Nd$T0ST6Ew8rabU2sFpgL/o90T4uhB8PUvkNCzOOOYIUI4=	2	\N	2025-11-21 16:33:42.63292+02	t	t	t	t	active	مسؤول كلية	{فني,رياضي}
-20	admin34	admin34@example.com	pbkdf2_sha256$1000000$WqUSKaWUHuPX89VGicr9jA$La3PHY+349r/DeTyaXSvAoO3K3S5JvzcI/I7rq2ltVk=	2	\N	2025-11-21 16:34:27.807083+02	t	t	t	t	active	مسؤول كلية	{فني,رياضي,ثقافي}
-7	محمد سعيد	mohamed.super@example.com	pbkdf2_sha256$1000000$yOdSWDrX15vKLosN6Dp41Y$I5NAsjlV29vxASgyoBCPnikiCcl9wf9fPvCxXSHt4Ys=	\N	\N	2025-10-20 02:53:23.217139+03	t	t	t	t	active	مشرف النظام	{}
-9	ali	ali@gmail.com	pbkdf2_sha256$1000000$g5LSEHFQAOV5imJXliaDcS$EC34z7cDVSgQjTbt3313xwvXrj72TCS+GExZENNjMI4=	1	\N	2025-10-30 01:34:00.847159+03	t	t	t	t	active	مسؤول كلية	{"فني و ثقافي",رياضي}
-11	B	B@gmail.com	pbkdf2_sha256$1000000$wrgC5ZDwinGSr1g0SR8vrz$RZ3Xy50cG9qhkw+toLxLTBdGpMndW5G/SgY3Iewb9EE=	\N	\N	2025-10-30 02:09:47.364118+03	t	t	t	t	active	مشرف النظام	{}
-10	A	A@gmail.com	pbkdf2_sha256$1000000$wN2OdjwYyuKZ9kKEjKkhPH$LMzBhFiIGlM6QlllHD9z+PtdJd1aF0hNRQdCTFJgYRY=	\N	\N	2025-10-30 01:37:07.429515+03	t	t	t	t	active	مشرف النظام	{}
-2	سارة محمد	sara@example.com	pbkdf2_sha256$1000000$YOum6XQm4YPTyOygoretCH$qI6iJdP+RHVI5jCneq2CYhb88PnvNhsdvduSklDyMaI=	2	\N	2025-10-20 02:34:30.31113+03	t	t	t	f	active	مسؤول كلية	{"فني و ثقافي"}
-\.
-
-
---
--- Data for Name: auth_group; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.auth_group (id, name) FROM stdin;
-\.
-
-
---
--- Data for Name: auth_group_permissions; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.auth_group_permissions (id, group_id, permission_id) FROM stdin;
-\.
-
-
---
--- Data for Name: auth_permission; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.auth_permission (id, name, content_type_id, codename) FROM stdin;
-1	Can add log entry	1	add_logentry
-2	Can change log entry	1	change_logentry
-3	Can delete log entry	1	delete_logentry
-4	Can view log entry	1	view_logentry
-5	Can add permission	2	add_permission
-6	Can change permission	2	change_permission
-7	Can delete permission	2	delete_permission
-8	Can view permission	2	view_permission
-9	Can add group	3	add_group
-10	Can change group	3	change_group
-11	Can delete group	3	delete_group
-12	Can view group	3	view_group
-13	Can add user	4	add_user
-14	Can change user	4	change_user
-15	Can delete user	4	delete_user
-16	Can view user	4	view_user
-17	Can add content type	5	add_contenttype
-18	Can change content type	5	change_contenttype
-19	Can delete content type	5	delete_contenttype
-20	Can view content type	5	view_contenttype
-21	Can add session	6	add_session
-22	Can change session	6	change_session
-23	Can delete session	6	delete_session
-24	Can view session	6	view_session
-25	Can add faculties	7	add_faculties
-26	Can change faculties	7	change_faculties
-27	Can delete faculties	7	delete_faculties
-28	Can view faculties	7	view_faculties
-29	Can add departments	8	add_departments
-30	Can change departments	8	change_departments
-31	Can delete departments	8	delete_departments
-32	Can view departments	8	view_departments
-33	Can add admins	9	add_admins
-34	Can change admins	9	change_admins
-35	Can delete admins	9	delete_admins
-36	Can view admins	9	view_admins
-37	Can add students	10	add_students
-38	Can change students	10	change_students
-39	Can delete students	10	delete_students
-40	Can view students	10	view_students
-41	Can add events	11	add_events
-42	Can change events	11	change_events
-43	Can delete events	11	delete_events
-44	Can view events	11	view_events
-45	Can add families	12	add_families
-46	Can change families	12	change_families
-47	Can delete families	12	delete_families
-48	Can view families	12	view_families
-49	Can add family members	13	add_familymembers
-50	Can change family members	13	change_familymembers
-51	Can delete family members	13	delete_familymembers
-52	Can view family members	13	view_familymembers
-53	Can add solidarities	14	add_solidarities
-54	Can change solidarities	14	change_solidarities
-55	Can delete solidarities	14	delete_solidarities
-56	Can view solidarities	14	view_solidarities
-57	Can add documents	15	add_documents
-58	Can change documents	15	change_documents
-59	Can delete documents	15	delete_documents
-60	Can view documents	15	view_documents
-61	Can add logs	16	add_logs
-62	Can change logs	16	change_logs
-63	Can delete logs	16	delete_logs
-64	Can view logs	16	view_logs
-65	Can add prtcps	17	add_prtcps
-66	Can change prtcps	17	change_prtcps
-67	Can delete prtcps	17	delete_prtcps
-68	Can view prtcps	17	view_prtcps
-69	Can add events	18	add_events
-70	Can change events	18	change_events
-71	Can delete events	18	delete_events
-72	Can view events	18	view_events
-73	Can add solidarities	19	add_solidarities
-74	Can change solidarities	19	change_solidarities
-75	Can delete solidarities	19	delete_solidarities
-76	Can view solidarities	19	view_solidarities
-77	Can add logs	20	add_logs
-78	Can change logs	20	change_logs
-79	Can delete logs	20	delete_logs
-80	Can view logs	20	view_logs
-81	Can add solidarity docs	21	add_solidaritydocs
-82	Can change solidarity docs	21	change_solidaritydocs
-83	Can delete solidarity docs	21	delete_solidaritydocs
-84	Can view solidarity docs	21	view_solidaritydocs
-85	Can add departments	22	add_departments
-86	Can change departments	22	change_departments
-87	Can delete departments	22	delete_departments
-88	Can view departments	22	view_departments
-89	Can add students	23	add_students
-90	Can change students	23	change_students
-91	Can delete students	23	delete_students
-92	Can view students	23	view_students
-93	Can add faculties	24	add_faculties
-94	Can change faculties	24	change_faculties
-95	Can delete faculties	24	delete_faculties
-96	Can view faculties	24	view_faculties
-97	Can add admins	25	add_admins
-98	Can change admins	25	change_admins
-99	Can delete admins	25	delete_admins
-100	Can view admins	25	view_admins
-101	Can add families	26	add_families
-102	Can change families	26	change_families
-103	Can delete families	26	delete_families
-104	Can view families	26	view_families
-105	Can add admins user	27	add_adminsuser
-106	Can change admins user	27	change_adminsuser
-107	Can delete admins user	27	delete_adminsuser
-108	Can view admins user	27	view_adminsuser
-\.
-
-
---
--- Data for Name: auth_user; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.auth_user (id, password, last_login, is_superuser, username, first_name, last_name, email, is_staff, is_active, date_joined) FROM stdin;
-\.
-
-
---
--- Data for Name: auth_user_groups; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.auth_user_groups (id, user_id, group_id) FROM stdin;
-\.
-
-
---
--- Data for Name: auth_user_user_permissions; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.auth_user_user_permissions (id, user_id, permission_id) FROM stdin;
-\.
-
-
---
--- Data for Name: departments; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.departments (dept_id, name, description, created_at, for_env_fam) FROM stdin;
-3	الأنشطة الرياضية	قسم الأنشطة والفعاليات الرياضية	2025-11-29 18:30:35.253433+02	f
-4	الأنشطة الثقافية	قسم الأنشطة الثقافية والفنية	2025-11-29 18:30:35.253433+02	f
-5	الأنشطة البيئية	قسم الأنشطة البيئية والاستدامة	2025-11-29 18:30:35.253433+02	t
-6	الأنشطة الاجتماعية	قسم الأنشطة الاجتماعية والخدمة المجتمعية	2025-11-29 18:30:35.253433+02	f
-7	الأنشطة العلمية	قسم الأنشطة العلمية والبحثية	2025-11-29 18:30:35.253433+02	f
-\.
-
-
---
--- Data for Name: django_admin_log; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.django_admin_log (id, action_time, object_id, object_repr, action_flag, change_message, content_type_id, user_id) FROM stdin;
-\.
-
-
---
--- Data for Name: django_content_type; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.django_content_type (id, app_label, model) FROM stdin;
-1	admin	logentry
-2	auth	permission
-3	auth	group
-4	auth	user
-5	contenttypes	contenttype
-6	sessions	session
-7	youth_welfare	faculties
-8	youth_welfare	departments
-9	youth_welfare	admins
-10	youth_welfare	students
-11	youth_welfare	events
-12	youth_welfare	families
-13	youth_welfare	familymembers
-14	youth_welfare	solidarities
-15	youth_welfare	documents
-16	youth_welfare	logs
-17	youth_welfare	prtcps
-18	event	events
-19	solidarity	solidarities
-20	solidarity	logs
-21	solidarity	solidaritydocs
-22	solidarity	departments
-23	solidarity	students
-24	solidarity	faculties
-25	solidarity	admins
-26	family	families
-27	accounts	adminsuser
-\.
-
-
---
--- Data for Name: django_migrations; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.django_migrations (id, app, name, applied) FROM stdin;
-1	contenttypes	0001_initial	2025-10-11 20:19:28.802694+03
-2	auth	0001_initial	2025-10-11 20:19:28.855341+03
-6	contenttypes	0002_remove_content_type_name	2025-10-11 20:19:28.892083+03
-7	auth	0002_alter_permission_name_max_length	2025-10-11 20:19:28.897553+03
-8	auth	0003_alter_user_email_max_length	2025-10-11 20:19:28.902847+03
-9	auth	0004_alter_user_username_opts	2025-10-11 20:19:28.907245+03
-10	auth	0005_alter_user_last_login_null	2025-10-11 20:19:28.913157+03
-11	auth	0006_require_contenttypes_0002	2025-10-11 20:19:28.91415+03
-12	auth	0007_alter_validators_add_error_messages	2025-10-11 20:19:28.918656+03
-13	auth	0008_alter_user_username_max_length	2025-10-11 20:19:28.926498+03
-14	auth	0009_alter_user_last_name_max_length	2025-10-11 20:19:28.931064+03
-15	auth	0010_alter_group_name_max_length	2025-10-11 20:19:28.936314+03
-16	auth	0011_update_proxy_permissions	2025-10-11 20:19:28.94082+03
-17	auth	0012_alter_user_first_name_max_length	2025-10-11 20:19:28.945956+03
-18	sessions	0001_initial	2025-10-11 20:19:28.95267+03
-19	accounts	0001_initial	2025-11-09 22:13:47.297098+02
-20	admin	0001_initial	2025-11-09 22:16:49.456779+02
-21	admin	0002_logentry_remove_auto_add	2025-11-09 22:16:49.462668+02
-22	admin	0003_logentry_add_action_flag_choices	2025-11-09 22:16:49.466561+02
-23	solidarity	0001_initial	2025-11-09 22:36:23.382084+02
-24	solidarity	0002_departments_solidaritydocs	2025-11-09 23:54:25.523197+02
-25	solidarity	0003_alter_solidaritydocs_file	2025-11-09 23:54:25.524607+02
-\.
-
-
---
--- Data for Name: django_session; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.django_session (session_key, session_data, expire_date) FROM stdin;
-\.
-
-
---
--- Data for Name: documents; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.documents (doc_id, owner_id, f_name, f_path, f_type, uploaded_at, owner_type) FROM stdin;
-\.
-
-
---
--- Data for Name: event_docs; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.event_docs (doc_id, event_id, doc_type, file_name, file_path, mime_type, file_size, uploaded_at, uploaded_by) FROM stdin;
-\.
-
-
---
--- Data for Name: events; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.events (event_id, title, description, dept_id, faculty_id, created_by, updated_at, cost, location, restrictions, reward, status, imgs, st_date, end_date, s_limit, created_at, type, family_id) FROM stdin;
-3	ماراثون العدو السنوي	فعالية رياضية سنوية تجمع طلاب الجامعة للمشاركة في ماراثون العدو	3	1	1	2025-11-29 18:47:41.600095+02	50.00	الملعب الرياضي	يجب أن يكون المشارك طالباً حالياً بالجامعة	جوائز نقدية وشهادات تقدير	منتظر	\N	2024-03-15	2024-03-16	200	2025-11-29 18:47:41.600095+02	نشاط رياضي	1
-4	مسابقة الخطابة والإلقاء	مسابقة لاختبار مهارات الخطابة والإلقاء لدى الطلاب	4	2	1	2025-11-29 18:47:41.600095+02	30.00	الحاضرة الكبرى	يجب أن يكون المشارك متقنًا للغة العربية	جوائز نقدية وشهادات دولية	منتظر	\N	2024-04-05	2024-04-07	120	2025-11-29 18:47:41.600095+02	نشاط ثقافي	1
-5	يوم التطوع الاجتماعي	فعالية تطوعية للمساهمة في الخدمة المجتمعية والنشاطات الاجتماعية	6	1	1	2025-11-29 18:47:41.600095+02	0.00	مراكز الخدمة الاجتماعية	لا توجد قيود	شهادات تطوع معترف بها	منتظر	\N	2024-03-25	2024-03-26	250	2025-11-29 18:47:41.600095+02	نشاط اجتماعي	2
-6	حملة البيئة النظيفة	حملة تطوعية للحفاظ على نظافة الحرم الجامعي والبيئة المحيطة	5	1	1	2025-11-29 18:47:41.600095+02	0.00	الحرم الجامعي	يفضل المشاركة في الأنشطة البيئية السابقة	شهادات تطوع وجوائز رمزية	منتظر	\N	2024-03-20	2024-03-21	100	2025-11-29 18:47:41.600095+02	نشاط بيئي	3
-7	ندوة البحث العلمي	ندوة علمية لمناقشة أحدث الأبحاث العلمية في المجالات المختلفة	5	3	1	2025-11-29 18:47:41.600095+02	25.00	قاعة المؤتمرات	يفضل أن يكون المشارك من طلاب الدراسات العليا	شهادات حضور وفرص تعاون بحثي	منتظر	\N	2024-05-01	2024-05-02	80	2025-11-29 18:47:41.600095+02	نشاط علمي	2
-8	بطولة كرة القدم الثلاثية	بطولة رياضية لكرة القدم تجمع بين فرق من مختلف الكليات	3	1	1	2025-11-29 18:47:41.600095+02	40.00	ملعب كرة القدم	يجب أن تكون الفرق من طلاب الجامعة فقط	كأس ودروع تذكارية وشهادات	منتظر	\N	2024-04-20	2024-04-25	180	2025-11-29 18:47:41.600095+02	نشاط رياضي	2
-\.
-
-
---
--- Data for Name: faculties; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.faculties (faculty_id, name, major, created_at, aff_discount, reg_discount, bk_discount, full_discount) FROM stdin;
-3	الطب	{البشري}	2025-10-25 22:28:16.437365+03	{100}	{200}	{300}	{400}
-2	كلية العلوم	{"علوم أساسية"}	2025-10-20 02:34:30.31113+03	{400}	{300}	{200}	{100}
-1	كلية الهندسة	{"هندسة عامة"}	2025-10-20 02:34:30.31113+03	{100,200,300}	{1000,2500}	{400,700}	{5000}
-\.
-
-
---
--- Data for Name: families; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.families (family_id, name, description, faculty_id, created_by, approved_by, status, created_at, updated_at, min_limit, type) FROM stdin;
-1	أسرة نوعية	أسرة نوعية متخصصة في الأنشطة الرياضية والثقافية	1	1	1	منتظر	2025-11-29 18:30:42.982008+02	2025-11-29 18:30:42.982008+02	50	نوعية
-2	أسرة مركزية	أسرة مركزية على مستوى الجامعة غير مرتبطة بكلية معينة	\N	1	1	منتظر	2025-11-29 18:30:42.982008+02	2025-11-29 18:30:42.982008+02	100	مركزية
-3	أصدقاء البيئة	أسرة متخصصة في الأنشطة البيئية والاستدامة	1	1	1	منتظر	2025-11-29 18:30:42.982008+02	2025-11-29 18:30:42.982008+02	30	اصدقاء البيئة
-\.
-
-
---
--- Data for Name: family_members; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.family_members (family_id, student_id, role, status, joined_at, dept_id) FROM stdin;
-1	11	رئيس	\N	2025-11-29 18:35:41.878043+02	3
-1	13	عضو	\N	2025-11-29 18:35:41.878043+02	3
-1	14	عضو	\N	2025-11-29 18:35:41.878043+02	3
-2	15	رئيس	\N	2025-11-29 18:35:41.878043+02	4
-2	16	نائب رئيس	\N	2025-11-29 18:35:41.878043+02	4
-2	17	عضو	\N	2025-11-29 18:35:41.878043+02	4
-2	18	عضو	\N	2025-11-29 18:35:41.878043+02	4
-3	19	رئيس	\N	2025-11-29 18:35:41.878043+02	5
-3	20	نائب رئيس	\N	2025-11-29 18:35:41.878043+02	5
-3	21	عضو	\N	2025-11-29 18:35:41.878043+02	5
-3	22	عضو	\N	2025-11-29 18:35:41.878043+02	5
-1	15	عضو	\N	2025-11-29 18:35:41.878043+02	3
-2	11	عضو	\N	2025-11-29 18:35:41.878043+02	4
-3	16	عضو	\N	2025-11-29 18:35:41.878043+02	5
-\.
-
-
---
--- Data for Name: logs; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.logs (log_id, actor_id, action, event_id, solidarity_id, family_id, ip_address, logged_at, actor_type, target_type) FROM stdin;
-1	1	انشاء اسر	\N	\N	1	::1	2025-11-29 18:30:42.982008+02	\N	اسر
-2	1	انشاء اسر	\N	\N	2	::1	2025-11-29 18:30:42.982008+02	\N	اسر
-3	1	انشاء اسر	\N	\N	3	::1	2025-11-29 18:30:42.982008+02	\N	اسر
-4	1	انشاء نشاط	3	\N	\N	::1	2025-11-29 18:47:41.600095+02	\N	نشاط
-5	1	انشاء نشاط	4	\N	\N	::1	2025-11-29 18:47:41.600095+02	\N	نشاط
-6	1	انشاء نشاط	5	\N	\N	::1	2025-11-29 18:47:41.600095+02	\N	نشاط
-7	1	انشاء نشاط	6	\N	\N	::1	2025-11-29 18:47:41.600095+02	\N	نشاط
-8	1	انشاء نشاط	7	\N	\N	::1	2025-11-29 18:47:41.600095+02	\N	نشاط
-9	1	انشاء نشاط	8	\N	\N	::1	2025-11-29 18:47:41.600095+02	\N	نشاط
-\.
-
-
---
--- Data for Name: prtcps; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.prtcps (event_id, student_id, rank, reward, status) FROM stdin;
-\.
-
-
---
--- Data for Name: solidarities; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.solidarities (solidarity_id, student_id, faculty_id, req_status, created_at, family_numbers, father_status, mother_status, father_income, mother_income, total_income, arrange_of_brothers, m_phone_num, f_phone_num, reason, disabilities, grade, acd_status, address, approved_by, updated_at, req_type, housing_status, total_discount, sd, discount_type) FROM stdin;
-21	13	1	منتظر	2025-11-14 21:41:08.508703+02	1	string	string	7.00	20.00	27.00	1	+10222222	+20122222222	string	لا	string	string	string	8	2025-11-21 20:40:18.667414+02	\N	ملك	300	f	{}
-22	13	1	موافقة مبدئية	2025-11-14 21:44:51.430453+02	1	string	string	7.00	20.00	27.00	1	+10222222	+20122222222	string	لا	string	string	string	8	2025-11-22 21:26:52.326537+02	\N	ملك	400	f	{}
-8	13	1	منتظر	2025-10-30 18:38:35.565445+03	1	string	string	550174.60	37.00	550211.60	1	+2012548796	+202545888	string	t	string	string	eg	8	2025-11-21 20:40:18.667414+02	\N	ملك	4500	f	{}
-34	13	1	مقبول	2025-11-22 23:59:10.150831+02	5	working	working	200.00	200.00	400.00	2	+201245447789	+201225458774	gdfdfgaggfd	نعم	جيد جدا	انتساب	قغسثقش	8	2025-11-23 00:04:08.039363+02	\N	ايجار	1700	f	{"خصم كتاب","خصم انتظام"}
-9	13	1	مقبول	2025-11-07 16:33:31.469638+02	1	حي	حي	50.00	5.00	55.00	1	+20355558887	+2054522588	بيس	f	string	string	string	8	2025-11-22 00:21:18.300216+02	\N	ملك	600	f	{"خصم انتظام","خصم كتاب"}
-26	22	1	مرفوض	2025-11-22 16:53:59.746127+02	1	string	string	400.00	200.00	600.00	1	201222222	2012366666	string	t	جيد	full	eg	12	2025-11-22 18:12:01.346154+02	\N	ملك	\N	f	{}
-7	2	2	مرفوض	2025-10-28 01:24:54.463617+03	1	string	string	10.00	1.00	11.00	1	+201578963214	+201578963214	string	t	string	string	string	11	2025-11-09 23:32:48.53273+02	\N	ملك	\N	f	{}
-25	13	1	مرفوض	2025-11-22 01:14:55.497579+02	1	string	string	500.00	100.00	600.00	1	20457888	201244444	string	f	good	full	eg	12	2025-11-22 18:13:29.627543+02	\N	ملك	\N	f	{}
-2	2	2	مرفوض	2025-10-28 00:56:10.499315+03	9	حي	حية	50000.00	1000.00	51000.00	2	+201578963214	+201578963214	دعم خصم	no	ممتاز	انتساب	ايجبت	7	2025-10-28 01:02:03.629864+03	\N	ايجار	\N	f	{}
-15	13	1	موافقة مبدئية	2025-11-09 23:36:49.313339+02	1	string	string	500.00	400.00	900.00	1	+20155255	+20355555	string	t	string	string	eg	8	2025-11-22 21:34:11.934963+02	\N	ملك	500	f	{"خصم كامل"}
-3	2	2	مرفوض	2025-10-28 01:13:32.31247+03	10	حلو	حلوة	100000.00	500000.00	600000.00	7	+201578963214	+201578963214	صاشف	f	جيد جدا	انتظام	ايجيبت	7	2025-10-28 01:14:47.758265+03	\N	ملك	\N	f	{}
-4	2	2	مرفوض	2025-10-28 01:17:55.946147+03	1	string	string	10.00	1.00	11.00	1	+201578963214	+201578963214	string	t	string	string	string	7	2025-10-28 01:19:53.839019+03	\N	ملك	\N	f	{}
-5	2	2	مرفوض	2025-10-28 01:20:02.365943+03	1	string	string	10.00	1.00	11.00	1	+201578963214	+201578963214	string	t	string	string	string	7	2025-10-28 01:21:07.755414+03	\N	ملك	\N	f	{}
-6	2	2	مرفوض	2025-10-28 01:21:12.208124+03	1	string	string	10.00	1.00	11.00	1	+201578963214	+201578963214	string	t	string	string	string	7	2025-10-28 01:24:50.378357+03	\N	ملك	\N	f	{}
-14	13	1	مقبول	2025-11-09 23:35:31.418527+02	1	string	string	500.00	400.00	900.00	1	+20155255	+20355555	string	t	string	string	eg	8	2025-11-22 21:13:04.029127+02	\N	ملك	1300	f	{"خصم انتظام","خصم انتساب"}
-13	13	1	منتظر	2025-11-09 23:26:39.736181+02	1	string	string	500.00	400.00	900.00	1	+20155255	+20355555	string	t	string	string	eg	8	2025-11-22 21:17:28.462146+02	\N	ملك	500	f	{"خصم كامل"}
-17	2	2	منتظر	2025-11-10 03:36:29.746581+02	1	string	string	200.00	200.00	400.00	1	+202558789	+2056797987	string	t	string	string	ed	\N	\N	\N	ملك	\N	f	{}
-18	14	2	منتظر	2025-11-14 16:37:31.209661+02	1	string	string	7054.00	9.00	7063.00	1	+202222222	+20122222	string	f	جيد	ناجح	eg	\N	\N	\N	ملك	\N	f	{}
-29	13	1	منتظر	2025-11-22 22:07:32.061467+02	5	deceased	retired	200.00	200.00	400.00	2	+201254578525	+201254578545	تننلع,bkghrytrertt	لا	امتياز	انتظام	egjguy	\N	\N	\N	ملك	\N	f	{}
-27	22	1	مقبول	2025-11-22 20:38:22.990429+02	5	working	working	200.00	200.00	400.00	2	+201215458777	+201225887745	uit98t7	نعم	امتياز	انتظام	eg	8	2025-11-22 21:11:35.528508+02	\N	ملك	600	f	{"خصم كتاب","خصم انتساب"}
-23	13	1	موافقة مبدئية	2025-11-14 21:45:37.041629+02	1	string	string	7.00	20.00	27.00	1	+10222222	+20122222222	string	لا	string	string	string	8	2025-11-22 21:19:42.025501+02	\N	ملك	1700	f	{"خصم كتاب","خصم انتظام"}
-1	2	2	مقبول	2025-10-27 18:03:25.391324+03	7	بالمعاش	ربة منزل	700.00	0.00	700.00	2	+201587489632	+201578963214	احتياج الدعم	لا	جيد	ناجح	مصر	11	2025-11-22 21:22:48.621488+02	\N	ملك	400	f	{}
-12	13	1	منتظر	2025-11-09 23:20:12.011062+02	1	string	string	500.00	400.00	900.00	1	+20155255	+20355555	string	t	string	string	eg	11	2025-11-21 20:40:18.667414+02	\N	ملك	\N	f	{}
-30	13	1	منتظر	2025-11-22 22:19:25.74942+02	20	حي	حي	200.00	200.00	400.00	2	+2012124588	+20121212122	string	t	string	string	string	\N	\N	\N	ملك	\N	f	{}
-24	13	1	مقبول	2025-11-18 21:34:50.217294+02	1	string	string	100.00	200.00	300.00	1	+20212457888	+20323231255	string	t	جيد	انتظام	مصر	8	2025-11-22 21:12:08.357331+02	\N	ملك	700	f	{"خصم كتاب","خصم انتساب"}
-20	13	1	منتظر	2025-11-14 21:40:33.851539+02	1	string	string	7.00	20.00	27.00	1	+10222222	+20122222222	string		string	string	string	8	2025-11-21 20:40:18.667414+02	\N	ملك	200	f	{}
-31	13	1	منتظر	2025-11-22 22:22:11.594283+02	5	deceased	working	200.00	200.00	400.00	2	+201233666665	+201215487784	غثفغثقغغصث	لا	امتياز	انتظام	ايبساسيسبلس	\N	\N	\N	ملك	\N	f	{}
-32	13	1	منتظر	2025-11-22 22:23:31.137338+02	5	working	retired	200.00	200.00	400.00	2	+201254578550	+201254578555	بسشبشبش	لا	امتياز	انتظام	قغسثقش	\N	\N	\N	ملك	\N	f	{}
-33	13	1	منتظر	2025-11-22 22:38:56.450304+02	20	متوفي	حي	0.00	200.00	200.00	2	+2012124588	+20121212122	string	t	string	string	string	\N	\N	\N	ملك	\N	f	{}
-28	22	1	مقبول	2025-11-22 21:25:05.521407+02	5	working	working	200.00	200.00	400.00	2	+201254578545	+201254578555	rture	نعم	امتياز	انتظام	eg	8	2025-11-22 21:26:29.8242+02	\N	ملك	1700	f	{"خصم كتاب","خصم انتظام"}
-16	13	1	منتظر	2025-11-09 23:46:04.397043+02	1	string	string	500.00	400.00	900.00	1	+20155255	+20355555	string	t	string	string	eg	8	2025-11-21 21:09:24.807247+02	\N	ملك	600	f	{"خصم انتظام","خصم كتاب"}
-\.
-
-
---
--- Data for Name: solidarity_docs; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.solidarity_docs (doc_id, solidarity_id, doc_type, mime_type, file_size, uploaded_at, file) FROM stdin;
-51	14	حبازة زراعية	image/png	145558	2025-11-09 23:35:31.419656+02	uploads/solidarity/14/postgres_-_public.png
-52	15	حبازة زراعية	image/png	145558	2025-11-09 23:36:49.314611+02	uploads/solidarity/15/postgres_-_public.png
-53	16	بحث احتماعي	image/jpeg	23818	2025-11-09 23:46:04.398061+02	uploads/solidarity/16/1.jpg
-54	16	اثبات دخل	image/jpeg	14318	2025-11-09 23:46:04.405016+02	uploads/solidarity/16/2.jpg
-55	16	ص.ب ولي امر	image/png	10998	2025-11-09 23:46:04.406192+02	uploads/solidarity/16/3.png
-56	16	ص.ب شخصية	image/jpeg	7046	2025-11-09 23:46:04.407462+02	uploads/solidarity/16/4.jpg
-57	16	حبازة زراعية	image/png	145558	2025-11-09 23:46:04.409838+02	uploads/solidarity/16/postgres_-_public.png
-58	17	بحث احتماعي	image/jpeg	23818	2025-11-10 03:36:29.752539+02	uploads/solidarity/17/1.jpg
-59	17	اثبات دخل	image/jpeg	14318	2025-11-10 03:36:29.755902+02	uploads/solidarity/17/2.jpg
-60	17	ص.ب ولي امر	image/jpeg	23818	2025-11-10 03:36:29.75754+02	uploads/solidarity/17/1_ziCDGz3.jpg
-61	17	ص.ب شخصية	image/png	10998	2025-11-10 03:36:29.759617+02	uploads/solidarity/17/3.png
-62	17	حبازة زراعية	image/png	145558	2025-11-10 03:36:29.761375+02	uploads/solidarity/17/postgres_-_public.png
-63	17	تكافل و كرامة	image/jpeg	7046	2025-11-10 03:36:29.763004+02	uploads/solidarity/17/4.jpg
-64	18	بحث احتماعي	image/jpeg	23818	2025-11-14 16:37:31.225708+02	uploads/solidarity/18/1.jpg
-65	18	اثبات دخل	image/jpeg	14318	2025-11-14 16:37:31.230888+02	uploads/solidarity/18/2.jpg
-66	24	بحث احتماعي	image/jpeg	14318	2025-11-18 21:34:50.220486+02	uploads/solidarity/24/2.jpg
-67	24	اثبات دخل	image/jpeg	23818	2025-11-18 21:34:50.22459+02	uploads/solidarity/24/1.jpg
-68	24	ص.ب ولي امر	image/jpeg	7046	2025-11-18 21:34:50.225951+02	uploads/solidarity/24/4.jpg
-69	24	ص.ب شخصية	image/png	10998	2025-11-18 21:34:50.227059+02	uploads/solidarity/24/3.png
-70	24	حبازة زراعية	image/png	145558	2025-11-18 21:34:50.233184+02	uploads/solidarity/24/postgres_-_public.png
-71	25	بحث احتماعي	image/jpeg	14318	2025-11-22 01:14:55.500703+02	uploads/solidarity/25/2.jpg
-72	25	اثبات دخل	image/png	10998	2025-11-22 01:14:55.503721+02	uploads/solidarity/25/3.png
-73	25	ص.ب ولي امر	image/jpeg	7046	2025-11-22 01:14:55.505169+02	uploads/solidarity/25/4.jpg
-74	25	ص.ب شخصية	image/jpeg	23818	2025-11-22 01:14:55.506661+02	uploads/solidarity/25/1.jpg
-75	25	حبازة زراعية	image/png	10998	2025-11-22 01:14:55.507941+02	uploads/solidarity/25/3_3SWu505.png
-76	26	بحث احتماعي	image/jpeg	14318	2025-11-22 16:53:59.751426+02	uploads/solidarity/26/2.jpg
-77	26	اثبات دخل	image/png	10998	2025-11-22 16:53:59.755206+02	uploads/solidarity/26/3.png
-78	26	ص.ب ولي امر	image/jpeg	7046	2025-11-22 16:53:59.756724+02	uploads/solidarity/26/4.jpg
-79	26	ص.ب شخصية	image/png	145558	2025-11-22 16:53:59.758376+02	uploads/solidarity/26/postgres_-_public.png
-80	26	حبازة زراعية	image/jpeg	23818	2025-11-22 16:53:59.760179+02	uploads/solidarity/26/1.jpg
-81	27	بحث احتماعي	image/jpeg	23818	2025-11-22 20:38:22.992859+02	uploads/solidarity/27/1.jpg
-82	27	اثبات دخل	image/jpeg	14318	2025-11-22 20:38:22.996678+02	uploads/solidarity/27/2.jpg
-83	27	ص.ب ولي امر	image/png	10998	2025-11-22 20:38:22.997893+02	uploads/solidarity/27/3.png
-84	27	ص.ب شخصية	image/jpeg	7046	2025-11-22 20:38:22.998862+02	uploads/solidarity/27/4.jpg
-85	28	بحث احتماعي	image/jpeg	23818	2025-11-22 21:25:05.522867+02	uploads/solidarity/28/1.jpg
-86	28	اثبات دخل	image/jpeg	14318	2025-11-22 21:25:05.525354+02	uploads/solidarity/28/2.jpg
-87	28	ص.ب ولي امر	image/png	10998	2025-11-22 21:25:05.526434+02	uploads/solidarity/28/3.png
-88	28	ص.ب شخصية	image/jpeg	7046	2025-11-22 21:25:05.527432+02	uploads/solidarity/28/4.jpg
-89	29	بحث احتماعي	image/jpeg	23818	2025-11-22 22:07:32.063066+02	uploads/solidarity/29/1.jpg
-90	29	اثبات دخل	image/jpeg	14318	2025-11-22 22:07:32.06584+02	uploads/solidarity/29/2.jpg
-91	29	ص.ب ولي امر	image/png	10998	2025-11-22 22:07:32.067269+02	uploads/solidarity/29/3.png
-92	29	ص.ب شخصية	image/jpeg	7046	2025-11-22 22:07:32.068566+02	uploads/solidarity/29/4.jpg
-93	29	حبازة زراعية	image/png	145558	2025-11-22 22:07:32.06969+02	uploads/solidarity/29/postgres_-_public.png
-94	29	تكافل و كرامة	image/png	800132	2025-11-22 22:07:32.070866+02	uploads/solidarity/29/z.png
-95	30	بحث احتماعي	image/jpeg	23818	2025-11-22 22:19:25.750937+02	uploads/solidarity/30/1.jpg
-96	30	اثبات دخل	image/jpeg	14318	2025-11-22 22:19:25.758465+02	uploads/solidarity/30/2.jpg
-97	30	ص.ب ولي امر	image/png	10998	2025-11-22 22:19:25.75982+02	uploads/solidarity/30/3.png
-98	30	ص.ب شخصية	image/jpeg	7046	2025-11-22 22:19:25.76117+02	uploads/solidarity/30/4.jpg
-99	31	بحث احتماعي	image/jpeg	23818	2025-11-22 22:22:11.595803+02	uploads/solidarity/31/1.jpg
-100	31	اثبات دخل	image/jpeg	14318	2025-11-22 22:22:11.598343+02	uploads/solidarity/31/2.jpg
-101	31	ص.ب ولي امر	image/png	10998	2025-11-22 22:22:11.599511+02	uploads/solidarity/31/3.png
-102	31	ص.ب شخصية	image/jpeg	7046	2025-11-22 22:22:11.600483+02	uploads/solidarity/31/4.jpg
-103	32	بحث احتماعي	image/jpeg	23818	2025-11-22 22:23:31.138953+02	uploads/solidarity/32/1.jpg
-104	32	اثبات دخل	image/jpeg	14318	2025-11-22 22:23:31.141666+02	uploads/solidarity/32/2.jpg
-105	32	ص.ب ولي امر	image/png	10998	2025-11-22 22:23:31.142816+02	uploads/solidarity/32/3.png
-106	32	ص.ب شخصية	image/jpeg	7046	2025-11-22 22:23:31.14387+02	uploads/solidarity/32/4.jpg
-107	33	بحث احتماعي	image/jpeg	23818	2025-11-22 22:38:56.451823+02	uploads/solidarity/33/1.jpg
-108	33	اثبات دخل	image/jpeg	14318	2025-11-22 22:38:56.454651+02	uploads/solidarity/33/2.jpg
-109	33	ص.ب ولي امر	image/png	10998	2025-11-22 22:38:56.456063+02	uploads/solidarity/33/3.png
-110	33	ص.ب شخصية	image/jpeg	7046	2025-11-22 22:38:56.45733+02	uploads/solidarity/33/4.jpg
-111	34	بحث احتماعي	image/jpeg	23818	2025-11-22 23:59:10.160147+02	uploads/solidarity/34/1.jpg
-112	34	اثبات دخل	image/jpeg	14318	2025-11-22 23:59:10.16495+02	uploads/solidarity/34/2.jpg
-113	34	ص.ب ولي امر	image/png	10998	2025-11-22 23:59:10.166479+02	uploads/solidarity/34/3.png
-114	34	ص.ب شخصية	image/jpeg	7046	2025-11-22 23:59:10.167488+02	uploads/solidarity/34/4.jpg
-\.
-
-
---
--- Data for Name: students; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.students (student_id, name, email, password, faculty_id, profile_photo, gender, nid, uid, phone_number, address, acd_year, join_date, gpa, grade, major) FROM stdin;
-2	ليلى خالد	l.khaled@example.com	$2b$12$/yfBp5mpBNUt4EZp1IWEJu22QNUjejzEuBB/0JiUNeZ.32HPn7SOq	2	\N	F	223456789	887654321	+966555555555	جدة	2025/2026	2025-09-01	\N	\N	كيمياء
-1	محمد سعيد	m.saeed@example.com	$2b$12$/yfBp5mpBNUt4EZp1IWEJu22QNUjejzEuBB/0JiUNeZ.32HPn7SOq	1	\N	M	123456789	987654321	+966501234567	الرياض	2025/2026	2025-09-01	\N	جيد جدا	هندسة حاسوب
-11	A	AA@gmail.com	$2b$12$/yfBp5mpBNUt4EZp1IWEJu22QNUjejzEuBB/0JiUNeZ.32HPn7SOq	1	\N	F	50248798655487	55857	20125455485	Eg	2025	2025-09-01	\N	\N	hg
-13	S	S@gmail.com	$2b$12$/yfBp5mpBNUt4EZp1IWEJu22QNUjejzEuBB/0JiUNeZ.32HPn7SOq	1	\N	F	50248798445487	57857	20125455785	Eg	2025	2025-09-01	\N	\N	hg
-15	std2	std2@gmail.com	$2b$12$SngL6dkYpJ4WEPMQ2URgqOS4i4yBR1QGgHgWzJzqsmX9NawEBZhru	1	uploads/students/15/image.jpg	M	2021254587	2021245	+201254578	eg	4	2025-11-14	\N	ممتاز	sw
-16	std3	std3@gmail.com	$2b$12$Fugft7.jfR0j.SYKQzEoj.YYEJUrQ5EpG1gJMEidLcHMGWkSZQua6	2	uploads/students/16/image.jpg	M	5055258	202255	+2012555	cairo	2	2025-11-14	\N	good	hw
-17	std4	std4@gmail.com	$2b$12$ZXUb7ed4gWa.he7wbwiuFOCWgv5HITlD6spFMSpfi5Z3wRqt6Tzde	2	uploads/students/17/image.jpg	M	5555555	555555	202222222	eg	انتظام	2025-11-15	\N	جيد	sw
-14	std1	s1@gmail.com	$2b$12$YRVhES6M.epwXXJfInQbNuOwDgIW9rHV8ODgyVUR8c3IqN2hpxKHC	2	uploads/students/14/image.jpg	M	20125888888	202251	2022222555	giza	4	2025-11-14	\N	جيد	H.w
-18	std5	atd5@gmail.com	pbkdf2_sha256$1000000$sfWYqdwxjgzHDBMi0vd4Ky$Ymb1IAclnoHPYPPy8BYYbEpCguZHGHnr3VR6cLRcCPE=	2	uploads/students/18/image.jpg	M	20121545454	201215	203212154	eg	1	2025-11-18	\N	good	sw
-19	std6	std5@gmail.com	$2b$12$WXE1vocFatp5QGZCnZdrpun3D7Kckrf8SF2RK4nYiO6xpFbEdhXn.	2	uploads/students/19/image.jpg	M	201215454540	2012150	2032121540	eg	1	2025-11-18	\N	good	sw
-20	std10	std10@gmail.com	$2b$12$PD4cIEMPzqUx.o12xpBK7uNBUCqLlEDjitF63WblHy6tLeLrphOd2	2	uploads/students/20/image.jpg	M	2012154545404	20121504	20321215404	eg	1	2025-11-18	\N	good	sw
-21	std11	std11@gmail.com	$2b$12$6gmbgzKH/sg/zFC2MbDLne.V3.bqQJatU1DVfflq46LkGUUd2WD3O	2	uploads/students/21/image.jpg	M	201215454540401	201215040011	2032121540400	eg	1	2025-11-18	\N	good	sw
-22	omaromar	omaromar@gmail.com	$2b$12$NE14tF5M6Ac5JUVqx57t.eoS647kz1BtneSY0jKVEYkGwiTnVPEz6	1	uploads/students/22/image.jpg	m	20122222222	1122222	2012222222	eg	1	2025-11-22	\N	good	sw
-\.
-
-
---
--- Name: admins_admin_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.admins_admin_id_seq', 20, true);
-
-
---
--- Name: auth_group_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.auth_group_id_seq', 1, false);
-
-
---
--- Name: auth_group_permissions_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.auth_group_permissions_id_seq', 1, false);
-
-
---
--- Name: auth_permission_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.auth_permission_id_seq', 108, true);
-
-
---
--- Name: auth_user_groups_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.auth_user_groups_id_seq', 1, false);
-
-
---
--- Name: auth_user_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.auth_user_id_seq', 1, false);
-
-
---
--- Name: auth_user_user_permissions_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.auth_user_user_permissions_id_seq', 1, false);
-
-
---
--- Name: departments_dept_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.departments_dept_id_seq', 7, true);
-
-
---
--- Name: django_admin_log_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.django_admin_log_id_seq', 1, false);
-
-
---
--- Name: django_content_type_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.django_content_type_id_seq', 27, true);
-
-
---
--- Name: django_migrations_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.django_migrations_id_seq', 25, true);
-
-
---
--- Name: documents_doc_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.documents_doc_id_seq', 2, true);
-
-
---
--- Name: event_docs_doc_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.event_docs_doc_id_seq', 3, true);
-
-
---
--- Name: events_event_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.events_event_id_seq', 8, true);
-
-
---
--- Name: faculties_faculty_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.faculties_faculty_id_seq', 3, true);
-
-
---
--- Name: families_family_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.families_family_id_seq', 3, true);
-
-
---
--- Name: logs_log_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.logs_log_id_seq', 9, true);
-
-
---
--- Name: solidarities_solidarity_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.solidarities_solidarity_id_seq', 34, true);
-
-
---
--- Name: solidarity_docs_doc_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.solidarity_docs_doc_id_seq', 114, true);
-
-
---
--- Name: students_student_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.students_student_id_seq', 22, true);
 
 
 --
@@ -1734,6 +1223,22 @@ SELECT pg_catalog.setval('public.students_student_id_seq', 22, true);
 
 ALTER TABLE ONLY public.admins
     ADD CONSTRAINT admins_email_key UNIQUE (email);
+
+
+--
+-- Name: admins admins_national_id_unique; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.admins
+    ADD CONSTRAINT admins_national_id_unique UNIQUE (nid);
+
+
+--
+-- Name: admins admins_phone_number_unique; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.admins
+    ADD CONSTRAINT admins_phone_number_unique UNIQUE (phone_number);
 
 
 --
@@ -1929,6 +1434,14 @@ ALTER TABLE ONLY public.families
 
 
 --
+-- Name: family_admins family_admins_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.family_admins
+    ADD CONSTRAINT family_admins_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: family_members family_members_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -1942,6 +1455,14 @@ ALTER TABLE ONLY public.family_members
 
 ALTER TABLE ONLY public.logs
     ADD CONSTRAINT logs_pkey PRIMARY KEY (log_id);
+
+
+--
+-- Name: posts posts_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.posts
+    ADD CONSTRAINT posts_pkey PRIMARY KEY (post_id);
 
 
 --
@@ -1982,6 +1503,14 @@ ALTER TABLE ONLY public.solidarity_docs
 
 ALTER TABLE ONLY public.students
     ADD CONSTRAINT students_email_key UNIQUE (email);
+
+
+--
+-- Name: students students_google_id_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.students
+    ADD CONSTRAINT students_google_id_key UNIQUE (google_id);
 
 
 --
@@ -2164,6 +1693,13 @@ CREATE INDEX idx_families_faculty_id ON public.families USING btree (faculty_id)
 
 
 --
+-- Name: idx_family_admins_family_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_family_admins_family_id ON public.family_admins USING btree (family_id);
+
+
+--
 -- Name: idx_family_members_student; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2196,6 +1732,27 @@ CREATE INDEX idx_logs_logged_at ON public.logs USING btree (logged_at);
 --
 
 CREATE INDEX idx_logs_target ON public.logs USING btree (target_type, event_id, solidarity_id, family_id);
+
+
+--
+-- Name: idx_posts_created_at; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_posts_created_at ON public.posts USING btree (created_at DESC);
+
+
+--
+-- Name: idx_posts_faculty_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_posts_faculty_id ON public.posts USING btree (faculty_id);
+
+
+--
+-- Name: idx_posts_family_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_posts_family_id ON public.posts USING btree (family_id);
 
 
 --
@@ -2451,6 +2008,14 @@ ALTER TABLE ONLY public.family_members
 
 
 --
+-- Name: family_admins fk_admin_family; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.family_admins
+    ADD CONSTRAINT fk_admin_family FOREIGN KEY (family_id) REFERENCES public.families(family_id) ON DELETE CASCADE;
+
+
+--
 -- Name: events fk_events_family; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2464,6 +2029,22 @@ ALTER TABLE ONLY public.events
 
 ALTER TABLE ONLY public.family_members
     ADD CONSTRAINT fk_family_members_dept FOREIGN KEY (dept_id) REFERENCES public.departments(dept_id);
+
+
+--
+-- Name: posts fk_posts_faculty; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.posts
+    ADD CONSTRAINT fk_posts_faculty FOREIGN KEY (faculty_id) REFERENCES public.faculties(faculty_id) ON DELETE CASCADE;
+
+
+--
+-- Name: posts fk_posts_family; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.posts
+    ADD CONSTRAINT fk_posts_family FOREIGN KEY (family_id) REFERENCES public.families(family_id) ON DELETE CASCADE;
 
 
 --
@@ -2558,5 +2139,5 @@ ALTER TABLE ONLY public.students
 -- PostgreSQL database dump complete
 --
 
-\unrestrict FYBWCjfKQjU3E4dgNjTk9iuDdKNtONIFgXMXFmerRYmHvLCOgiIZvPtGZvuAQuU
+\unrestrict JThKA1dZhvWacK8PzEXMxJWC2u9966zJaNtr3657fDKNFbYyeNcSejegHv6Ee1S
 
