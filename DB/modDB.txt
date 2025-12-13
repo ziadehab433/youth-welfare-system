@@ -639,3 +639,19 @@ ALTER TYPE public.event_type ADD VALUE 'اسر';
 ----
 --------------------------------------------------------------------
 ----------------------------------------------------------------------------------------
+/*
+-- i will delete this CONSTRAINT temporary to check enc
+
+    CONSTRAINT students_phone_number_check CHECK ((phone_number ~ '^\+?[0-9]{6,15}$'::text))
+*/
+
+ALTER TABLE students DROP CONSTRAINT students_phone_number_check;
+
+
+-- Add Google OAuth columns to students table
+ALTER TABLE students ADD COLUMN google_id VARCHAR(255) UNIQUE;
+ALTER TABLE students ADD COLUMN google_picture VARCHAR(500);
+ALTER TABLE students ADD COLUMN is_google_auth BOOLEAN DEFAULT FALSE;
+ALTER TABLE students ADD COLUMN auth_method VARCHAR(20) DEFAULT 'email';
+ALTER TABLE students ADD COLUMN last_login_method VARCHAR(20);
+ALTER TABLE students ADD COLUMN last_google_login TIMESTAMP;
