@@ -2,6 +2,7 @@ from rest_framework import viewsets
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework.permissions import IsAuthenticated
 from apps.family.models import Families
+from apps.family.models import FamilyMembers
 from apps.accounts.permissions import IsRole
 from apps.family.serializers import FamiliesListSerializer, FamiliesDetailSerializer
 from rest_framework.decorators import action
@@ -138,3 +139,56 @@ class SuperDeptFamilyViewSet(viewsets.ReadOnlyModelViewSet):
             queryset = queryset.filter(faculty_id=faculty_id)
         queryset = queryset.order_by('-created_at')
         return Response(FamiliesListSerializer(queryset, many=True).data)
+
+    @extend_schema(
+    description="approve family and all its members",
+    request=None,
+    responses={ 200: OpenApiResponse(description="family and members approved successfully"), 400: OpenApiResponse(description="invalid family type or status for approval")
+    })
+    @action(detail=True, methods=['post'], url_path='approve')
+    def approve_specialized_family(self, request, pk=None):
+        family = self.get_object()
+        
+        if family.type != 'نوعية':
+            return Response(
+                {"error": "هذا الإجراء مخصص فقط للأسر النوعية."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if family.status not in ['منتظر', 'موافقة مبدئية']:
+            return Response(
+                {"error": "لا يمكن الموافقة على الأسرة في حالتها الحالية."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            family.status = 'مقبول'
+            family.approved_by = request.user
+            family.save()
+                
+                
+            updated_members = FamilyMembers.objects.filter(
+                family_id=family.family_id
+            ).update(status='مقبول')
+                
+            log_data_access(
+                actor_id=request.user.admin_id,
+                actor_type=request.user.role,
+                action='موافقة على الأسرة النوعية وأعضائها',
+                target_type='اسر',
+                family_id=family.family_id,
+                ip_address=get_client_ip(request)
+            )
+            
+            return Response({
+                "message": f"تمت الموافقة على الأسرة النوعية بنجاح وتم تحديث حالة {updated_members} عضو/أعضاء",
+                "family_id": family.family_id,
+                "family_name": family.name,
+                "updated_members_count": updated_members
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response(
+                {"error": f"حدث خطأ أثناء الموافقة على الأسرة: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
