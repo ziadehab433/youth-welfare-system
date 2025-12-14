@@ -5,7 +5,7 @@ from django.core.validators import RegexValidator
 
 from django.contrib.postgres.fields import ArrayField
 
-from .fields import EncryptedTextField
+
 class AdminsUserManager(BaseUserManager):
     use_in_migrations = False
 
@@ -175,68 +175,18 @@ class Students(models.Model):
     faculty = models.ForeignKey('solidarity.Faculties', models.DO_NOTHING)
     profile_photo = models.CharField(max_length=255, blank=True, null=True)
     gender = models.CharField(max_length=1 , default='M')
-    can_create_fam = models.BooleanField(default=False)
-
-    # National ID - Encrypted using AES (Fernet)
-    nid = EncryptedTextField(unique=True)
-    
-    # University ID - Encrypted using AES (Fernet)  
-    uid = EncryptedTextField(unique=True)
-    
-    # Phone Number - Encrypted using AES (Fernet)
-    phone_number = EncryptedTextField(unique=True, null=True)
-    
-    # Address - Encrypted using AES (Fernet)
-    address = EncryptedTextField(null=True)
-
+    nid = models.TextField(unique=True)
+    uid = models.TextField(unique=True)
+    phone_number = models.TextField(unique=True , null= True)
+    address = models.CharField(max_length=255 ,null= True)
     acd_year = models.CharField(max_length=50)
     join_date = models.DateField(auto_now_add=True)
     grade = models.CharField(max_length=50, blank=True, null=True)
     major = models.CharField(max_length=255 , null= True)
+    can_create_fam = models.BooleanField(default=False)
+
     
-    # ============ NEW: Google OAuth Fields ============
-    google_id = models.CharField(
-        max_length=255,
-        unique=True,
-        null=True,
-        blank=True,
-        db_index=True,
-        help_text="Google user ID for SSO authentication"
-    )
-    
-    google_picture = models.URLField(
-        null=True,
-        blank=True,
-        help_text="Profile picture URL from Google"
-    )
-    
-    is_google_auth = models.BooleanField(
-        default=False,
-        help_text="Whether student authenticated via Google OAuth"
-    )
-    
-    auth_method = models.CharField(
-        max_length=20,
-        choices=[
-            ('email', 'Email/Password'),
-            ('google', 'Google OAuth'),
-        ],
-        default='email'
-    )
-    
-    last_login_method = models.CharField(
-        max_length=20,
-        null=True,
-        blank=True,
-        help_text="Last authentication method used"
-    )
-    
-    last_google_login = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text="Timestamp of last Google OAuth login"
-    )
-    # ===================================================
+
     @property
     def id(self):
         return self.student_id
@@ -261,6 +211,3 @@ class Students(models.Model):
     class Meta:
         managed = False 
         db_table = 'students'
-        
-    def __str__(self):
-        return f"{self.name} ({self.email})"
