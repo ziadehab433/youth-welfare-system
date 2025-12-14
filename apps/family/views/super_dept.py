@@ -145,7 +145,7 @@ class SuperDeptFamilyViewSet(viewsets.ReadOnlyModelViewSet):
     request=None,
     responses={ 200: OpenApiResponse(description="family and members approved successfully"), 400: OpenApiResponse(description="invalid family type or status for approval")
     })
-    @action(detail=True, methods=['post'], url_path='approve')
+    @action(detail=True, methods=['patch'], url_path='approve')
     def approve_specialized_family(self, request, pk=None):
         family = self.get_object()
         
