@@ -154,7 +154,6 @@ class FacultyEventApprovalViewSet(viewsets.GenericViewSet):
             status="منتظر",
             family_id__type="نوعية"
         )
-        print(len(events))
         return Response(EventSerializer(events, many=True).data)
 
     @extend_schema(
