@@ -108,8 +108,8 @@ class StudentDetailSerializer(serializers.ModelSerializer):
             'student_id', 'name', 'email', 'faculty', 'gender',
             'nid', 'uid', 'phone_number', 'address',
             'acd_year', 'grade', 'major',
-            'profile_photo_url',
-            'google_picture', 'is_google_auth', 'auth_method', 'last_google_login'
+            'profile_photo_url'
+              
         ]
 
     def get_profile_photo_url(self, obj):
