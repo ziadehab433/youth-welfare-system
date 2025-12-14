@@ -270,49 +270,59 @@ class FamilyFacultyAdminViewSet(viewsets.GenericViewSet):
 class FacultyEventApprovalViewSet(viewsets.GenericViewSet):
     permission_classes = [IsRole]
     allowed_roles = ['مسؤول كلية']
-    queryset = Events.objects.all()
     serializer_class = EventSerializer
 
+    def get_queryset(self):
+        admin = get_current_admin(self.request)
+        return Events.objects.filter(
+            faculty_id=admin.faculty_id  
+        ).exclude(
+            family__type='مركزية'        
+        )
     @extend_schema(
-        description="List all events pending approval",
+        description="List pending events for families within this faculty.",
         responses={200: EventSerializer(many=True)}
     )
     @action(detail=False, methods=['get'], url_path='pending')
     def pending(self, request):
-        events = self.get_queryset().filter(
-            status="منتظر",
-            family_id__type="نوعية"
-        )
+        events = self.get_queryset().filter(status="منتظر")
         return Response(EventSerializer(events, many=True).data)
 
     @extend_schema(
-        description="Get event details by ID",
+        description="Get event details.",
         responses={200: EventSerializer}
     )
     def retrieve(self, request, pk=None):
-        event = get_object_or_404(Events, pk=pk)
+        event = self.get_object()
         return Response(EventSerializer(event).data)
 
     @extend_schema(
-        description="Approve an event",
+        description="Approve an event for a faculty family.",
         request=None,
         responses={200: OpenApiResponse(description="Event approved")}
     )
     @action(detail=True, methods=['post'], url_path='approve')
     def approve(self, request, pk=None):
         event = self.get_object()
+        if event.status != 'منتظر':
+             return Response({"error": "This event is not pending approval"}, status=status.HTTP_400_BAD_REQUEST)
+
         event.status = "مقبول"
         event.save()
         return Response({"message": "Event approved"}, status=status.HTTP_200_OK)
 
     @extend_schema(
-        description="Reject an event",
+        description="Reject an event for a faculty family.",
         request=None,
         responses={200: OpenApiResponse(description="Event rejected")}
     )
     @action(detail=True, methods=['post'], url_path='reject')
     def reject(self, request, pk=None):
         event = self.get_object()
+
+        if event.status != 'منتظر':
+             return Response({"error": "This event is not pending approval"}, status=status.HTTP_400_BAD_REQUEST)
+
         event.status = "مرفوض"
         event.save()
         return Response({"message": "Event rejected"}, status=status.HTTP_200_OK)
