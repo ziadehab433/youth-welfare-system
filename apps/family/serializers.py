@@ -912,3 +912,48 @@ class PreApproveFamilySerializer(serializers.Serializer):
         if value < timezone.now().date():
             raise serializers.ValidationError("تاريخ الإغلاق لا يمكن أن يكون في الماضي")
         return value
+
+
+
+class FamilyFounderSerializer(serializers.ModelSerializer):
+    phone_number = serializers.SerializerMethodField()
+    national_id = serializers.SerializerMethodField()
+    university_id = serializers.SerializerMethodField()
+    faculty_name = serializers.CharField(source='faculty.name', read_only=True, allow_null=True)
+    
+    class Meta:
+        model = Students
+        fields = [
+            'student_id',
+            'name', 
+            'email', 
+            'national_id',
+            'university_id',
+            'phone_number',
+            'faculty_name',
+            'can_create_fam',
+            'acd_year',
+            'major',
+            'gender'
+        ]
+        read_only_fields = fields
+    
+    def get_phone_number(self, obj):
+        try:
+            # Assuming your EncryptedTextField handles decryption automatically
+            # If not, you might need: return decrypt_field(obj.phone_number)
+            return str(obj.phone_number) if obj.phone_number else None
+        except Exception:
+            return None
+    
+    def get_national_id(self, obj):
+        try:
+            return str(obj.nid) if obj.nid else None
+        except Exception:
+            return None
+    
+    def get_university_id(self, obj):
+        try:
+            return str(obj.uid) if obj.uid else None
+        except Exception:
+            return None

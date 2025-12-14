@@ -1,4 +1,5 @@
 from rest_framework import viewsets, status
+from apps.family.models import Students
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
@@ -21,7 +22,8 @@ from apps.family.serializers import (
     FamiliesListSerializer,
     FamiliesDetailSerializer,
     FamilyRequestListSerializer, 
-    PreApproveFamilySerializer
+    PreApproveFamilySerializer,
+    FamilyFounderSerializer
 )
 # ------------------------------------------------------------------
 # Families (Faculty Admin)
@@ -134,6 +136,133 @@ class FamilyFacultyAdminViewSet(viewsets.GenericViewSet):
             {"message": "تم رفض طلب إنشاء الأسرة"}, 
             status=status.HTTP_200_OK
         )
+
+    @extend_schema(
+        description="Grant family creation permission to a student by their NID",
+        request=None,
+        responses={ 200: OpenApiResponse(description="Student granted family creation permission"), 404: OpenApiResponse(description="Student not found"), 400: OpenApiResponse(description="Student already has permission") })
+    @action(detail=False, methods=['post'], url_path='family-founder/(?P<nid>[^/.]+)/add')
+    @require_permission('update')
+    def grant_family_creation_permission(self, request, nid=None):
+        admin = get_current_admin(request)
+        
+        try:
+            student = Students.objects.get(nid=nid)
+            
+            if student.can_create_fam:
+                return Response(
+                    {"error": "الطالب لديه بالفعل صلاحية إنشاء أسرة"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            student.can_create_fam = True
+            student.save()
+            
+            # might move this into its own func 
+            log_data_access(
+                actor_id=admin.admin_id,
+                actor_type=admin.role,
+                action='منح صلاحية إنشاء أسرة للطالب',
+                target_type='طالب',
+                target_id=student.student_id,
+                ip_address=get_client_ip(request)
+            )
+            
+            return Response(
+                {
+                    "message": "تم منح صلاحية إنشاء الأسرة للطالب بنجاح",
+                    "student": {
+                        "nid": student.nid,
+                        "name": f"{student.name}",  
+                        "can_create_fam": student.can_create_fam
+                    }
+                },
+                status=status.HTTP_200_OK
+            )
+            
+        except Students.DoesNotExist:
+            return Response(
+                {"error": "لم يتم العثور على طالب"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {"error": f"حدث خطأ: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+    @extend_schema(
+        tags=["Family Fac Admin APIs"],
+        description="Revoke family creation permission from a student by their NID",
+        request=None,
+        responses={ 200: OpenApiResponse(description="Student family creation permission revoked"), 404: OpenApiResponse(description="Student not found"), 400: OpenApiResponse(description="Student already doesn't have permission") }
+    )
+    @action(detail=False, methods=['delete'], url_path='family-founder/(?P<nid>[^/.]+)/remove')
+    @require_permission('update')
+    def revoke_family_creation_permission(self, request, nid=None):
+        admin = get_current_admin(request)
+        
+        try:
+            student = Students.objects.get(nid=nid)
+            
+            if not student.can_create_fam:
+                return Response(
+                    {"error": "الطالب لا يملك صلاحية إنشاء أسرة حالياً"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            student.can_create_fam = False
+            student.save()
+            
+            log_data_access(
+                actor_id=admin.admin_id,
+                actor_type=admin.role,
+                action='سحب صلاحية إنشاء أسرة من الطالب',
+                target_type='طالب',
+                target_id=student.student_id,
+                ip_address=get_client_ip(request)
+            )
+            
+            return Response(
+                {
+                    "message": "تم سحب صلاحية إنشاء الأسرة من الطالب بنجاح",
+                    "student": {
+                        "nid": student.nid,
+                        "name": f"{student.name}",
+                        "can_create_fam": student.can_create_fam
+                    }
+                },
+                status=status.HTTP_200_OK
+            )
+            
+        except Students.DoesNotExist:
+            return Response(
+                {"error": "لم يتم العثور على طالب"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {"error": f"حدث خطأ: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @extend_schema(
+        tags=["Family Fac Admin APIs"],
+        description="List all students with family creation permission in the faculty",
+        responses={200: FamilyFounderSerializer(many=True)}
+    )
+    @action(detail=False, methods=['get'], url_path='family-founder')
+    def get_family_founders(self, request):
+        admin = self.get_current_admin(request)
+        students = Students.objects.filter(
+            faculty=admin.faculty_id,
+            can_create_fam=True
+        )
+
+        return Response(FamilyFounderSerializer(students, many=True).data)
+
+
 # ------------------------------------------------------------------
 # Events Approval (Faculty Admin)
 # ------------------------------------------------------------------
