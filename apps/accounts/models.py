@@ -175,6 +175,8 @@ class Students(models.Model):
     faculty = models.ForeignKey('solidarity.Faculties', models.DO_NOTHING)
     profile_photo = models.CharField(max_length=255, blank=True, null=True)
     gender = models.CharField(max_length=1 , default='M')
+    can_create_fam = models.BooleanField(default=False)
+
     # National ID - Encrypted using AES (Fernet)
     nid = EncryptedTextField(unique=True)
     
