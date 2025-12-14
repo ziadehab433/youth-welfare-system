@@ -150,7 +150,11 @@ class FacultyEventApprovalViewSet(viewsets.GenericViewSet):
     )
     @action(detail=False, methods=['get'], url_path='pending')
     def pending(self, request):
-        events = self.get_queryset().filter(status="منتظر")
+        events = self.get_queryset().filter(
+            status="منتظر",
+            family_id__type="نوعية"
+        )
+        print(len(events))
         return Response(EventSerializer(events, many=True).data)
 
     @extend_schema(
