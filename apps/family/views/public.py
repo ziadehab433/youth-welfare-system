@@ -1,11 +1,10 @@
-# views.py
-
 from rest_framework import viewsets
 from apps.solidarity.models import Departments
 from ..serializers import DepartmentSerializer
 from drf_spectacular.utils import extend_schema
 
 class DepartmentViewSet(viewsets.ReadOnlyModelViewSet):
+
     queryset = Departments.objects.all()
     serializer_class = DepartmentSerializer
 

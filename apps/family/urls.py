@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-
+from apps.family.views.public import DepartmentViewSet
 from apps.family.views.faculty import (
     FamilyFacultyAdminViewSet,
     FacultyEventApprovalViewSet,
@@ -18,9 +18,7 @@ router.register(r'faculty_members', FamilyMembersViewSet, basename='faculty_memb
 
 router.register(r'student', StudentFamilyViewSet, basename='student')
 router.register(r'super_dept', SuperDeptFamilyViewSet, basename='family_super_dept')
-
 router.register(r'departments', DepartmentViewSet, basename='departments')
-
 urlpatterns = [
     path('family/', include(router.urls)),
 ]

@@ -960,9 +960,7 @@ class FamilyFounderSerializer(serializers.ModelSerializer):
         
 
 
-
 #PUBLIC for Departments
-
 class DepartmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Departments
