@@ -5,7 +5,8 @@ from apps.solidarity.models import Faculties ,Departments
 from apps.event.models import Events
 from apps.family.constants import COMMITTEES, ADMIN_ROLES, STUDENT_ROLES, COMMITTEE_ROLES
 from rest_framework.exceptions import ValidationError
-
+from rest_framework import serializers
+from apps.family.models import Families, FamilyMembers
 class FamilyMembersSerializer(serializers.ModelSerializer):
     # These fields extract nested data from the student object
     student_name = serializers.CharField(source='student.name', read_only=True)
@@ -33,28 +34,39 @@ class FamiliesListSerializer(serializers.ModelSerializer):
     def get_member_count(self, obj):
         return obj.family_members.count()
 
+class FamilyEventSimpleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Events
+        fields = ['event_id', 'title', 'type', 'st_date', 'status', 'cost']
+
 class FamiliesDetailSerializer(serializers.ModelSerializer):
-    family_members = serializers.SerializerMethodField()
     faculty_name = serializers.CharField(source='faculty.name', read_only=True, allow_null=True)
     created_by_name = serializers.CharField(source='created_by.full_name', read_only=True, allow_null=True)
     approved_by_name = serializers.CharField(source='approved_by.full_name', read_only=True, allow_null=True)
     
+    family_members = serializers.SerializerMethodField()
+    family_events = serializers.SerializerMethodField()
+    
     class Meta:
         model = Families
-        fields = ['family_id', 'name', 'description', 'faculty', 'faculty_name', 'status', 
-                  'created_at', 'updated_at', 'min_limit', 'type', 'created_by_name', 
-                  'approved_by_name', 'family_members']
+        fields = [
+            'family_id', 'name', 'description', 'faculty', 'faculty_name', 'status', 
+            'created_at', 'updated_at', 'min_limit', 'type', 'created_by_name', 
+            'approved_by_name', 'family_members', 'family_events'
+        ]
         read_only_fields = ['family_id', 'created_at', 'updated_at']
     
     def get_family_members(self, obj):
-        """Get family members from manually attached queryset"""
         if hasattr(obj, 'family_members_list'):
             members = obj.family_members_list
         else:
             members = FamilyMembers.objects.filter(family_id=obj.family_id).select_related('student', 'dept')
         
         return FamilyMembersSerializer(members, many=True).data
-    
+
+    def get_family_events(self, obj):
+        events = Events.objects.filter(family=obj).order_by('-st_date')
+        return FamilyEventSimpleSerializer(events, many=True).data
 
 class CentralFamilyCreateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -881,3 +893,67 @@ class FamilyRequestDetailSerializer(serializers.ModelSerializer):
             committee_data['activities'] = list(events)
 
         return list(committees_dict.values())
+
+
+class PreApproveFamilySerializer(serializers.Serializer):
+    """Serializer for pre-approval data inputs"""
+    min_limit = serializers.IntegerField(
+        required=True, 
+        min_value=1,
+        help_text="أقل عدد مطلوب للأعضاء"
+    )
+    closing_date = serializers.DateField(
+        required=True,
+        help_text="آخر موعد مسموح للانضمام"
+    )
+
+    def validate_closing_date(self, value):
+        from django.utils import timezone
+        if value < timezone.now().date():
+            raise serializers.ValidationError("تاريخ الإغلاق لا يمكن أن يكون في الماضي")
+        return value
+
+
+
+class FamilyFounderSerializer(serializers.ModelSerializer):
+    phone_number = serializers.SerializerMethodField()
+    national_id = serializers.SerializerMethodField()
+    university_id = serializers.SerializerMethodField()
+    faculty_name = serializers.CharField(source='faculty.name', read_only=True, allow_null=True)
+    
+    class Meta:
+        model = Students
+        fields = [
+            'student_id',
+            'name', 
+            'email', 
+            'national_id',
+            'university_id',
+            'phone_number',
+            'faculty_name',
+            'can_create_fam',
+            'acd_year',
+            'major',
+            'gender'
+        ]
+        read_only_fields = fields
+    
+    def get_phone_number(self, obj):
+        try:
+            # Assuming your EncryptedTextField handles decryption automatically
+            # If not, you might need: return decrypt_field(obj.phone_number)
+            return str(obj.phone_number) if obj.phone_number else None
+        except Exception:
+            return None
+    
+    def get_national_id(self, obj):
+        try:
+            return str(obj.nid) if obj.nid else None
+        except Exception:
+            return None
+    
+    def get_university_id(self, obj):
+        try:
+            return str(obj.uid) if obj.uid else None
+        except Exception:
+            return None
