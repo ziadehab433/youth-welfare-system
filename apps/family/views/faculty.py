@@ -252,7 +252,7 @@ class FamilyFacultyAdminViewSet(viewsets.GenericViewSet):
         description="List all students with family creation permission in the faculty",
         responses={200: FamilyFounderSerializer(many=True)}
     )
-    @action(detail=False, methods=['get'], url_path='family-founder')
+    @action(detail=False, methods=['get'], url_path='family-founders')
     def get_family_founders(self, request):
         admin = self.get_current_admin(request)
         students = Students.objects.filter(

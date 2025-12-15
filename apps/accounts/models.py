@@ -191,6 +191,8 @@ class Students(models.Model):
     join_date = models.DateField(auto_now_add=True)
     grade = models.CharField(max_length=50, blank=True, null=True)
     major = models.CharField(max_length=255 , null= True)
+    can_create_fam = models.BooleanField(default=False)
+
     
     # ============ NEW: Google OAuth Fields ============
     google_id = models.CharField(

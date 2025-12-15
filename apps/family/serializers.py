@@ -957,3 +957,11 @@ class FamilyFounderSerializer(serializers.ModelSerializer):
             return str(obj.uid) if obj.uid else None
         except Exception:
             return None
+        
+
+
+#PUBLIC for Departments
+class DepartmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Departments
+        fields = ['dept_id', 'name']
