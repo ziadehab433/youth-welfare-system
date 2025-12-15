@@ -23,7 +23,9 @@ from apps.family.serializers import (
     FamiliesDetailSerializer,
     FamilyRequestListSerializer, 
     PreApproveFamilySerializer,
-    FamilyFounderSerializer
+    FamilyFounderSerializer,
+    CreateFamilyRequestSerializer,
+    FamilyRequestDetailSerializer
 )
 # ------------------------------------------------------------------
 # Families (Faculty Admin)
@@ -261,6 +263,71 @@ class FamilyFacultyAdminViewSet(viewsets.GenericViewSet):
         )
 
         return Response(FamilyFounderSerializer(students, many=True).data)
+    
+    @extend_schema(
+        tags=["Family Fac Admin APIs"],
+        description="Create a new envronment family with detailed configuration",
+        request=CreateFamilyRequestSerializer,
+        responses={
+            201: FamilyRequestDetailSerializer,
+            400: OpenApiResponse(description="Validation error"),
+            409: OpenApiResponse(description="Conflict error"),
+            500: OpenApiResponse(description="Server error")
+        }
+    )
+    @action(detail=False, methods=['post'], url_path='environment-family')
+    def create_environment_family(self, request):
+        try:
+            student = get_current_student(request)
+
+            # Validate request data
+            serializer = CreateFamilyRequestSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(
+                    {'errors': serializer.errors},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            validated_data = serializer.validated_data
+
+            # Create family request
+            family = FamilyService.create_family_request(
+                request_data=validated_data,
+                created_by_student=student
+            )
+
+            # Serialize and return the created family
+            response_serializer = FamilyRequestDetailSerializer(family, created_by_student=False)
+            return Response(
+                response_serializer.data,
+                status=status.HTTP_201_CREATED
+            )
+
+        except ValidationError as e:
+            error_msg = str(e.detail) if hasattr(e, 'detail') else str(e)
+
+            # Check for conflict errors
+            if any(keyword in error_msg for keyword in [
+                "مسؤول بالفعل",
+                "طلب أسرة قيد الانتظار",
+                "مكلفين بأدوار"
+            ]):
+                return Response(
+                    {'error': error_msg},
+                    status=status.HTTP_409_CONFLICT
+                )
+
+            return Response(
+                {'error': error_msg},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return Response(
+                {'error': f'خطأ غير متوقع: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 # ------------------------------------------------------------------
