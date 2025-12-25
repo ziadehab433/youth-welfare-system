@@ -254,7 +254,7 @@ class FamilyFacultyAdminViewSet(viewsets.GenericViewSet):
     )
     @action(detail=False, methods=['get'], url_path='family-founders')
     def get_family_founders(self, request):
-        admin = self.get_current_admin(request)
+        admin = get_current_admin(request)
         students = Students.objects.filter(
             faculty=admin.faculty_id,
             can_create_fam=True
