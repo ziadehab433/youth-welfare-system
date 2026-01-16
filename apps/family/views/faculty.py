@@ -23,7 +23,8 @@ from apps.family.serializers import (
     FamiliesDetailSerializer,
     FamilyRequestListSerializer, 
     PreApproveFamilySerializer,
-    FamilyFounderSerializer
+    FamilyFounderSerializer,
+    EventDetailSerializer
 )
 # ------------------------------------------------------------------
 # Families (Faculty Admin)
@@ -35,7 +36,7 @@ class FamilyFacultyAdminViewSet(viewsets.GenericViewSet):
     queryset = Families.objects.all()
     serializer_class = FamiliesListSerializer
     @extend_schema(
-        description="List all families for the current faculty",
+        description="List all approved families for the current faculty",
         responses={200: FamiliesListSerializer(many=True)}
     )
     @action(detail=False, methods=['get'], url_path='families')
@@ -43,8 +44,8 @@ class FamilyFacultyAdminViewSet(viewsets.GenericViewSet):
     def list_families(self, request):
         admin = get_current_admin(request)
         families = FamilyService.get_families_for_faculty(admin)
-        return Response(FamiliesListSerializer(families, many=True).data)
-
+        approved_families = families.filter(status='مقبول')
+        return Response(FamiliesListSerializer(approved_families, many=True).data)
     @extend_schema(
         description="Retrieve details of a specific family",
         responses={200: FamiliesDetailSerializer}
@@ -270,7 +271,11 @@ class FamilyFacultyAdminViewSet(viewsets.GenericViewSet):
 class FacultyEventApprovalViewSet(viewsets.GenericViewSet):
     permission_classes = [IsRole]
     allowed_roles = ['مسؤول كلية']
-    serializer_class = EventSerializer
+
+    def get_serializer_class(self):
+        if self.action == 'retrieve':
+            return EventDetailSerializer
+        return EventSerializer
 
     def get_queryset(self):
         admin = get_current_admin(self.request)
@@ -279,6 +284,7 @@ class FacultyEventApprovalViewSet(viewsets.GenericViewSet):
         ).exclude(
             family__type='مركزية'        
         )
+
     @extend_schema(
         description="List pending events for families within this faculty.",
         responses={200: EventSerializer(many=True)}
@@ -286,16 +292,15 @@ class FacultyEventApprovalViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=['get'], url_path='pending')
     def pending(self, request):
         events = self.get_queryset().filter(status="منتظر")
-        return Response(EventSerializer(events, many=True).data)
+        return Response(self.get_serializer(events, many=True).data)
 
     @extend_schema(
-        description="Get event details.",
-        responses={200: EventSerializer}
+        description="Get event details including registered members.",
+        responses={200: EventDetailSerializer}
     )
     def retrieve(self, request, pk=None):
         event = self.get_object()
-        return Response(EventSerializer(event).data)
-
+        return Response(self.get_serializer(event).data)
     @extend_schema(
         description="Approve an event for a faculty family.",
         request=None,
