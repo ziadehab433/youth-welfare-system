@@ -7,6 +7,7 @@ from apps.family.constants import COMMITTEES, ADMIN_ROLES, STUDENT_ROLES, COMMIT
 from rest_framework.exceptions import ValidationError
 from rest_framework import serializers
 from apps.family.models import Families, FamilyMembers
+from apps.event.models import Events, Prtcps
 class FamilyMembersSerializer(serializers.ModelSerializer):
     # These fields extract nested data from the student object
     student_name = serializers.CharField(source='student.name', read_only=True)
@@ -781,19 +782,28 @@ class FamilyMemberDetailSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['joined_at']
 
-
+class ParticipantSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source='student.name', read_only=True)
+    student_nid = serializers.CharField(source='student.nid', read_only=True)
+    college_id = serializers.CharField(source='student.uid', read_only=True)
+    class Meta:
+        model = Prtcps
+        fields = ['student_name', 'student_nid', 'college_id', 'status', 'rank', 'reward']
 class EventDetailSerializer(serializers.ModelSerializer):
-    """Serializer for Events"""
     dept_name = serializers.CharField(source='dept.name', read_only=True, allow_null=True)
-
+    family_name = serializers.CharField(source='family.name', read_only=True, allow_null=True)
+    registered_members = serializers.SerializerMethodField()
     class Meta:
         model = Events
         fields = [
             'event_id', 'title', 'description', 'st_date', 'end_date',
-            'location', 'cost', 'dept_name'
+            'location', 'cost', 'dept_name', 'family_name',
+            'registered_members'
         ]
-
-
+    def get_registered_members(self, obj):
+        registrations = obj.prtcps_set.all().select_related('student').defer('student__can_create_fam')
+        return ParticipantSerializer(registrations, many=True).data
+    
 class FamilyRequestDetailSerializer(serializers.ModelSerializer):
     """Detailed serializer for created family with all members and activities"""
     faculty_name = serializers.CharField(

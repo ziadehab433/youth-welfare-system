@@ -8,7 +8,7 @@
 from django.db import models
 from apps.solidarity.models import Departments 
 from apps.family.models import Families , Faculties 
-from apps.accounts.models import AdminsUser
+from apps.accounts.models import AdminsUser, Students 
 
 class Events(models.Model):
     event_id = models.AutoField(primary_key=True)
@@ -70,3 +70,23 @@ class Events(models.Model):
 
     def __str__(self):
         return self.title
+
+class Prtcps(models.Model):
+    event = models.ForeignKey(
+        Events, 
+        models.DO_NOTHING,
+        related_name='prtcps_set' 
+    )
+    student = models.ForeignKey(
+        Students, 
+        models.DO_NOTHING,
+        primary_key=True  
+    )
+    rank = models.IntegerField(blank=True, null=True)
+    reward = models.CharField(max_length=255, blank=True, null=True)
+    status = models.TextField(blank=True, null=True)
+
+    class Meta:
+        managed = False 
+        db_table = 'prtcps'
+        unique_together = (('event', 'student'),)
