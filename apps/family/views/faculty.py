@@ -360,7 +360,6 @@ class FacultyEventApprovalViewSet(viewsets.GenericViewSet):
         family_is_valid = Families.objects.filter(
             family_id=family_id, 
             faculty_id=admin.faculty_id, 
-            type='نوعية'
         ).exists()
 
         if not family_is_valid:
@@ -402,56 +401,99 @@ class FacultyEventApprovalViewSet(viewsets.GenericViewSet):
         )
     @extend_schema(
         description="Approve a specific participant.",
-        request=ParticipantActionSerializer,
-        responses={200: OpenApiResponse, 403: OpenApiResponse, 404: OpenApiResponse}
+        parameters=[
+            OpenApiParameter(
+                name='student_id',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                required=True
+            )
+        ],
+        responses={
+            200: OpenApiResponse(description="Participant approved"),
+            403: OpenApiResponse(description="Forbidden"),
+            404: OpenApiResponse(description="Participant not found")
+        }
     )
-    @action(detail=True, methods=['post'], url_path='approve-participant')
-    def approve_participant(self, request, pk=None):
+    @action(
+        detail=True,
+        methods=['post'],
+        url_path=r'participants/(?P<student_id>\d+)/approve'
+    )
+    def approve_participant(self, request, pk=None, student_id=None):
         event = self.get_object()
         self._validate_event_editable(event)
 
-        serializer = ParticipantActionSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        student_id = serializer.validated_data['student_id']
-        student_faculty_id = Students.objects.filter(student_id=student_id).values_list('faculty_id', flat=True).first()
-        
+        student_id = int(student_id)
+
+        student_faculty_id = Students.objects.filter(
+            student_id=student_id
+        ).values_list('faculty_id', flat=True).first()
+
         if student_faculty_id != event.faculty_id:
-             return Response(
-                {"error": "Student does not belong to the event's faculty."}, 
+            return Response(
+                {"error": "Student does not belong to the event's faculty"},
                 status=status.HTTP_403_FORBIDDEN
             )
+
         with transaction.atomic():
-            rows_updated = Prtcps.objects.select_for_update().filter(
-                event=event, 
+            updated = Prtcps.objects.select_for_update().filter(
+                event=event,
                 student_id=student_id
             ).update(status='مقبول')
-        
-        if rows_updated == 0:
-            return Response({"error": "Student not found in this event"}, status=status.HTTP_404_NOT_FOUND)
 
-        return Response({"message": "Participant approved successfully"}, status=status.HTTP_200_OK)
+        if updated == 0:
+            return Response(
+                {"error": "Student not found in this event"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        return Response(
+            {"message": "Participant approved successfully"},
+            status=status.HTTP_200_OK
+        )
+
     @extend_schema(
         description="Reject a specific participant.",
-        request=ParticipantActionSerializer,
-        responses={200: OpenApiResponse, 404: OpenApiResponse}
+        parameters=[
+            OpenApiParameter(
+                name='student_id',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                required=True
+            )
+        ],
+        responses={
+            200: OpenApiResponse(description="Participant rejected"),
+            404: OpenApiResponse(description="Participant not found")
+        }
     )
-    @action(detail=True, methods=['post'], url_path='reject-participant')
-    def reject_participant(self, request, pk=None):
+    @action(
+        detail=True,
+        methods=['post'],
+        url_path=r'participants/(?P<student_id>\d+)/reject'
+    )
+    def reject_participant(self, request, pk=None, student_id=None):
         event = self.get_object()
         self._validate_event_editable(event)
-        serializer = ParticipantActionSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        student_id = serializer.validated_data['student_id']
+
+        student_id = int(student_id)
+
         with transaction.atomic():
-            rows_updated = Prtcps.objects.select_for_update().filter(
-                event=event, 
+            updated = Prtcps.objects.select_for_update().filter(
+                event=event,
                 student_id=student_id
             ).update(status='مرفوض')
-        
-        if rows_updated == 0:
-            return Response({"error": "Student not found in this event"}, status=status.HTTP_404_NOT_FOUND)
 
-        return Response({"message": "Participant rejected successfully"}, status=status.HTTP_200_OK)
+        if updated == 0:
+            return Response(
+                {"error": "Student not found in this event"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        return Response(
+            {"message": "Participant rejected successfully"},
+            status=status.HTTP_200_OK
+        )
 # ------------------------------------------------------------------
 # Family Members (Faculty Admin)
 # ------------------------------------------------------------------
