@@ -163,14 +163,14 @@ class FamilyFacultyAdminViewSet(viewsets.GenericViewSet):
             student.save()
             
             # might move this into its own func 
-            log_data_access(
-                actor_id=admin.admin_id,
-                actor_type=admin.role,
-                action='منح صلاحية إنشاء أسرة للطالب',
-                target_type='طالب',
-                target_id=student.student_id,
-                ip_address=get_client_ip(request)
-            )
+            # log_data_access(
+            #     actor_id=admin.admin_id,
+            #     actor_type=admin.role,
+            #     action='منح صلاحية إنشاء أسرة للطالب',
+            #     target_type='طالب',
+            #     target_id=student.student_id,
+            #     ip_address=get_client_ip(request)
+            # )
             
             return Response(
                 {
@@ -219,14 +219,14 @@ class FamilyFacultyAdminViewSet(viewsets.GenericViewSet):
             student.can_create_fam = False
             student.save()
             
-            log_data_access(
-                actor_id=admin.admin_id,
-                actor_type=admin.role,
-                action='سحب صلاحية إنشاء أسرة من الطالب',
-                target_type='طالب',
-                target_id=student.student_id,
-                ip_address=get_client_ip(request)
-            )
+            # log_data_access(
+            #     actor_id=admin.admin_id,
+            #     actor_type=admin.role,
+            #     action='سحب صلاحية إنشاء أسرة من الطالب',
+            #     target_type='طالب',
+            #     target_id=student.student_id,
+            #     ip_address=get_client_ip(request)
+            # )
             
             return Response(
                 {
@@ -296,11 +296,12 @@ class FacultyEventApprovalViewSet(viewsets.GenericViewSet):
     def pending(self, request):
         events = self.get_queryset().filter(status="منتظر")
         return Response(self.get_serializer(events, many=True).data)
-
+    
     @extend_schema(
         description="Get event details including registered members.",
         responses={200: EventDetailSerializer}
     )
+
     def retrieve(self, request, pk=None):
         event = self.get_object()
         return Response(self.get_serializer(event).data)
