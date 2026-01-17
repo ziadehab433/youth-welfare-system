@@ -208,7 +208,7 @@ class FamilyFacultyAdminViewSet(viewsets.GenericViewSet):
         admin = get_current_admin(request)
         
         try:
-            student = Students.objects.get(nid=nid)
+            student = Students.objects.get(nid=nid, faculty=admin.faculty.faculty_id)
             
             if not student.can_create_fam:
                 return Response(
@@ -240,7 +240,8 @@ class FamilyFacultyAdminViewSet(viewsets.GenericViewSet):
                 status=status.HTTP_200_OK
             )
             
-        except Students.DoesNotExist:
+        except Students.DoesNotExist as e:
+            print("errorrrrrr: ", e)
             return Response(
                 {"error": "لم يتم العثور على طالب"},
                 status=status.HTTP_404_NOT_FOUND
