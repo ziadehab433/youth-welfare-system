@@ -1,4 +1,5 @@
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, serializers
+from django.db import transaction
 from apps.family.models import Students
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -17,7 +18,9 @@ from apps.accounts.utils import (
     log_data_access
 )
 from drf_spectacular.utils import extend_schema, OpenApiParameter 
-
+from drf_spectacular.types import OpenApiTypes
+from apps.event.serializers import ParticipantActionSerializer 
+from apps.event.models import Prtcps
 from apps.family.serializers import (
     FamiliesListSerializer,
     FamiliesDetailSerializer,
@@ -331,6 +334,124 @@ class FacultyEventApprovalViewSet(viewsets.GenericViewSet):
         event.status = "مرفوض"
         event.save()
         return Response({"message": "Event rejected"}, status=status.HTTP_200_OK)
+    # ----------------------------------------------------------------
+    # List Accepted Events by Family
+    # ----------------------------------------------------------------
+    @extend_schema(
+        description="List accepted events for a specific family within this faculty.",
+        parameters=[
+            OpenApiParameter(name='family_id', required=True, type=OpenApiTypes.INT),
+        ],
+        responses={
+            200: EventSerializer(many=True),
+            400: OpenApiResponse(description="Invalid Family ID"),
+            404: OpenApiResponse(description="Family not found or invalid")
+        }
+    )
+    @action(detail=False, methods=['get'], url_path='by-family')
+    def list_accepted_events_by_family(self, request):
+        raw_family_id = request.query_params.get('family_id')
+        admin = get_current_admin(request)
+
+        try:
+            family_id = int(raw_family_id)
+        except (TypeError, ValueError):
+            return Response({"error": "family_id must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
+        family_is_valid = Families.objects.filter(
+            family_id=family_id, 
+            faculty_id=admin.faculty_id, 
+            type='نوعية'
+        ).exists()
+
+        if not family_is_valid:
+            return Response(
+                {"error": "Family not found, is not 'نوعية', or does not belong to your faculty."}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        events = self.get_queryset().filter(family_id=family_id, status='مقبول')
+        return Response(self.get_serializer(events, many=True).data)
+    # ----------------------------------------------------------------
+    # Manage Event Participants 
+    # ----------------------------------------------------------------
+    def _validate_event_editable(self, event):
+        if event.status != 'مقبول':
+            raise serializers.ValidationError(
+                {"error": "Cannot manage participants. The event must be 'مقبول' first."}
+            )
+
+    @extend_schema(
+        description="Approve ALL pending participants.",
+        request=None,
+        responses={200: OpenApiResponse(description="Approved successfully"), 400: OpenApiResponse}
+    )
+    @action(detail=True, methods=['post'], url_path='approve-all-participants')
+    def approve_all_participants(self, request, pk=None):
+        event = self.get_object()
+        self._validate_event_editable(event)
+        with transaction.atomic():
+            participants_qs = Prtcps.objects.select_for_update().filter(
+                event=event, 
+                status='منتظر'
+            )
+            updated_count = participants_qs.update(status='مقبول')
+        
+        return Response(
+            {"message": f"Successfully approved {updated_count} participants."}, 
+            status=status.HTTP_200_OK
+        )
+    @extend_schema(
+        description="Approve a specific participant.",
+        request=ParticipantActionSerializer,
+        responses={200: OpenApiResponse, 403: OpenApiResponse, 404: OpenApiResponse}
+    )
+    @action(detail=True, methods=['post'], url_path='approve-participant')
+    def approve_participant(self, request, pk=None):
+        event = self.get_object()
+        self._validate_event_editable(event)
+
+        serializer = ParticipantActionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        student_id = serializer.validated_data['student_id']
+        student_faculty_id = Students.objects.filter(student_id=student_id).values_list('faculty_id', flat=True).first()
+        
+        if student_faculty_id != event.faculty_id:
+             return Response(
+                {"error": "Student does not belong to the event's faculty."}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        with transaction.atomic():
+            rows_updated = Prtcps.objects.select_for_update().filter(
+                event=event, 
+                student_id=student_id
+            ).update(status='مقبول')
+        
+        if rows_updated == 0:
+            return Response({"error": "Student not found in this event"}, status=status.HTTP_404_NOT_FOUND)
+
+        return Response({"message": "Participant approved successfully"}, status=status.HTTP_200_OK)
+    @extend_schema(
+        description="Reject a specific participant.",
+        request=ParticipantActionSerializer,
+        responses={200: OpenApiResponse, 404: OpenApiResponse}
+    )
+    @action(detail=True, methods=['post'], url_path='reject-participant')
+    def reject_participant(self, request, pk=None):
+        event = self.get_object()
+        self._validate_event_editable(event)
+        serializer = ParticipantActionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        student_id = serializer.validated_data['student_id']
+        with transaction.atomic():
+            rows_updated = Prtcps.objects.select_for_update().filter(
+                event=event, 
+                student_id=student_id
+            ).update(status='مرفوض')
+        
+        if rows_updated == 0:
+            return Response({"error": "Student not found in this event"}, status=status.HTTP_404_NOT_FOUND)
+
+        return Response({"message": "Participant rejected successfully"}, status=status.HTTP_200_OK)
 # ------------------------------------------------------------------
 # Family Members (Faculty Admin)
 # ------------------------------------------------------------------
