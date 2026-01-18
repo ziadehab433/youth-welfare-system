@@ -308,11 +308,15 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
 
         html_content = render_to_string("api/solidarity-report.html", handle_report_data(data))
 
+        html_pages = []
+        html_pages.append(html_content)
+
         try:
             buffer = asyncio.new_event_loop().run_until_complete(
-                html_to_pdf_buffer(html_content)
+                html_to_pdf_buffer(html_pages)
             )        
-        except Exception:
+        except Exception as e:
+            print("error: ", e)
             return Response({'detail': 'could not generate pdf'}, status=500)
         
         response = HttpResponse( 

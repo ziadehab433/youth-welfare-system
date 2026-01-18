@@ -1,10 +1,14 @@
 from rest_framework import viewsets, status, serializers
+from django.db.models import Count
+from django.http import HttpResponse
+from django.template.loader import render_to_string
+import asyncio
+from django.db import DatabaseError
 from django.db import transaction
-from apps.family.models import Students
+from apps.family.models import Students, FamilyAdmins
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
-from django.core.exceptions import ValidationError
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.openapi import OpenApiResponse
 from apps.family.models import Families, FamilyMembers
@@ -17,14 +21,14 @@ from apps.accounts.utils import (
     get_client_ip,
     log_data_access
 )
-from drf_spectacular.utils import extend_schema, OpenApiParameter 
+from drf_spectacular.utils import OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
-from apps.event.serializers import ParticipantActionSerializer 
 from apps.event.models import Prtcps
+from apps.solidarity.utils import handle_report_data, html_to_pdf_buffer
 from apps.family.serializers import (
     FamiliesListSerializer,
     FamiliesDetailSerializer,
-    FamilyRequestListSerializer, 
+    FamilyRequestListSerializer,
     PreApproveFamilySerializer,
     FamilyFounderSerializer,
     EventDetailSerializer
@@ -266,6 +270,65 @@ class FamilyFacultyAdminViewSet(viewsets.GenericViewSet):
         )
 
         return Response(FamilyFounderSerializer(students, many=True).data)
+
+    @extend_schema(
+        tags=["Family Fac Admin APIs"],
+        description="pdf",
+        responses={
+            200: OpenApiResponse(
+                description="PDF file download",
+            )
+        }
+    )
+    @action(detail=False, methods=['get'], url_path=r'(?P<family_id>\d+)/export')
+    @require_permission('read')
+    def export(self, request, family_id=None):
+        admin = get_current_admin(request)
+        data = {}
+
+        try:
+            results = FamilyMembers.objects.filter(
+                family_id=family_id
+            ).values('student__gender').annotate(
+                count=Count('student_id')
+            ).order_by('student__gender')
+
+            distribution = {'F': 0, 'M': 0, 'total': 0}
+
+            for result in results:
+                gender = result['student__gender']
+                count = result['count']
+                if gender in ['F', 'M']:
+                    distribution[gender] = count
+                    distribution['total'] += count
+
+            class DataObject:
+                def __init__(self):
+                    self.distribution = distribution
+                    self.family_admins = FamilyAdmins.objects.filter(family=family_id)
+                    self.family = Families.objects.select_related('faculty').get(family_id=family_id)
+            data = DataObject()
+
+        except DatabaseError:
+            return Response({'detail': 'database error while fetching data'}, status=500)
+
+        html_content = render_to_string("api/family-report.html", { "data": data })
+
+        try:
+            buffer = asyncio.new_event_loop().run_until_complete(
+                html_to_pdf_buffer(html_content)
+            )        
+        except Exception:
+            return Response({'detail': 'could not generate pdf'}, status=500)
+        
+        response = HttpResponse( 
+            buffer,
+            content_type='application/pdf'
+        )
+
+        response['Content-Disposition'] = f'attachment; filename="generated_pdf.pdf"'
+        
+        return response
 
 
 # ------------------------------------------------------------------
