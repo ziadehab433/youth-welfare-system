@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="ar">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@100..900&display=swap" rel="stylesheet">
+  <title>كشف توزيع الإعانات</title>
+  <style>
+    .new-page {
+      page-break-before: always;
+    }
+    :root {
+      --page-width: 210mm;
+      --page-height: 297mm;
+      --margin: 15mm;
+      --border-color: #222;
+      --light: #f7f7f7;
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      font-family: "Noto Kufi Arabic", "Tahoma", "Arial", sans-serif;
+      background: #e6e6e6;
+      direction: rtl;
+      font-size: 14px;
+    }
+
+    /* Page container to mimic A4 */
+    .page {
+      width: var(--page-width);
+      min-height: var(--page-height);
+      max-height: var(--page-height);
+      margin: 0 auto;
+      background: white;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+      padding: 15mm;
+      box-sizing: border-box;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 8px;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 1px;
+    }
+
+    .subhead {
+      text-align: center;
+      margin-top: 6px;
+      font-size: 13px;
+      color: #333;
+    }
+
+    /* Table styling */
+    table.form-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 12px;
+      margin-top: 10px;
+    }
+
+    table.form-table thead th {
+      border: 1px solid var(--border-color);
+      padding: 4px 4px;
+      background: var(--light);
+      font-weight: 600;
+      text-align: center;
+      vertical-align: middle;
+    }
+
+    table.form-table tbody td {
+      border: 1px solid var(--border-color);
+      height: 30px;
+      padding: 2px 4px;
+      vertical-align: middle;
+      text-align: center;
+      word-wrap: break-word;
+    }
+
+    /* Column widths to mimic the photo */
+    .col-small {
+      width: 4%
+    }
+
+    .col-name {
+      width: 14%
+    }
+
+    .col-job {
+      width: 8%
+    }
+
+    .col-income {
+      width: 9%
+    }
+
+    .col-num {
+      width: 8%
+    }
+
+    .col-avg {
+      width: 9%
+    }
+
+    .col-amount {
+      width: 9%
+    }
+
+    .col-type {
+      width: 9%
+    }
+
+    .col-notes {
+      width: 12%
+    }
+
+    .col-empty {
+      width: 10%
+    }
+
+    /* footer sign area */
+    .signs {
+      page-break-inside: avoid;
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+
+    .sign {
+      width: 30%;
+      border-top: 1px solid #333;
+      text-align: center;
+      padding-top: 6px;
+      font-size: 10px;
+    }
+
+    .summary {
+      margin-top: 8px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 18px;
+      align-items: center;
+    }
+
+    .summary .label {
+      font-weight: 700;
+    }
+
+    /* Print adjustments */
+    @media print {
+      body {
+        background: white;
+        margin: 0;
+        padding: 0;
+      }
+
+      .page {
+        box-shadow: none;
+        margin: 0;
+        width: 100%;
+        min-height: 100vh;
+        padding: 15mm;
+        page-break-inside: avoid;
+      }
+
+      table.form-table {
+        font-size: 11px;
+      }
+
+      .no-print {
+        display: none
+      }
+    }
+
+    /* PDF-specific fixes */
+    @page {
+      size: A4;
+      margin: 0;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page">
+    <header>
+        <div class="subhead" style="text-align: right;">كلية / {{data.family.faculty.name}}</div>
+        <div class="subhead" style="text-align: right;">اسرة / {{data.family.name}}</div>
+      <div class="subhead">كشف احصائي باعضاء الاسرة النوعية</div>
+    </header>
+
+    <table class="form-table" role="table" aria-label="نموذج كشف الإعانات">
+      <thead>
+        <tr>
+          <th class="col-small">م</th>
+          <th class="col-name">البيان</th>
+          <th class="col-job">العدد</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>اجمالي الطلبة</td>
+          <td>{{ data.distribution.M }}</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>اجمالي الطالبات</td>
+          <td>{{ data.distribution.F }}</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>الاجمالي</td>
+          <td>{{ data.distribution.total }}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="signs">
+      <div style="width:18%; text-align:center;">
+        <div style="height:48px;"></div>
+        <div style="border-top:1px solid #333; padding-top:6px; font-size:11px;">مسئول الاسرة</div>
+      </div>
+
+      <div style="width:35%; text-align:center;">
+        <div style="height:48px;"></div>
+        <div style="border-top:1px solid #333; padding-top:6px; font-size:11px;">رائد الاسرة</div>
+      </div>
+    </div>
+
+
+  </div>
+
+  <div class="page new-page">
+    <header>
+        <div class="subhead" style="text-align: right;">كلية / {{data.family.faculty.name}}</div>
+        <div class="subhead" style="text-align: right;">اسرة / {{data.family.name}}</div>
+        <div class="subhead">تشكيل مجلس ادارة الاسرة النوعية</div>
+    </header>
+    <table class="form-table" role="table" aria-label="نموذج كشف الإعانات">
+      <thead>
+        <tr>
+          <th class="col-small">م</th>
+          <th class="col-name">البيان</th>
+          <th class="col-job">الاسم</th>
+          <th class="col-job">الرقم القومي</th>
+          <th class="col-income">الموبيل</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in data.family_admins %}
+        <tr>
+          <td>{{ forloop.counter }}</td>
+          <td> {{ item.role }} </td>
+          <td> {{ item.name }} </td>
+          <td> {{ item.nid }} </td>
+          <td> {{ item.ph_no }} </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="signs" style="justify-content: left;">
+      <div style="width:35%; text-align:center;">
+        <div style="height:48px;"></div>
+        <div style="padding-top:6px; font-size:11px;">يعتمد ،،،</div>
+        <div style="padding-top:6px; font-size:11px;">أ.د / عميد الكلية</div>
+        <div style="padding-top:6px; font-size:11px;">( .............................. )</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="page new-page">
+    <header>
+        <div class="subhead" style="text-align: right;">كلية / {{data.family.faculty.name}}</div>
+        <div class="subhead" style="text-align: right;">اسرة / {{data.family.name}}</div>
+        <div class="subhead">كشف باسماء طلاب اعضاء الاسرة (نوعية)</div>
+    </header>
+    <table class="form-table" role="table" aria-label="نموذج كشف الإعانات">
+      <thead>
+        <tr>
+          <th class="col-small">م</th>
+          <th class="col-name">الاسم الثلاثي</th>
+          <th class="col-job">الفرقة</th>
+          <th class="col-job">العنوان</th>
+          <th class="col-income">الرقم القومي</th>
+          <th class="col-income">الموبيل</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in data.family_members %}
+        <tr>
+          <td>{{ forloop.counter }}</td>
+          <td> {{ item.student.name }} </td>
+          <td> {{ item.student.acd_year }} </td>
+          <td> {{ item.student.address }} </td>
+          <td> {{ item.student.nid }} </td>
+          <td> {{ item.student.phone_number }} </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="signs">
+      <div style="width:18%; text-align:center;">
+        <div style="height:48px;"></div>
+        <div style="border-top:1px solid #333; padding-top:6px; font-size:11px;">مسئول الاسرة</div>
+      </div>
+
+      <div style="width:18%; text-align:center;">
+        <div style="height:48px;"></div>
+        <div style="border-top:1px solid #333; padding-top:6px; font-size:11px;">مدير رعاية الشباب</div>
+      </div>
+
+      <div style="width:35%; text-align:center;">
+        <div style="height:48px;"></div>
+        <div style="border-top:1px solid #333; padding-top:6px; font-size:11px;">رائد الاسرة</div>
+      </div>
+
+    </div>
+    <div style="width:35%; text-align:center;">
+      <div style="height:48px;"></div>
+      <div style="padding-top:6px; font-size:11px;">يعتمد ،،،</div>
+      <div style="padding-top:6px; font-size:11px;">أ.د / وكيل الكلية لشئون التعليم والطلاب</div>
+      <div style="padding-top:6px; font-size:11px;">( .............................. )</div>
+    </div>
+  </div>
+</body>
+
+</html>
