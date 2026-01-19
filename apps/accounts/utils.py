@@ -108,12 +108,12 @@ def get_current_admin(request):
 # for read logs
 
 @staticmethod
-def log_data_access(actor_id, actor_type, action, target_type, solidarity_id=None ,family_id=None ,event_id=None, ip_address=None):
+def log_data_access(actor_id, actor_type, action, target_type, solidarity_id=None ,family_id=None ,event_id=None, ip_address=None , student_id=None):
     with connection.cursor() as cursor:
         cursor.execute("""
-            INSERT INTO logs (actor_id, actor_type, action, target_type, solidarity_id,family_id,event_id, ip_address)
-            VALUES (%s, %s, %s, %s, %s, %s,%s,%s)
-        """, [actor_id, actor_type, action, target_type, solidarity_id,family_id ,event_id, ip_address])
+            INSERT INTO logs (actor_id, actor_type, action, target_type, solidarity_id,family_id,event_id, ip_address, student_id)
+            VALUES (%s, %s, %s, %s, %s, %s,%s,%s,%s)
+        """, [actor_id, actor_type, action, target_type, solidarity_id,family_id ,event_id, ip_address, student_id])
 
 
 

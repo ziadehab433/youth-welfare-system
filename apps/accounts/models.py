@@ -175,18 +175,10 @@ class Students(models.Model):
     faculty = models.ForeignKey('solidarity.Faculties', models.DO_NOTHING)
     profile_photo = models.CharField(max_length=255, blank=True, null=True)
     gender = models.CharField(max_length=1 , default='M')
-    # National ID - Encrypted using AES (Fernet)
-    nid = EncryptedTextField(unique=True)
-    
-    # University ID - Encrypted using AES (Fernet)  
-    uid = EncryptedTextField(unique=True)
-    
-    # Phone Number - Encrypted using AES (Fernet)
-    phone_number = EncryptedTextField(unique=True, null=True)
-    
-    # Address - Encrypted using AES (Fernet)
-    address = EncryptedTextField(null=True)
-
+    nid = models.TextField(unique=True)
+    uid = models.TextField(unique=True)
+    phone_number = models.TextField(unique=True , null= True)
+    address = models.CharField(max_length=255 ,null= True)
     acd_year = models.CharField(max_length=50)
     join_date = models.DateField(auto_now_add=True)
     grade = models.CharField(max_length=50, blank=True, null=True)
