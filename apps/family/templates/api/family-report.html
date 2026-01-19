@@ -35,6 +35,7 @@
     .page {
       width: var(--page-width);
       min-height: var(--page-height);
+      max-height: var(--page-height);
       margin: 0 auto;
       background: white;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
@@ -66,12 +67,12 @@
       border-collapse: collapse;
       table-layout: fixed;
       font-size: 12px;
-      margin-top: 12px;
+      margin-top: 10px;
     }
 
     table.form-table thead th {
       border: 1px solid var(--border-color);
-      padding: 6px 4px;
+      padding: 4px 4px;
       background: var(--light);
       font-weight: 600;
       text-align: center;
@@ -81,7 +82,7 @@
     table.form-table tbody td {
       border: 1px solid var(--border-color);
       height: 30px;
-      padding: 4px 4px;
+      padding: 2px 4px;
       vertical-align: middle;
       text-align: center;
       word-wrap: break-word;
@@ -130,7 +131,7 @@
 
     /* footer sign area */
     .signs {
-      margin-top: 18px;
+      page-break-inside: avoid;
       display: flex;
       gap: 12px;
       justify-content: space-between;
@@ -142,7 +143,7 @@
       border-top: 1px solid #333;
       text-align: center;
       padding-top: 6px;
-      font-size: 13px;
+      font-size: 10px;
     }
 
     .summary {
@@ -194,6 +195,7 @@
 <body>
   <div class="page">
     <header>
+        <div class="subhead" style="text-align: right;">كلية / {{data.family.faculty.name}}</div>
         <div class="subhead" style="text-align: right;">اسرة / {{data.family.name}}</div>
       <div class="subhead">كشف احصائي باعضاء الاسرة النوعية</div>
     </header>
@@ -228,13 +230,14 @@
     <div class="signs">
       <div style="width:18%; text-align:center;">
         <div style="height:48px;"></div>
-        <div style="border-top:1px solid #333; padding-top:6px; font-size:13px;">مسئول الاسرة</div>
+        <div style="border-top:1px solid #333; padding-top:6px; font-size:11px;">مسئول الاسرة</div>
       </div>
 
       <div style="width:35%; text-align:center;">
         <div style="height:48px;"></div>
-        <div style="border-top:1px solid #333; padding-top:6px; font-size:13px;">رائد الاسرة</div>
+        <div style="border-top:1px solid #333; padding-top:6px; font-size:11px;">رائد الاسرة</div>
       </div>
+    </div>
 
 
   </div>
@@ -243,7 +246,7 @@
     <header>
         <div class="subhead" style="text-align: right;">كلية / {{data.family.faculty.name}}</div>
         <div class="subhead" style="text-align: right;">اسرة / {{data.family.name}}</div>
-      <div class="subhead">تشكيل مجلس ادارة الاسرة النوعية</div>
+        <div class="subhead">تشكيل مجلس ادارة الاسرة النوعية</div>
     </header>
     <table class="form-table" role="table" aria-label="نموذج كشف الإعانات">
       <thead>
@@ -267,6 +270,71 @@
         {% endfor %}
       </tbody>
     </table>
+
+    <div class="signs" style="justify-content: left;">
+      <div style="width:35%; text-align:center;">
+        <div style="height:48px;"></div>
+        <div style="padding-top:6px; font-size:11px;">يعتمد ،،،</div>
+        <div style="padding-top:6px; font-size:11px;">أ.د / عميد الكلية</div>
+        <div style="padding-top:6px; font-size:11px;">( .............................. )</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="page new-page">
+    <header>
+        <div class="subhead" style="text-align: right;">كلية / {{data.family.faculty.name}}</div>
+        <div class="subhead" style="text-align: right;">اسرة / {{data.family.name}}</div>
+        <div class="subhead">كشف باسماء طلاب اعضاء الاسرة (نوعية)</div>
+    </header>
+    <table class="form-table" role="table" aria-label="نموذج كشف الإعانات">
+      <thead>
+        <tr>
+          <th class="col-small">م</th>
+          <th class="col-name">الاسم الثلاثي</th>
+          <th class="col-job">الفرقة</th>
+          <th class="col-job">العنوان</th>
+          <th class="col-income">الرقم القومي</th>
+          <th class="col-income">الموبيل</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in data.family_members %}
+        <tr>
+          <td>{{ forloop.counter }}</td>
+          <td> {{ item.student.name }} </td>
+          <td> {{ item.student.acd_year }} </td>
+          <td> {{ item.student.address }} </td>
+          <td> {{ item.student.nid }} </td>
+          <td> {{ item.student.phone_number }} </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="signs">
+      <div style="width:18%; text-align:center;">
+        <div style="height:48px;"></div>
+        <div style="border-top:1px solid #333; padding-top:6px; font-size:11px;">مسئول الاسرة</div>
+      </div>
+
+      <div style="width:18%; text-align:center;">
+        <div style="height:48px;"></div>
+        <div style="border-top:1px solid #333; padding-top:6px; font-size:11px;">مدير رعاية الشباب</div>
+      </div>
+
+      <div style="width:35%; text-align:center;">
+        <div style="height:48px;"></div>
+        <div style="border-top:1px solid #333; padding-top:6px; font-size:11px;">رائد الاسرة</div>
+      </div>
+
+    </div>
+    <div style="width:35%; text-align:center;">
+      <div style="height:48px;"></div>
+      <div style="padding-top:6px; font-size:11px;">يعتمد ،،،</div>
+      <div style="padding-top:6px; font-size:11px;">أ.د / وكيل الكلية لشئون التعليم والطلاب</div>
+      <div style="padding-top:6px; font-size:11px;">( .............................. )</div>
+    </div>
   </div>
 </body>
 

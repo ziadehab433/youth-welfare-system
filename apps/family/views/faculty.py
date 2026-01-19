@@ -286,7 +286,12 @@ class FamilyFacultyAdminViewSet(viewsets.GenericViewSet):
         admin = get_current_admin(request)
         data = {}
 
+
         try:
+            family = Families.objects.select_related('faculty').get(family_id=family_id)
+            if admin.faculty and family.faculty_id != admin.faculty.faculty_id:
+                return Response({'detail': 'Access denied to this family'}, status=403)
+
             results = FamilyMembers.objects.filter(
                 family_id=family_id
             ).values('student__gender').annotate(
@@ -306,7 +311,8 @@ class FamilyFacultyAdminViewSet(viewsets.GenericViewSet):
                 def __init__(self):
                     self.distribution = distribution
                     self.family_admins = FamilyAdmins.objects.filter(family=family_id)
-                    self.family = Families.objects.select_related('faculty').get(family_id=family_id)
+                    self.family_members = FamilyMembers.objects.select_related( 'student').filter(family_id=family_id)
+                    self.family = family
             data = DataObject()
 
         except DatabaseError:
@@ -317,7 +323,7 @@ class FamilyFacultyAdminViewSet(viewsets.GenericViewSet):
         try:
             buffer = asyncio.new_event_loop().run_until_complete(
                 html_to_pdf_buffer(html_content)
-            )        
+            )
         except Exception:
             return Response({'detail': 'could not generate pdf'}, status=500)
         
