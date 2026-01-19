@@ -280,7 +280,7 @@ class StudentFamilyViewSet(viewsets.GenericViewSet):
             )
 
             # Serialize and return the created family
-            response_serializer = FamilyRequestDetailSerializer(family)
+            response_serializer = FamilyRequestDetailSerializer(family, created_by_student=True)
             return Response(
                 response_serializer.data,
                 status=status.HTTP_201_CREATED

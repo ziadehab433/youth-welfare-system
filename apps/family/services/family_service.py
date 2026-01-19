@@ -342,17 +342,29 @@ class FamilyService:
                         f"الكلية برقم {request_data['faculty_id']} غير موجودة"
                     )
 
-                # Create the family
-                family = Families.objects.create(
-                    name=request_data['name'],
-                    description=request_data['description'],
-                    faculty=faculty,
-                    type=request_data['family_type'],
-                    status='منتظر',
-                    min_limit=request_data.get('min_limit',50),
-                    created_by_id=1,  # Admin user ID
-                    created_at=timezone.now()
-                )
+                if created_by_student: 
+                    # Create the family
+                    family = Families.objects.create(
+                        name=request_data['name'],
+                        description=request_data['description'],
+                        faculty=faculty,
+                        type=request_data['family_type'],
+                        status='منتظر',
+                        min_limit=request_data.get('min_limit',50),
+                        created_by_id=1,  # Admin user ID
+                        created_at=timezone.now()
+                    )
+                else: 
+                    family = Families.objects.create(
+                        name=request_data['name'],
+                        description=request_data['description'],
+                        faculty=faculty,
+                        type='أصدقاء البيئة',
+                        status='منتظر',
+                        min_limit=request_data.get('min_limit',50),
+                        created_by_id=1,  # Admin user ID
+                        created_at=timezone.now()
+                    )
 
                 # ===== Create Default Role Members =====
                 FamilyService._create_default_role_members(

@@ -1,10 +1,15 @@
+from jsonschema import ValidationError
 from rest_framework import viewsets, status, serializers
+from django.db.models import Count
+from django.http import HttpResponse
+from django.template.loader import render_to_string
+import asyncio
+from django.db import DatabaseError
 from django.db import transaction
-from apps.family.models import Students
+from apps.family.models import Students, FamilyAdmins
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
-from django.core.exceptions import ValidationError
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.openapi import OpenApiResponse
 from apps.family.models import Families, FamilyMembers
@@ -17,19 +22,22 @@ from django.db import transaction
 from apps.accounts.utils import (
     get_current_admin,
     get_client_ip,
+    get_current_student,
     log_data_access
 )
-from drf_spectacular.utils import extend_schema, OpenApiParameter 
+from drf_spectacular.utils import OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
-from apps.event.serializers import ParticipantActionSerializer 
 from apps.event.models import Prtcps
+from apps.solidarity.utils import handle_report_data, html_to_pdf_buffer
 from apps.family.serializers import (
+    EventDetailSerializer,
     FamiliesListSerializer,
     FamiliesDetailSerializer,
-    FamilyRequestListSerializer, 
+    FamilyRequestListSerializer,
     PreApproveFamilySerializer,
     FamilyFounderSerializer,
-    EventDetailSerializer
+    CreateFamilyRequestSerializer,
+    FamilyRequestDetailSerializer
 )
 # ------------------------------------------------------------------
 # Families (Faculty Admin)
@@ -271,6 +279,136 @@ class FamilyFacultyAdminViewSet(viewsets.GenericViewSet):
         )
 
         return Response(FamilyFounderSerializer(students, many=True).data)
+    
+    @extend_schema(
+        tags=["Family Fac Admin APIs"],
+        description="Create a new envronment family with detailed configuration",
+        request=CreateFamilyRequestSerializer,
+        responses={
+            201: FamilyRequestDetailSerializer,
+            400: OpenApiResponse(description="Validation error"),
+            409: OpenApiResponse(description="Conflict error"),
+            500: OpenApiResponse(description="Server error")
+        }
+    )
+    @action(detail=False, methods=['post'], url_path='environment-family')
+    def create_environment_family(self, request):
+        try:
+            student = get_current_student(request)
+
+            # Validate request data
+            serializer = CreateFamilyRequestSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(
+                    {'errors': serializer.errors},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            validated_data = serializer.validated_data
+
+            # Create family request
+            family = FamilyService.create_family_request(
+                request_data=validated_data,
+                created_by_student=student
+            )
+
+            # Serialize and return the created family
+            response_serializer = FamilyRequestDetailSerializer(family, created_by_student=False)
+            return Response(
+                response_serializer.data,
+                status=status.HTTP_201_CREATED
+            )
+
+        except ValidationError as e:
+            error_msg = str(e.detail) if hasattr(e, 'detail') else str(e)
+
+            # Check for conflict errors
+            if any(keyword in error_msg for keyword in [
+                "مسؤول بالفعل",
+                "طلب أسرة قيد الانتظار",
+                "مكلفين بأدوار"
+            ]):
+                return Response(
+                    {'error': error_msg},
+                    status=status.HTTP_409_CONFLICT
+                )
+
+            return Response(
+                {'error': error_msg},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return Response(
+                {'error': f'خطأ غير متوقع: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @extend_schema(
+        tags=["Family Fac Admin APIs"],
+        description="pdf",
+        responses={
+            200: OpenApiResponse(
+                description="PDF file download",
+            )
+        }
+    )
+    @action(detail=False, methods=['get'], url_path=r'(?P<family_id>\d+)/export')
+    @require_permission('read')
+    def export(self, request, family_id=None):
+        admin = get_current_admin(request)
+        data = {}
+
+
+        try:
+            family = Families.objects.select_related('faculty').get(family_id=family_id)
+            if admin.faculty and family.faculty_id != admin.faculty.faculty_id:
+                return Response({'detail': 'Access denied to this family'}, status=403)
+
+            results = FamilyMembers.objects.filter(
+                family_id=family_id
+            ).values('student__gender').annotate(
+                count=Count('student_id')
+            ).order_by('student__gender')
+
+            distribution = {'F': 0, 'M': 0, 'total': 0}
+
+            for result in results:
+                gender = result['student__gender']
+                count = result['count']
+                if gender in ['F', 'M']:
+                    distribution[gender] = count
+                    distribution['total'] += count
+
+            class DataObject:
+                def __init__(self):
+                    self.distribution = distribution
+                    self.family_admins = FamilyAdmins.objects.filter(family=family_id)
+                    self.family_members = FamilyMembers.objects.select_related( 'student').filter(family_id=family_id)
+                    self.family = family
+            data = DataObject()
+
+        except DatabaseError:
+            return Response({'detail': 'database error while fetching data'}, status=500)
+
+        html_content = render_to_string("api/family-report.html", { "data": data })
+
+        try:
+            buffer = asyncio.new_event_loop().run_until_complete(
+                html_to_pdf_buffer(html_content)
+            )
+        except Exception:
+            return Response({'detail': 'could not generate pdf'}, status=500)
+        
+        response = HttpResponse( 
+            buffer,
+            content_type='application/pdf'
+        )
+
+        response['Content-Disposition'] = f'attachment; filename="generated_pdf.pdf"'
+        
+        return response
 
 
 # ------------------------------------------------------------------
