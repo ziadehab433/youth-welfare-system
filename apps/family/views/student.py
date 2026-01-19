@@ -1,3 +1,4 @@
+from time import timezone
 from jsonschema import ValidationError
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -7,6 +8,7 @@ from apps.family.serializers import AvailableFamiliesSerializer, CreateFamilyReq
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse, OpenApiTypes
 
 from apps.family.serializers import * 
+from apps.family.serializer.event_serializers import EventRegistrationSerializer
 from apps.family.services.family_service import FamilyService
 from apps.accounts.utils import get_current_student
 from apps.accounts.permissions import IsRole
@@ -695,6 +697,76 @@ class StudentFamilyViewSet(viewsets.GenericViewSet):
                     {'error': error_msg},
                     status=status.HTTP_400_BAD_REQUEST
                 )
+        
+        except Exception as e:
+            return Response(
+                {'error': f'Unexpected error: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+
+
+
+
+
+    @extend_schema(
+    tags=["Family Student APIs"],
+    description="Register for an event within your family",
+    request=None,
+    responses={
+        201: EventRegistrationSerializer,
+        400: OpenApiResponse(description="Bad request - validation failed"),
+        403: OpenApiResponse(description="Forbidden - not authorized"),
+        404: OpenApiResponse(description="Family or Event not found")
+    }
+    )
+    @action(
+        detail=True,  # family_id in URL
+        methods=['post'],
+        url_path='events/(?P<event_id>[^/.]+)/register'
+    )
+    def register_for_event(self, request, pk=None, event_id=None):
+        """
+        Register current student for an event
+        
+        URL: POST /api/families/{family_id}/events/{event_id}/register/
+        
+        The student must be:
+        - A member of the specified family
+        - In the same faculty as the event
+        - Not already registered for the event
+        """
+        try:
+            student = get_current_student(request)
+            
+            # Register for the event
+            participation = FamilyService.register_for_event(
+                family_id=pk,
+                event_id=event_id,
+                student=student
+            )
+            
+            # Prepare response
+            event = participation.event
+            
+            return Response({
+                'message': f'Successfully registered for {event.title}',
+                'event_id': event.event_id,
+                'event_title': event.title,
+                'event_location': event.location,
+                'event_start_date': event.st_date,
+                'event_end_date': event.end_date,
+                'registration_status': participation.status,
+               
+            }, status=status.HTTP_201_CREATED)
+        
+        except ValidationError as e:
+            error_msg = str(e)
+            
+            return Response(
+                {'error': error_msg},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
         except Exception as e:
             return Response(

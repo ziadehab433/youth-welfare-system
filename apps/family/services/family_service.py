@@ -1,6 +1,8 @@
 from apps.family.models import *
 from apps.accounts.models import AdminsUser , Students
 from apps.solidarity.models import Departments, Faculties
+from apps.event.models import Events, Prtcps
+
 from django.core.exceptions import ValidationError
 from django.db.models import Count, F
 from django.utils import timezone
@@ -1187,3 +1189,107 @@ class FamilyService:
         return events
     
     
+
+
+    @staticmethod
+    def register_for_event(family_id, event_id, student):
+        """
+        Register a student for an event within their family
+        
+        Args:
+            family_id: ID of family the student is member of
+            event_id: ID of event to register for
+            student: Student object trying to register
+            
+        Returns:
+            Prtcps instance created
+            
+        Raises:
+            ValidationError: If student can't register
+        """
+        from django.db import transaction
+        from django.utils import timezone
+        
+        # Check 1: Student must have a faculty
+        if not student.faculty:
+            raise ValidationError("Student is not assigned to any faculty")
+        
+        # Check 2: Verify family exists
+        try:
+            family = Families.objects.get(family_id=family_id)
+        except Families.DoesNotExist:
+            raise ValidationError("Family not found")
+        
+        # Check 3: Verify student is a member of this family
+        try:
+            membership = FamilyMembers.objects.get(
+                family=family,
+                student=student
+            )
+        except FamilyMembers.DoesNotExist:
+            raise ValidationError("You are not a member of this family")
+        
+        # Check 4: Verify membership status is valid (not rejected/pending)
+        if membership.status not in ['مقبول', 'منتظر', None]:
+            raise ValidationError(f"Your membership status is: {membership.status}. Cannot register for events.")
+        
+        # Check 5: Verify member role (must be 'عضو' or equivalent)
+        if membership.role != 'عضو':
+            raise ValidationError("Only family members with role 'عضو' can register for events")
+        
+        # Check 6: Verify event exists
+        try:
+            event = Events.objects.select_related('family', 'faculty').get(event_id=event_id)
+        except Events.DoesNotExist:
+            raise ValidationError("Event not found")
+        
+        # Check 7: Event must belong to the specified family
+        # if not event.family or event.family.family_id != family_id:
+        #     raise ValidationError(f"This event does not belong to the family '{family.name}'")
+        
+        # Check 8: Event must belong to student's faculty
+        if event.faculty and event.faculty != student.faculty:
+            raise ValidationError(
+                f"This event is only for {event.faculty.name} faculty. "
+                f"You belong to {student.faculty.name} faculty."
+            )
+        
+        # Check 9: Student not already registered
+        already_registered = Prtcps.objects.filter(
+            event=event,
+            student=student
+        ).exists()
+        
+        if already_registered:
+            raise ValidationError("You are already registered for this event")
+        
+        # Check 10: Event not full (if limit exists)
+        if event.s_limit:
+            current_participants = Prtcps.objects.filter(event=event).count()
+            if current_participants >= event.s_limit:
+                raise ValidationError(
+                    f"Event is full ({current_participants}/{event.s_limit} participants)"
+                )
+        
+        # Check 11: Event must be open/available (optional - adjust status values as needed)
+        if event.status and event.status not in ['مفتوح', 'متاح', 'active', None  , 'مقبول']:
+            raise ValidationError(f"Event is not open for registration (Status: {event.status})")
+        
+        # Check 12: Event date validation (optional - can't register for past events)
+        from datetime import date
+        if event.end_date < date.today():
+            raise ValidationError("Cannot register for past events")
+        
+        # Create registration
+        try:
+            with transaction.atomic():
+                participation = Prtcps.objects.create(
+                    event=event,
+                    student=student,
+                    status='منتظر',  # Default pending status
+                    rank=None,       # Will be assigned later
+                    reward=None      # Will be assigned after event
+                )
+                return participation
+        except Exception as e:
+            raise ValidationError(f"Error registering for event: {str(e)}")

@@ -17,6 +17,8 @@ from apps.family.services.family_service import FamilyService
 from apps.event.models import Events
 from apps.event.serializers import EventSerializer
 from apps.accounts.permissions import IsRole, require_permission
+from django.db import transaction
+
 from apps.accounts.utils import (
     get_current_admin,
     get_client_ip,
@@ -92,31 +94,32 @@ class FamilyFacultyAdminViewSet(viewsets.GenericViewSet):
     @action(detail=True, methods=['post'], url_path='pre-approve')
     @require_permission('update')
     def pre_approve_request(self, request, pk=None):
-        admin = get_current_admin(request)
-        family = get_object_or_404(Families, pk=pk, faculty_id=admin.faculty_id)
-        if family.status != 'منتظر':
-            return Response(
-                {"error": "لا يمكن إعطاء موافقة مبدئية. حالة الطلب يجب أن تكون 'منتظر'."},
-                status=status.HTTP_400_BAD_REQUEST
+        with transaction.atomic():
+            admin = get_current_admin(request)
+            family = get_object_or_404(Families, pk=pk, faculty_id=admin.faculty_id)
+            if family.status != 'منتظر':
+                return Response(
+                    {"error": "لا يمكن إعطاء موافقة مبدئية. حالة الطلب يجب أن تكون 'منتظر'."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            serializer = PreApproveFamilySerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            family.status = 'موافقة مبدئية'
+            family.min_limit = serializer.validated_data['min_limit']
+            family.closing_date = serializer.validated_data['closing_date']
+            family.save()
+            log_data_access(
+                actor_id=admin.admin_id,
+                actor_type=admin.role,
+                action='موافقة مبدئية وتحديد الشروط',
+                target_type='اسر',
+                family_id=family.family_id,
+                ip_address=get_client_ip(request)
             )
-        serializer = PreApproveFamilySerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        family.status = 'موافقة مبدئية'
-        family.min_limit = serializer.validated_data['min_limit']
-        family.closing_date = serializer.validated_data['closing_date']
-        family.save()
-        log_data_access(
-            actor_id=admin.admin_id,
-            actor_type=admin.role,
-            action='موافقة مبدئية وتحديد الشروط',
-            target_type='اسر',
-            family_id=family.family_id,
-            ip_address=get_client_ip(request)
-        )
-        return Response(
-            {"message": "تم منح الموافقة المبدئية وتحديث شروط الانضمام بنجاح"}, 
-            status=status.HTTP_200_OK
-        )
+            return Response(
+                {"message": "تم منح الموافقة المبدئية وتحديث شروط الانضمام بنجاح"}, 
+                status=status.HTTP_200_OK
+            )
     @extend_schema(
         description="Reject a pending family creation request.",
         request=None,
@@ -128,26 +131,27 @@ class FamilyFacultyAdminViewSet(viewsets.GenericViewSet):
     @action(detail=True, methods=['post'], url_path='reject')
     @require_permission('update') 
     def reject_request(self, request, pk=None):
-        """
-        POST /api/family/faculty/{id}/reject/
-        """
-        admin = get_current_admin(request)
-        family = get_object_or_404(Families, pk=pk, faculty_id=admin.faculty_id)
-        family.status = 'مرفوض'
-        family.save()
-        log_data_access(
-            actor_id=admin.admin_id,
-            actor_type=admin.role,
-            action='رفض طلب إنشاء أسرة',
-            target_type='اسر',
-            family_id=family.family_id,
-            ip_address=get_client_ip(request)
-        )
+        with transaction.atomic():
+            """
+            POST /api/family/faculty/{id}/reject/
+            """
+            admin = get_current_admin(request)
+            family = get_object_or_404(Families, pk=pk, faculty_id=admin.faculty_id)
+            family.status = 'مرفوض'
+            family.save()
+            log_data_access(
+                actor_id=admin.admin_id,
+                actor_type=admin.role,
+                action='رفض طلب إنشاء أسرة',
+                target_type='اسر',
+                family_id=family.family_id,
+                ip_address=get_client_ip(request)
+            )
 
-        return Response(
-            {"message": "تم رفض طلب إنشاء الأسرة"}, 
-            status=status.HTTP_200_OK
-        )
+            return Response(
+                {"message": "تم رفض طلب إنشاء الأسرة"}, 
+                status=status.HTTP_200_OK
+            )
 
     @extend_schema(
         description="Grant family creation permission to a student by their NID",
@@ -159,38 +163,39 @@ class FamilyFacultyAdminViewSet(viewsets.GenericViewSet):
         admin = get_current_admin(request)
         
         try:
-            student = Students.objects.get(nid=nid)
-            
-            if student.can_create_fam:
-                return Response(
-                    {"error": "الطالب لديه بالفعل صلاحية إنشاء أسرة"},
-                    status=status.HTTP_400_BAD_REQUEST
+            with transaction.atomic():  # Begin transaction
+                student = Students.objects.get(nid=nid)
+                
+                if student.can_create_fam:
+                    return Response(
+                        {"error": "الطالب لديه بالفعل صلاحية إنشاء أسرة"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                student.can_create_fam = True
+                student.save()
+                
+                # might move this into its own func 
+                log_data_access(
+                    actor_id=admin.admin_id,
+                    actor_type=admin.role,
+                    action='منح صلاحية إنشاء أسرة للطالب',
+                    target_type='طالب',
+                    student_id=student.student_id,
+                    ip_address=get_client_ip(request)
                 )
-            
-            student.can_create_fam = True
-            student.save()
-            
-            # might move this into its own func 
-            # log_data_access(
-            #     actor_id=admin.admin_id,
-            #     actor_type=admin.role,
-            #     action='منح صلاحية إنشاء أسرة للطالب',
-            #     target_type='طالب',
-            #     target_id=student.student_id,
-            #     ip_address=get_client_ip(request)
-            # )
-            
-            return Response(
-                {
-                    "message": "تم منح صلاحية إنشاء الأسرة للطالب بنجاح",
-                    "student": {
-                        "nid": student.nid,
-                        "name": f"{student.name}",  
-                        "can_create_fam": student.can_create_fam
-                    }
-                },
-                status=status.HTTP_200_OK
-            )
+                
+                return Response(
+                    {
+                        "message": "تم منح صلاحية إنشاء الأسرة للطالب بنجاح",
+                        "student": {
+                            "nid": student.nid,
+                            "name": f"{student.name}",  
+                            "can_create_fam": student.can_create_fam
+                        }
+                    },
+                    status=status.HTTP_200_OK
+                )
             
         except Students.DoesNotExist:
             return Response(
@@ -216,40 +221,40 @@ class FamilyFacultyAdminViewSet(viewsets.GenericViewSet):
         admin = get_current_admin(request)
         
         try:
-            student = Students.objects.get(nid=nid, faculty=admin.faculty.faculty_id)
-            
-            if not student.can_create_fam:
+            with transaction.atomic():
+                student = Students.objects.get(nid=nid)
+                
+                if not student.can_create_fam:
+                    return Response(
+                        {"error": "الطالب لا يملك صلاحية إنشاء أسرة حالياً"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                student.can_create_fam = False
+                student.save()
+                
+                log_data_access(
+                    actor_id=admin.admin_id,
+                    actor_type=admin.role,
+                    action='سحب صلاحية إنشاء أسرة من الطالب',
+                    target_type='طالب',
+                    student_id=student.student_id,
+                    ip_address=get_client_ip(request)
+                )
+                
                 return Response(
-                    {"error": "الطالب لا يملك صلاحية إنشاء أسرة حالياً"},
-                    status=status.HTTP_400_BAD_REQUEST
+                    {
+                        "message": "تم سحب صلاحية إنشاء الأسرة من الطالب بنجاح",
+                        "student": {
+                            "nid": student.nid,
+                            "name": f"{student.name}",
+                            "can_create_fam": student.can_create_fam
+                        }
+                    },
+                    status=status.HTTP_200_OK
                 )
             
-            student.can_create_fam = False
-            student.save()
-            
-            # log_data_access(
-            #     actor_id=admin.admin_id,
-            #     actor_type=admin.role,
-            #     action='سحب صلاحية إنشاء أسرة من الطالب',
-            #     target_type='طالب',
-            #     target_id=student.student_id,
-            #     ip_address=get_client_ip(request)
-            # )
-            
-            return Response(
-                {
-                    "message": "تم سحب صلاحية إنشاء الأسرة من الطالب بنجاح",
-                    "student": {
-                        "nid": student.nid,
-                        "name": f"{student.name}",
-                        "can_create_fam": student.can_create_fam
-                    }
-                },
-                status=status.HTTP_200_OK
-            )
-            
-        except Students.DoesNotExist as e:
-            print("errorrrrrr: ", e)
+        except Students.DoesNotExist:
             return Response(
                 {"error": "لم يتم العثور على طالب"},
                 status=status.HTTP_404_NOT_FOUND
@@ -654,24 +659,25 @@ class FamilyMembersViewSet(viewsets.GenericViewSet):
     )
     @require_permission('delete')
     def remove_member(self, request, family_id=None, member_id=None):
-        admin = get_current_admin(request)
+        with transaction.atomic():
+            admin = get_current_admin(request)
 
-        family = get_object_or_404(Families, pk=family_id)
-        member = get_object_or_404(
-            FamilyMembers,
-            family=family,
-            student_id=member_id
-        )
-        member.delete()
-        log_data_access(
-            actor_id=admin.admin_id,
-            actor_type=admin.role,
-            action='حذف عضو من أسرة',
-            target_type='اسر',
-            family_id=family_id,
-            ip_address=get_client_ip(request)
-        )
-        return Response(
-            {"message": "Member removed successfully"},
-            status=status.HTTP_200_OK
-        )
+            family = get_object_or_404(Families, pk=family_id)
+            member = get_object_or_404(
+                FamilyMembers,
+                family=family,
+                student_id=member_id
+            )
+            member.delete()
+            log_data_access(
+                actor_id=admin.admin_id,
+                actor_type=admin.role,
+                action='حذف عضو من أسرة',
+                target_type='اسر',
+                family_id=family_id,
+                ip_address=get_client_ip(request)
+            )
+            return Response(
+                {"message": "Member removed successfully"},
+                status=status.HTTP_200_OK
+            )

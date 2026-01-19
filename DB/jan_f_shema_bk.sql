@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict JThKA1dZhvWacK8PzEXMxJWC2u9966zJaNtr3657fDKNFbYyeNcSejegHv6Ee1S
+\restrict ppgmRB6h4IehicYokhO9zdugimcNNVomlI99Tsq4iVzhcObmAWbGj0lcSdq8ZPN
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.6
@@ -187,7 +187,8 @@ CREATE TYPE public.target_type AS ENUM (
     'نشاط',
     'تكافل',
     'اسر',
-    'اخر'
+    'اخر',
+    'طالب'
 );
 
 
@@ -977,7 +978,8 @@ CREATE TABLE public.logs (
     logged_at timestamp with time zone DEFAULT now(),
     actor_type public.actor_type,
     target_type public.target_type NOT NULL,
-    CONSTRAINT logs_single_target_check CHECK ((((target_type = 'نشاط'::public.target_type) AND (event_id IS NOT NULL) AND (solidarity_id IS NULL) AND (family_id IS NULL)) OR ((target_type = 'تكافل'::public.target_type) AND (solidarity_id IS NOT NULL) AND (event_id IS NULL) AND (family_id IS NULL)) OR ((target_type = 'اسر'::public.target_type) AND (family_id IS NOT NULL) AND (event_id IS NULL) AND (solidarity_id IS NULL))))
+    student_id integer,
+    CONSTRAINT logs_single_target_check CHECK ((((target_type = 'نشاط'::public.target_type) AND (event_id IS NOT NULL) AND (solidarity_id IS NULL) AND (family_id IS NULL) AND (student_id IS NULL)) OR ((target_type = 'تكافل'::public.target_type) AND (solidarity_id IS NOT NULL) AND (event_id IS NULL) AND (family_id IS NULL) AND (student_id IS NULL)) OR ((target_type = 'اسر'::public.target_type) AND (family_id IS NOT NULL) AND (event_id IS NULL) AND (solidarity_id IS NULL) AND (student_id IS NULL)) OR ((target_type = 'طالب'::public.target_type) AND (student_id IS NOT NULL) AND (event_id IS NULL) AND (solidarity_id IS NULL))))
 );
 
 
@@ -1169,7 +1171,8 @@ CREATE TABLE public.students (
     is_google_auth boolean DEFAULT false,
     auth_method character varying(20) DEFAULT 'email'::character varying,
     last_login_method character varying(20),
-    last_google_login timestamp without time zone
+    last_google_login timestamp without time zone,
+    can_create_fam boolean DEFAULT false NOT NULL
 );
 
 
@@ -1728,6 +1731,13 @@ CREATE INDEX idx_logs_logged_at ON public.logs USING btree (logged_at);
 
 
 --
+-- Name: idx_logs_student_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_logs_student_id ON public.logs USING btree (student_id) WITH (fillfactor='100', deduplicate_items='true');
+
+
+--
 -- Name: idx_logs_target; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2080,6 +2090,14 @@ ALTER TABLE ONLY public.logs
 
 
 --
+-- Name: logs logs_student_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.logs
+    ADD CONSTRAINT logs_student_fk FOREIGN KEY (student_id) REFERENCES public.students(student_id) ON DELETE SET NULL;
+
+
+--
 -- Name: prtcps prtcps_event_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2139,5 +2157,5 @@ ALTER TABLE ONLY public.students
 -- PostgreSQL database dump complete
 --
 
-\unrestrict JThKA1dZhvWacK8PzEXMxJWC2u9966zJaNtr3657fDKNFbYyeNcSejegHv6Ee1S
+\unrestrict ppgmRB6h4IehicYokhO9zdugimcNNVomlI99Tsq4iVzhcObmAWbGj0lcSdq8ZPN
 
