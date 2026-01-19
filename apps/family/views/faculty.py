@@ -1,3 +1,4 @@
+from jsonschema import ValidationError
 from rest_framework import viewsets, status, serializers
 from django.db.models import Count
 from django.http import HttpResponse
@@ -19,6 +20,7 @@ from apps.accounts.permissions import IsRole, require_permission
 from apps.accounts.utils import (
     get_current_admin,
     get_client_ip,
+    get_current_student,
     log_data_access
 )
 from drf_spectacular.utils import OpenApiParameter
@@ -26,6 +28,7 @@ from drf_spectacular.types import OpenApiTypes
 from apps.event.models import Prtcps
 from apps.solidarity.utils import handle_report_data, html_to_pdf_buffer
 from apps.family.serializers import (
+    EventDetailSerializer,
     FamiliesListSerializer,
     FamiliesDetailSerializer,
     FamilyRequestListSerializer,
