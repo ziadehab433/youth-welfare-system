@@ -1,7 +1,8 @@
+from pytz import timezone
 from rest_framework import viewsets
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework.permissions import IsAuthenticated
-from apps.family.models import Families
+from apps.family.models import Families, FamilyMembers, Students
 from apps.family.models import FamilyMembers
 from apps.accounts.permissions import IsRole
 from apps.family.serializers import FamiliesListSerializer, FamiliesDetailSerializer
@@ -10,6 +11,11 @@ from drf_spectacular.utils import OpenApiResponse
 from apps.accounts.utils import get_client_ip, log_data_access
 from rest_framework.response import Response
 from rest_framework import viewsets, status
+from django.db import transaction
+from django.db.models import Count, Q
+from apps.accounts.utils import get_current_admin 
+from django.db import transaction
+from django.utils import timezone
 @extend_schema(tags=["Family Super_Dept"])
 class SuperDeptFamilyViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Families.objects.all()
@@ -95,100 +101,179 @@ class SuperDeptFamilyViewSet(viewsets.ReadOnlyModelViewSet):
             400: OpenApiResponse(description="Invalid status for final approval")
         }
     )
+
+# ----------------------------------------------------------------
+# Security Approval Actions
+# ----------------------------------------------------------------
+    @extend_schema(
+        description="Security approve a family member",
+        responses={
+            200: OpenApiResponse(description="Member approved successfully"),
+            400: OpenApiResponse(description="Validation error"),
+            404: OpenApiResponse(description="Member not found"),
+        }
+    )
+    @action(detail=True, methods=['patch'], url_path=r'members/(?P<student_id>\d+)/approve')
+    def approve_family_member(self, request, pk=None, student_id=None):
+        family = self.get_object()
+
+        if family.status != 'موافقة مبدئية':
+            return Response(
+                {"error": "Security review unavailable. Family status must be 'Initial Approval'."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        member = FamilyMembers.objects.filter(family=family, student_id=student_id).first()
+        if not member:
+            return Response({"error": "Member not found in this family."}, status=status.HTTP_404_NOT_FOUND)
+
+        if member.status == 'مقبول':
+            return Response({"message": "Member is already approved."}, status=status.HTTP_200_OK)
+
+        if member.status == 'مرفوض':
+            return Response(
+                {"error": "Cannot approve a previously rejected member."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        student = Students.objects.filter(student_id=student_id).first()
+        if student and student.faculty_id != family.faculty_id:
+            return Response(
+                {"error": "Student does not belong to the family's faculty."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        with transaction.atomic():
+            FamilyMembers.objects.filter(family=family, student_id=student_id).update(status='مقبول')
+
+        return Response(
+            {
+                "message": "Member security approved successfully.",
+                "member_id": student_id,
+                "family_id": family.family_id
+            },
+            status=status.HTTP_200_OK
+        )
+
+    @extend_schema(
+        description="Security reject a family member",
+        responses={
+            200: OpenApiResponse(description="Member rejected successfully"),
+            400: OpenApiResponse(description="Validation error"),
+            404: OpenApiResponse(description="Member not found"),
+        }
+    )
+    @action(detail=True, methods=['patch'], url_path=r'members/(?P<student_id>\d+)/reject')
+    def reject_family_member(self, request, pk=None, student_id=None):
+        family = self.get_object()
+
+        if family.status != 'موافقة مبدئية':
+            return Response(
+                {"error": "Security review unavailable. Family status must be 'Initial Approval'."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        member = FamilyMembers.objects.filter(family=family, student_id=student_id).first()
+        if not member:
+            return Response({"error": "Member not found in this family."}, status=status.HTTP_404_NOT_FOUND)
+
+        if member.status == 'مرفوض':
+            return Response({"message": "Member is already rejected."}, status=status.HTTP_200_OK)
+
+        if member.status == 'مقبول':
+            return Response(
+                {"error": "Cannot reject an already approved member."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        with transaction.atomic():
+            FamilyMembers.objects.filter(family=family, student_id=student_id).update(status='مرفوض')
+
+        return Response(
+            {
+                "message": "Member security rejected successfully.",
+                "member_id": student_id,
+                "family_id": family.family_id
+            },
+            status=status.HTTP_200_OK
+        )
+
+    @extend_schema(
+        description="Final approval for family activation",
+        responses={
+            200: OpenApiResponse(description="Family activated successfully"),
+            400: OpenApiResponse(description="Validation failed"),
+        }
+    )
     @action(detail=True, methods=['post'], url_path='final_approve')
     def final_approve(self, request, pk=None):
         family = self.get_object()
+
         if family.status != 'موافقة مبدئية':
-             return Response(
-                {"error": "يجب أن تكون الأسرة حاصلة على 'موافقة مبدئية' أولاً لمنح الموافقة النهائية."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        family.status = 'مقبول'
-        family.approved_by = request.user 
-        family.save()
-        log_data_access(
-            actor_id=request.user.admin_id,
-            actor_type=request.user.role,
-            action='موافقة نهائية (إدارة مركزية)',
-            target_type='اسر',
-            family_id=family.family_id,
-            ip_address=get_client_ip(request)
-        )
-
-        return Response({"message": "تم تفعيل الأسرة بنجاح"}, status=status.HTTP_200_OK)
-    @extend_schema(
-        description="Fetch all 'Specialized' (نوعية) families with 'Pre-Approved' (موافقة مبدئية) status, filtered by faculty.",
-        parameters=[
-            OpenApiParameter(
-                name='faculty', 
-                description='Filter by Faculty ID', 
-                required=False, 
-                type=int
-            ),
-        ],
-        responses={200: FamiliesListSerializer(many=True)}
-    )
-    @action(detail=False, methods=['get'], url_path='pre_approved_requests')
-    def list_pre_approved_specialized(self, request):
-        queryset = Families.objects.filter(
-            type='نوعية',
-            status='موافقة مبدئية'
-        )
-        faculty_id = request.query_params.get('faculty')
-        if faculty_id:
-            queryset = queryset.filter(faculty_id=faculty_id)
-        queryset = queryset.order_by('-created_at')
-        return Response(FamiliesListSerializer(queryset, many=True).data)
-
-    @extend_schema(
-    description="approve family and all its members",
-    request=None,
-    responses={ 200: OpenApiResponse(description="family and members approved successfully"), 400: OpenApiResponse(description="invalid family type or status for approval")
-    })
-    @action(detail=True, methods=['patch'], url_path='approve')
-    def approve_specialized_family(self, request, pk=None):
-        family = self.get_object()
-        
-        if family.type != 'نوعية':
             return Response(
-                {"error": "هذا الإجراء مخصص فقط للأسر النوعية."},
+                {"error": "Initial approval is required first before final activation."},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        if family.status not in ['منتظر', 'موافقة مبدئية']:
+
+        pending_count = FamilyMembers.objects.filter(
+            family=family,
+            status='منتظر'
+        ).count()
+
+        if pending_count > 0:
             return Response(
-                {"error": "لا يمكن الموافقة على الأسرة في حالتها الحالية."},
+                {
+                    "error": "Cannot activate. There are members still pending review.",
+                    "pending_members_count": pending_count
+                },
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        try:
+
+        accepted_count = FamilyMembers.objects.filter(
+            family=family,
+            status='مقبول'
+        ).count()
+
+        if accepted_count < family.min_limit:
+            rejected_count = FamilyMembers.objects.filter(
+                family=family,
+                status='مرفوض'
+            ).count()
+
+            return Response(
+                {
+                    "error": "Insufficient number of accepted members to activate the family.",
+                    "accepted_members": accepted_count,
+                    "rejected_members": rejected_count,
+                    "required_minimum": family.min_limit
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        has_leader = FamilyMembers.objects.filter(
+            family=family,
+            status='مقبول',
+            role='أخ أكبر'  
+        ).exists()
+
+        if not has_leader:
+            return Response(
+                {"error": "A security-approved family leader is required (Role: أخ أكبر)."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        with transaction.atomic():
             family.status = 'مقبول'
-            family.approved_by = request.user
+            family.approved_by = get_current_admin(request)
+            family.final_approved_at = timezone.now()
             family.save()
-                
-                
-            updated_members = FamilyMembers.objects.filter(
-                family_id=family.family_id
-            ).update(status='مقبول')
-                
-            log_data_access(
-                actor_id=request.user.admin_id,
-                actor_type=request.user.role,
-                action='موافقة على الأسرة النوعية وأعضائها',
-                target_type='اسر',
-                family_id=family.family_id,
-                ip_address=get_client_ip(request)
-            )
-            
-            return Response({
-                "message": f"تمت الموافقة على الأسرة النوعية بنجاح وتم تحديث حالة {updated_members} عضو/أعضاء",
+
+        return Response(
+            {
+                "message": "Family activated successfully.",
                 "family_id": family.family_id,
-                "family_name": family.name,
-                "updated_members_count": updated_members
-            }, status=status.HTTP_200_OK)
-            
-        except Exception as e:
-            return Response(
-                {"error": f"حدث خطأ أثناء الموافقة على الأسرة: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+                "accepted_members": accepted_count,
+                "approved_by": get_current_admin(request).name,
+                "approval_date": family.final_approved_at.isoformat()
+            },
+            status=status.HTTP_200_OK
+        )
