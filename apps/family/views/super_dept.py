@@ -116,10 +116,9 @@ class SuperDeptFamilyViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=True, methods=['patch'], url_path=r'members/(?P<student_id>\d+)/approve')
     def approve_family_member(self, request, pk=None, student_id=None):
         family = self.get_object()
-
-        if family.status != 'موافقة مبدئية':
+        if family.status not in ['موافقة مبدئية', 'مقبول']:
             return Response(
-                {"error": "Security review unavailable. Family status must be 'Initial Approval'."},
+                {"error": "Security review unavailable. Family status must be 'Initial Approval' or 'Active'."}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -167,9 +166,9 @@ class SuperDeptFamilyViewSet(viewsets.ReadOnlyModelViewSet):
     def reject_family_member(self, request, pk=None, student_id=None):
         family = self.get_object()
 
-        if family.status != 'موافقة مبدئية':
+        if family.status not in ['موافقة مبدئية', 'مقبول']:
             return Response(
-                {"error": "Security review unavailable. Family status must be 'Initial Approval'."},
+                {"error": "Security review unavailable. Family status must be 'Initial Approval' or 'Active'."}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
 
