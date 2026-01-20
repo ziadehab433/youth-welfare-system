@@ -156,6 +156,7 @@ class SuperDeptFamilyViewSet(viewsets.ReadOnlyModelViewSet):
 
     @extend_schema(
         description="Security reject a family member",
+        request=None,
         responses={
             200: OpenApiResponse(description="Member rejected successfully"),
             400: OpenApiResponse(description="Validation error"),
@@ -199,6 +200,8 @@ class SuperDeptFamilyViewSet(viewsets.ReadOnlyModelViewSet):
 
     @extend_schema(
         description="Final approval for family activation",
+        request=None,  # 👈 ADD THIS LINE
+
         responses={
             200: OpenApiResponse(description="Family activated successfully"),
             400: OpenApiResponse(description="Validation failed"),

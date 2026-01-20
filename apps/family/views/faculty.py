@@ -546,6 +546,7 @@ class FacultyEventApprovalViewSet(viewsets.GenericViewSet):
         )
     @extend_schema(
         description="Approve a specific participant.",
+        request=None,
         parameters=[
             OpenApiParameter(
                 name='student_id',
@@ -600,6 +601,7 @@ class FacultyEventApprovalViewSet(viewsets.GenericViewSet):
 
     @extend_schema(
         description="Reject a specific participant.",
+        request=None,
         parameters=[
             OpenApiParameter(
                 name='student_id',
