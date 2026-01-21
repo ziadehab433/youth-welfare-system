@@ -73,42 +73,20 @@ class Events(models.Model):
 from django.db import connection
 
 class Prtcps(models.Model):
-    event = models.ForeignKey(
-        Events, 
-        models.DO_NOTHING,
-        related_name='prtcps_set' 
-    )
-    student = models.ForeignKey(
-        Students, 
-        models.DO_NOTHING,
-    )
+    id = models.BigAutoField(primary_key=True)
+
+    event = models.ForeignKey(Events, models.DO_NOTHING, related_name="prtcps_set")
+    student = models.ForeignKey(Students, models.DO_NOTHING)
+
     rank = models.IntegerField(blank=True, null=True)
     reward = models.CharField(max_length=255, blank=True, null=True)
     status = models.TextField(blank=True, null=True)
 
     class Meta:
-        managed = False 
-        db_table = 'prtcps'
-        unique_together = (('event', 'student'),)
+        managed = False
+        db_table = "prtcps"
+        unique_together = (("event", "student"),)
 
-    def save(self, *args, **kwargs):
-    # Use raw SQL to insert
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                INSERT INTO prtcps (event_id, student_id, rank, reward, status)
-                VALUES (%s, %s, %s, %s, %s)
-                ON CONFLICT (event_id, student_id) 
-                DO UPDATE SET 
-                    rank = EXCLUDED.rank,
-                    reward = EXCLUDED.reward,
-                    status = EXCLUDED.status
-            """, [
-                self.event_id, 
-                self.student_id, 
-                self.rank, 
-                self.reward, 
-                self.status
-            ])
 
 
     # IF we want to ignore writing SQL directly, we can update DB by drop the composite key (just will be a constraint) , then add an id field as primary key , finally no need to override save method.

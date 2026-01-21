@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict ppgmRB6h4IehicYokhO9zdugimcNNVomlI99Tsq4iVzhcObmAWbGj0lcSdq8ZPN
+\restrict SAHNZMqBvnVYOz6ncZ9fWvv2CPLWFbaLizTzCJSLrO5mV0XDJwigbsxQcZiDOg8
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.6
@@ -1047,11 +1047,33 @@ CREATE TABLE public.prtcps (
     student_id integer NOT NULL,
     rank integer,
     reward character varying(255),
-    status public.general_status DEFAULT 'منتظر'::public.general_status
+    status public.general_status DEFAULT 'منتظر'::public.general_status,
+    id bigint NOT NULL
 );
 
 
 ALTER TABLE public.prtcps OWNER TO postgres;
+
+--
+-- Name: prtcps_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.prtcps_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.prtcps_id_seq OWNER TO postgres;
+
+--
+-- Name: prtcps_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.prtcps_id_seq OWNED BY public.prtcps.id;
+
 
 --
 -- Name: solidarities; Type: TABLE; Schema: public; Owner: postgres
@@ -1211,6 +1233,13 @@ ALTER TABLE ONLY public.family_admins ALTER COLUMN id SET DEFAULT nextval('publi
 --
 
 ALTER TABLE ONLY public.posts ALTER COLUMN post_id SET DEFAULT nextval('public.posts_post_id_seq'::regclass);
+
+
+--
+-- Name: prtcps id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.prtcps ALTER COLUMN id SET DEFAULT nextval('public.prtcps_id_seq'::regclass);
 
 
 --
@@ -1469,11 +1498,19 @@ ALTER TABLE ONLY public.posts
 
 
 --
--- Name: prtcps prtcps_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: prtcps prtcps_event_student_unique; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.prtcps
-    ADD CONSTRAINT prtcps_pkey PRIMARY KEY (event_id, student_id);
+    ADD CONSTRAINT prtcps_event_student_unique UNIQUE (event_id, student_id);
+
+
+--
+-- Name: prtcps prtcps_id_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.prtcps
+    ADD CONSTRAINT prtcps_id_pkey PRIMARY KEY (id);
 
 
 --
@@ -1763,6 +1800,13 @@ CREATE INDEX idx_posts_faculty_id ON public.posts USING btree (faculty_id);
 --
 
 CREATE INDEX idx_posts_family_id ON public.posts USING btree (family_id);
+
+
+--
+-- Name: idx_prtcps_event; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_prtcps_event ON public.prtcps USING btree (event_id);
 
 
 --
@@ -2157,5 +2201,5 @@ ALTER TABLE ONLY public.students
 -- PostgreSQL database dump complete
 --
 
-\unrestrict ppgmRB6h4IehicYokhO9zdugimcNNVomlI99Tsq4iVzhcObmAWbGj0lcSdq8ZPN
+\unrestrict SAHNZMqBvnVYOz6ncZ9fWvv2CPLWFbaLizTzCJSLrO5mV0XDJwigbsxQcZiDOg8
 
