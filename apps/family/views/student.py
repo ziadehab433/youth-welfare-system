@@ -263,8 +263,10 @@ class StudentFamilyViewSet(viewsets.GenericViewSet):
         try:
             student = get_current_student(request)
 
-            # Validate request data
-            serializer = CreateFamilyRequestSerializer(data=request.data)
+            serializer = CreateFamilyRequestSerializer(
+                data=request.data,
+                context={'creation_source': 'student'}
+            )
             if not serializer.is_valid():
                 return Response(
                     {'errors': serializer.errors},
@@ -273,20 +275,22 @@ class StudentFamilyViewSet(viewsets.GenericViewSet):
 
             validated_data = serializer.validated_data
 
-            # Create family request
             family = FamilyService.create_family_request(
                 request_data=validated_data,
-                created_by_student=student
+                created_by_student=True,
+                user_id=student.student_id
             )
 
-            # Serialize and return the created family
-            response_serializer = FamilyRequestDetailSerializer(family, created_by_student=True)
+            response_serializer = FamilyRequestDetailSerializer(
+                family, 
+                context={'created_by_student': True}
+            )
             return Response(
                 response_serializer.data,
                 status=status.HTTP_201_CREATED
             )
 
-        except ValidationError as e:
+        except ValidationError as e: 
             error_msg = str(e.detail) if hasattr(e, 'detail') else str(e)
 
             # Check for conflict errors

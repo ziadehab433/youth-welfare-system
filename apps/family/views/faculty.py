@@ -294,10 +294,12 @@ class FamilyFacultyAdminViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=['post'], url_path='environment-family')
     def create_environment_family(self, request):
         try:
-            student = get_current_student(request)
+            admin = get_current_admin(request)
 
-            # Validate request data
-            serializer = CreateFamilyRequestSerializer(data=request.data)
+            serializer = CreateFamilyRequestSerializer(
+                data=request.data,
+                context={'creation_source': 'faculty_admin'}
+            )
             if not serializer.is_valid():
                 return Response(
                     {'errors': serializer.errors},
@@ -306,14 +308,16 @@ class FamilyFacultyAdminViewSet(viewsets.GenericViewSet):
 
             validated_data = serializer.validated_data
 
-            # Create family request
             family = FamilyService.create_family_request(
                 request_data=validated_data,
-                created_by_student=student
+                created_by_student=False,
+                user_id=admin.admin_id
             )
 
-            # Serialize and return the created family
-            response_serializer = FamilyRequestDetailSerializer(family, created_by_student=False)
+            response_serializer = FamilyRequestDetailSerializer(
+                family, 
+                context={'created_by_student': False}
+            )
             return Response(
                 response_serializer.data,
                 status=status.HTTP_201_CREATED
