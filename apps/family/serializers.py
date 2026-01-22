@@ -669,14 +669,9 @@ class DefaultRolesDataSerializer(serializers.Serializer):
 # ========== Main Create Family Serializer ==========
 
 class CreateFamilyRequestSerializer(serializers.Serializer):
-    """Main serializer for creating family request with all details"""
-
-    # Family Information
-    family_type = serializers.ChoiceField(
-        choices=['نوعية', 'مركزية'],
-        required=True,
-        help_text="نوع الأسرة: نوعية (متخصصة) أو مركزية"
-    )
+    """Flexible serializer that adapts based on creation source"""
+    
+    # Common fields
     name = serializers.CharField(max_length=100, required=True)
     description = serializers.CharField(max_length=1000, required=True)
     min_limit = serializers.IntegerField(
@@ -684,19 +679,38 @@ class CreateFamilyRequestSerializer(serializers.Serializer):
         min_value=1,
         required=False
     )
-
-    # Faculty
     faculty_id = serializers.IntegerField(required=True)
-
-    # Default Roles (9 people: 4 admins + 5 students)
     default_roles = DefaultRolesDataSerializer(required=True)
-
-    # Committees (7 committees with heads, assistants, and activities)
     committees = CommitteeDataSerializer(
         many=True,
         required=True,
         help_text="7 لجان مع رؤساء ونواب ونشاطات"
     )
+    
+    # Optional field - only validated in student context
+    family_type = serializers.ChoiceField(
+        choices=['نوعية', 'مركزية', 'أصدقاء البيئة'],
+        required=False,  # Make it optional
+        help_text="نوع الأسرة: نوعية (متخصصة) أو مركزية"
+    )
+
+    def __init__(self, *args, **kwargs):
+        # Get context to know who is creating
+        super().__init__(*args, **kwargs)
+        self.creation_source = self.context.get('creation_source', 'student')
+        
+    def validate_family_type(self, value):
+        """Validate family type based on creation source"""
+        if self.creation_source == 'student':
+            if not value:
+                raise ValidationError("حقل نوع الأسرة مطلوب للطلاب")
+            if value not in ['نوعية', 'مركزية']:
+                raise ValidationError("نوع الأسرة يجب أن يكون 'نوعية' أو 'مركزية'")
+        elif self.creation_source == 'faculty_admin':
+            # For faculty admin, always use "أصدقاء البيئة"
+            value = "أصدقاء البيئة"
+        
+        return value
 
     def validate_faculty_id(self, value):
         """Validate faculty exists"""
@@ -753,9 +767,12 @@ class CreateFamilyRequestSerializer(serializers.Serializer):
             raise ValidationError(
                 f"الطلاب برقم الجامعة {list(overlap)} مكلفين بأدوار افتراضية وأدوار لجان في نفس الوقت"
             )
+        
+        # Set family type for faculty admin if not provided
+        if self.creation_source == 'faculty_admin' and 'family_type' not in data:
+            data['family_type'] = "أصدقاء البيئة"
 
         return data
-
 
 # ========== Detail Response Serializers ==========
 
@@ -819,15 +836,28 @@ class FamilyRequestDetailSerializer(serializers.ModelSerializer):
     student_members = serializers.SerializerMethodField()
     committees_data = serializers.SerializerMethodField()
     events = EventDetailSerializer(many=True, read_only=True)
+    
+    # Add created_by field if needed
+    created_by_student = serializers.SerializerMethodField()
 
     class Meta:
         model = Families
         fields = [
             'family_id', 'name', 'description', 'faculty', 'faculty_name',
             'type', 'status', 'min_limit', 'created_at', 'updated_at',
-            'admins', 'student_members', 'committees_data', 'events'
+            'admins', 'student_members', 'committees_data', 'events',
+            'created_by_student'
         ]
         read_only_fields = ['family_id', 'created_at', 'updated_at']
+
+    def get_created_by_student(self, obj):
+        """Determine if created by student based on context or model"""
+        # Option 1: Check from context
+        if hasattr(self, 'context') and 'created_by_student' in self.context:
+            return self.context['created_by_student']
+        
+        # Option 2: Infer from type if you store this info
+        return obj.type not in ['أصدقاء البيئة']  # Adjust as needed
 
     def get_student_members(self, obj):
         """Get all student members grouped by role"""

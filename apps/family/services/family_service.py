@@ -315,7 +315,7 @@ class FamilyService:
             raise ValidationError(f"الطالب برقم الجامعة {uid} غير موجود")
 
     @staticmethod
-    def create_family_request(request_data, created_by_student):
+    def create_family_request(request_data, created_by_student, user_id):
         """
         Create a new family request with all founders, committees, and activities
 
@@ -342,7 +342,7 @@ class FamilyService:
                         f"الكلية برقم {request_data['faculty_id']} غير موجودة"
                     )
 
-                if created_by_student: 
+                if created_by_student:
                     # Create the family
                     family = Families.objects.create(
                         name=request_data['name'],
@@ -351,18 +351,18 @@ class FamilyService:
                         type=request_data['family_type'],
                         status='منتظر',
                         min_limit=request_data.get('min_limit',50),
-                        created_by_id=1,  # Admin user ID
+                        created_by_id=user_id,  # Admin user ID
                         created_at=timezone.now()
                     )
-                else: 
+                else:
                     family = Families.objects.create(
                         name=request_data['name'],
                         description=request_data['description'],
                         faculty=faculty,
-                        type='أصدقاء البيئة',
+                        type="اصدقاء البيئة",
                         status='منتظر',
                         min_limit=request_data.get('min_limit',50),
-                        created_by_id=1,  # Admin user ID
+                        created_by_id=user_id,  # Admin user ID
                         created_at=timezone.now()
                     )
 
