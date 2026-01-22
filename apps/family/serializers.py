@@ -689,7 +689,7 @@ class CreateFamilyRequestSerializer(serializers.Serializer):
     
     # Optional field - only validated in student context
     family_type = serializers.ChoiceField(
-        choices=['نوعية', 'مركزية'],
+        choices=['نوعية', 'مركزية', 'أصدقاء البيئة'],
         required=False,  # Make it optional
         help_text="نوع الأسرة: نوعية (متخصصة) أو مركزية"
     )

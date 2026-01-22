@@ -359,7 +359,7 @@ class FamilyService:
                         name=request_data['name'],
                         description=request_data['description'],
                         faculty=faculty,
-                        type='أصدقاء البيئة',
+                        type="اصدقاء البيئة",
                         status='منتظر',
                         min_limit=request_data.get('min_limit',50),
                         created_by_id=user_id,  # Admin user ID
