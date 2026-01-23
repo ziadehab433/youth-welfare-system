@@ -800,12 +800,13 @@ class FamilyMemberDetailSerializer(serializers.ModelSerializer):
         read_only_fields = ['joined_at']
 
 class ParticipantSerializer(serializers.ModelSerializer):
+    student_id = serializers.IntegerField(source='student.student_id', read_only=True)
     student_name = serializers.CharField(source='student.name', read_only=True)
     student_nid = serializers.CharField(source='student.nid', read_only=True)
     college_id = serializers.CharField(source='student.uid', read_only=True)
     class Meta:
         model = Prtcps
-        fields = ['student_name', 'student_nid', 'college_id', 'status', 'rank', 'reward']
+        fields = ['student_id', 'student_name', 'student_nid', 'college_id', 'status', 'rank', 'reward']
 class EventDetailSerializer(serializers.ModelSerializer):
     dept_name = serializers.CharField(source='dept.name', read_only=True, allow_null=True)
     family_name = serializers.CharField(source='family.name', read_only=True, allow_null=True)
