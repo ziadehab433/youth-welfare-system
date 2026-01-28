@@ -459,14 +459,29 @@ class FacultyEventApprovalViewSet(viewsets.GenericViewSet):
         responses={200: OpenApiResponse(description="Event approved")}
     )
     @action(detail=True, methods=['post'], url_path='approve')
+    @require_permission('update')
     def approve(self, request, pk=None):
+        admin = get_current_admin(request)
+        ip = get_client_ip(request)
         event = self.get_object()
+        
         if event.status != 'منتظر':
              return Response({"error": "This event is not pending approval"}, status=status.HTTP_400_BAD_REQUEST)
 
-        event.status = "مقبول"
-        event.save()
-        return Response({"message": "Event approved"}, status=status.HTTP_200_OK)
+        with transaction.atomic():
+            event.status = "مقبول"
+            event.save()
+            
+            log_data_access(
+                actor_id=admin.admin_id,
+                actor_type=admin.role,
+                action=f"Approved event: {event.title}",
+                target_type='نشاط',
+                event_id=event.event_id,
+                ip_address=ip
+            )
+
+        return Response({"message": "Event approved successfully"}, status=status.HTTP_200_OK)
 
     @extend_schema(
         description="Reject an event for a faculty family.",
@@ -474,15 +489,29 @@ class FacultyEventApprovalViewSet(viewsets.GenericViewSet):
         responses={200: OpenApiResponse(description="Event rejected")}
     )
     @action(detail=True, methods=['post'], url_path='reject')
+    @require_permission('update')
     def reject(self, request, pk=None):
+        admin = get_current_admin(request)
+        ip = get_client_ip(request)
         event = self.get_object()
 
         if event.status != 'منتظر':
              return Response({"error": "This event is not pending approval"}, status=status.HTTP_400_BAD_REQUEST)
 
-        event.status = "مرفوض"
-        event.save()
-        return Response({"message": "Event rejected"}, status=status.HTTP_200_OK)
+        with transaction.atomic():
+            event.status = "مرفوض"
+            event.save()
+            
+            log_data_access(
+                actor_id=admin.admin_id,
+                actor_type=admin.role,
+                action=f"Rejected event: {event.title}",
+                target_type='نشاط',
+                event_id=event.event_id,
+                ip_address=ip
+            )
+
+        return Response({"message": "Event rejected successfully"}, status=status.HTTP_200_OK) 
     # ----------------------------------------------------------------
     # List Accepted Events by Family
     # ----------------------------------------------------------------
@@ -535,14 +564,26 @@ class FacultyEventApprovalViewSet(viewsets.GenericViewSet):
     )
     @action(detail=True, methods=['post'], url_path='approve-all-participants')
     def approve_all_participants(self, request, pk=None):
+        admin = get_current_admin(request)
+        ip = get_client_ip(request)
         event = self.get_object()
         self._validate_event_editable(event)
+        
         with transaction.atomic():
             participants_qs = Prtcps.objects.select_for_update().filter(
                 event=event, 
                 status='منتظر'
             )
             updated_count = participants_qs.update(status='مقبول')
+            
+            log_data_access(
+                actor_id=admin.admin_id,
+                actor_type=admin.role,
+                action=f"Bulk approved {updated_count} participants for event: {event.title}",
+                target_type='نشاط',
+                event_id=event.event_id,
+                ip_address=ip
+            )
         
         return Response(
             {"message": f"Successfully approved {updated_count} participants."}, 
@@ -571,6 +612,8 @@ class FacultyEventApprovalViewSet(viewsets.GenericViewSet):
         url_path=r'participants/(?P<student_id>\d+)/approve'
     )
     def approve_participant(self, request, pk=None, student_id=None):
+        admin = get_current_admin(request)
+        ip = get_client_ip(request)
         event = self.get_object()
         self._validate_event_editable(event)
 
@@ -591,6 +634,16 @@ class FacultyEventApprovalViewSet(viewsets.GenericViewSet):
                 event=event,
                 student_id=student_id
             ).update(status='مقبول')
+
+            if updated > 0:
+                log_data_access(
+                    actor_id=admin.admin_id,
+                    actor_type=admin.role,
+                    action=f"Approved student ID {student_id} for event: {event.title}",
+                    target_type='نشاط',
+                    event_id=event.event_id,
+                    ip_address=ip
+                )
 
         if updated == 0:
             return Response(
@@ -625,6 +678,8 @@ class FacultyEventApprovalViewSet(viewsets.GenericViewSet):
         url_path=r'participants/(?P<student_id>\d+)/reject'
     )
     def reject_participant(self, request, pk=None, student_id=None):
+        admin = get_current_admin(request)
+        ip = get_client_ip(request)
         event = self.get_object()
         self._validate_event_editable(event)
 
@@ -635,6 +690,16 @@ class FacultyEventApprovalViewSet(viewsets.GenericViewSet):
                 event=event,
                 student_id=student_id
             ).update(status='مرفوض')
+
+            if updated > 0:
+                log_data_access(
+                    actor_id=admin.admin_id,
+                    actor_type=admin.role,
+                    action=f"Rejected student ID {student_id} from event: {event.title}",
+                    target_type='نشاط',
+                    event_id=event.event_id,
+                    ip_address=ip
+                )
 
         if updated == 0:
             return Response(
