@@ -350,7 +350,7 @@ class FamilyService:
                         faculty=faculty,
                         type=request_data['family_type'],
                         status='منتظر',
-                        min_limit=request_data.get('min_limit',50),
+                        min_limit=request_data.get('min_limit', 50),
                         created_by_id=user_id,  # Admin user ID
                         created_at=timezone.now()
                     )
@@ -361,7 +361,7 @@ class FamilyService:
                         faculty=faculty,
                         type="اصدقاء البيئة",
                         status='منتظر',
-                        min_limit=request_data.get('min_limit',50),
+                        min_limit=request_data.get('min_limit', 50),
                         created_by_id=user_id,  # Admin user ID
                         created_at=timezone.now()
                     )
@@ -377,6 +377,13 @@ class FamilyService:
                     family,
                     request_data['committees']
                 )
+                
+                # ===== Create Participants for Environment Family =====
+                if not created_by_student and 'participants' in request_data:
+                    FamilyService._create_participant_members(
+                        family,
+                        request_data['participants']
+                    )
 
                 return family
 
@@ -384,6 +391,48 @@ class FamilyService:
             raise
         except Exception as e:
             raise ValidationError(f"خطأ في إنشاء طلب الأسرة: {str(e)}")
+
+    @staticmethod
+    def _create_participant_members(family, participant_nids):
+        """
+        Create family members for participants using their NIDs
+        
+        Args:
+            family: Families instance
+            participant_nids: List of NIDs for participants
+        """
+        try:
+            from django.db import connection
+            
+            # Get all students by NID
+            students = Students.objects.filter(nid__in=participant_nids)
+            
+            # Create a map for quick lookup
+            student_by_nid = {student.nid: student for student in students}
+            
+            with connection.cursor() as cursor:
+                for nid in participant_nids:
+                    if nid in student_by_nid:
+                        student = student_by_nid[nid]
+                        
+                        # Check if student already exists in family
+                        if not FamilyMembers.objects.filter(
+                            family=family,
+                            student=student
+                        ).exists():
+                            
+                            # Execute INSERT query
+                            cursor.execute(
+                                """
+                                INSERT INTO family_members 
+                                (family_id, student_id, role, status, joined_at, dept_id)
+                                VALUES (%s, %s, %s::family_members_roles, %s, NOW(), NULL)
+                                """,
+                                [family.family_id, student.student_id, 'عضو', 'منتظر']
+                            )
+                
+        except Exception as e:
+            raise ValidationError(f"خطأ في إضافة المشاركين: {str(e)}")
 
     @staticmethod
     def _create_default_role_members(family, default_roles_data):
