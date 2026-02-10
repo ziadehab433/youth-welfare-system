@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict SAHNZMqBvnVYOz6ncZ9fWvv2CPLWFbaLizTzCJSLrO5mV0XDJwigbsxQcZiDOg8
+\restrict do5soA5GFEmXQAfxMCbZ9Wk8Y2IaqoV9Lt2re4OzD5956RgBxIe7nVFm9eWfVS3
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.6
@@ -821,6 +821,9 @@ CREATE TABLE public.events (
     type public.event_type,
     family_id integer,
     resource character varying(100),
+    selected_facs integer[],
+    plan_id integer,
+    active boolean DEFAULT true,
     CONSTRAINT events_check CHECK ((end_date >= st_date))
 );
 
@@ -991,6 +994,36 @@ ALTER TABLE public.logs OWNER TO postgres;
 
 ALTER TABLE public.logs ALTER COLUMN log_id ADD GENERATED ALWAYS AS IDENTITY (
     SEQUENCE NAME public.logs_log_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: plans; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.plans (
+    plan_id integer NOT NULL,
+    name character varying(150) NOT NULL,
+    term integer NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    faculty_id integer
+);
+
+
+ALTER TABLE public.plans OWNER TO postgres;
+
+--
+-- Name: plans_plan_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+ALTER TABLE public.plans ALTER COLUMN plan_id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.plans_plan_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -1490,6 +1523,14 @@ ALTER TABLE ONLY public.logs
 
 
 --
+-- Name: plans plans_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.plans
+    ADD CONSTRAINT plans_pkey PRIMARY KEY (plan_id);
+
+
+--
 -- Name: posts posts_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -1719,6 +1760,20 @@ CREATE INDEX idx_events_faculty_id ON public.events USING btree (faculty_id);
 
 
 --
+-- Name: idx_events_plan_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_events_plan_id ON public.events USING btree (plan_id) WITH (deduplicate_items='true');
+
+
+--
+-- Name: idx_events_selected_facs; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_events_selected_facs ON public.events USING gin (selected_facs);
+
+
+--
 -- Name: idx_families_created_by; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -1779,6 +1834,20 @@ CREATE INDEX idx_logs_student_id ON public.logs USING btree (student_id) WITH (f
 --
 
 CREATE INDEX idx_logs_target ON public.logs USING btree (target_type, event_id, solidarity_id, family_id);
+
+
+--
+-- Name: idx_plans_faculty_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_plans_faculty_id ON public.plans USING btree (faculty_id);
+
+
+--
+-- Name: idx_plans_name; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_plans_name ON public.plans USING btree (name) WITH (fillfactor='100', deduplicate_items='true');
 
 
 --
@@ -2022,6 +2091,14 @@ ALTER TABLE ONLY public.events
 
 
 --
+-- Name: events events_plan_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.events
+    ADD CONSTRAINT events_plan_fk FOREIGN KEY (plan_id) REFERENCES public.plans(plan_id) ON DELETE SET NULL;
+
+
+--
 -- Name: families families_approved_by_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2142,6 +2219,14 @@ ALTER TABLE ONLY public.logs
 
 
 --
+-- Name: plans plans_faculty_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.plans
+    ADD CONSTRAINT plans_faculty_fk FOREIGN KEY (faculty_id) REFERENCES public.faculties(faculty_id) ON DELETE SET NULL;
+
+
+--
 -- Name: prtcps prtcps_event_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2201,5 +2286,5 @@ ALTER TABLE ONLY public.students
 -- PostgreSQL database dump complete
 --
 
-\unrestrict SAHNZMqBvnVYOz6ncZ9fWvv2CPLWFbaLizTzCJSLrO5mV0XDJwigbsxQcZiDOg8
+\unrestrict do5soA5GFEmXQAfxMCbZ9Wk8Y2IaqoV9Lt2re4OzD5956RgBxIe7nVFm9eWfVS3
 

@@ -9,6 +9,41 @@ from django.db import models
 from apps.solidarity.models import Departments 
 from apps.family.models import Families , Faculties 
 from apps.accounts.models import AdminsUser, Students 
+from django.contrib.postgres.fields import ArrayField 
+
+
+
+
+
+class Plans(models.Model):
+    plan_id = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=150)
+    term = models.IntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    faculty = models.ForeignKey(
+    Faculties,
+    models.SET_NULL,
+    blank=True,
+    null=True,
+    db_column='faculty_id',
+    related_name='plans'
+)
+
+    class Meta:
+        managed = False
+        db_table = 'plans'
+        indexes = [
+            models.Index(fields=['name'], name='idx_plans_name'),
+            models.Index(fields=['faculty'], name='idx_plans_faculty_id'),
+        ]
+
+    def __str__(self):
+        return self.name
+    
+
+
+
 
 class Events(models.Model):
     event_id = models.AutoField(primary_key=True)
@@ -53,6 +88,26 @@ class Events(models.Model):
         db_column='family_id'
     )
     resource = models.TextField(blank=True, null=True)
+
+
+
+    selected_facs = ArrayField(
+    models.IntegerField(),
+    blank=True,
+    null=True,
+    help_text="List of faculty IDs. If NULL, event applies to all faculties."
+)
+    plan = models.ForeignKey(
+        Plans,
+        models.SET_NULL,
+        blank=True,
+        null=True,
+        db_column='plan_id',
+        related_name='events'
+    )
+    active = models.BooleanField(default=True)
+
+
     class Meta:
         managed = False
         db_table = 'events'
