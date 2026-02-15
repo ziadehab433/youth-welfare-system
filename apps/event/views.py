@@ -1,4 +1,6 @@
 import os
+import base64
+import logging
 from django.conf import settings
 from django.http import HttpResponse
 from django.template.loader import render_to_string
@@ -11,6 +13,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.renderers import BaseRenderer
 from apps.event.models import Plans, Events
 from apps.event.pdf_utils import generate_pdf_sync
+logger = logging.getLogger(__name__)
 
 class PDFRenderer(BaseRenderer):
     media_type = 'application/pdf'
@@ -64,15 +67,32 @@ def export_plan_pdf(request, plan_id):
             total_males += (event.males or 0)
             total_females += (event.females or 0)
             total_participants += (event.total_p or 0)
-        font_path = None
+        font_base64 = ""
         possible_paths = [
             os.path.join(settings.STATIC_ROOT, 'fonts', 'Amiri-Regular.ttf'),
             os.path.join(settings.BASE_DIR, 'static', 'fonts', 'Amiri-Regular.ttf'),
         ]
         for path in possible_paths:
             if os.path.exists(path):
-                font_path = path
-                break
+                try:
+                    with open(path, 'rb') as f:
+                        font_base64 = base64.b64encode(f.read()).decode('ascii')
+                    logger.info("Font loaded as base64: %s", path)
+                    break
+                except Exception as e:
+                    logger.warning("Font error: %s", e)
+        logo_base64 = ""
+        logo_path = os.path.join(settings.BASE_DIR, 'static', 'logo', 'logo.png')
+        if os.path.exists(logo_path):
+            try:
+                with open(logo_path, 'rb') as f:
+                    logo_base64 = base64.b64encode(f.read()).decode('ascii')
+                logger.info("Logo loaded as base64: %s", logo_path)
+            except Exception as e:
+                logger.warning("Logo error: %s", e)
+        else:
+            logger.warning("Logo not found at: %s", logo_path)
+        
         faculty = plan.faculty
         context = {
             'plan': plan,
@@ -94,12 +114,13 @@ def export_plan_pdf(request, plan_id):
             'signature_2_name': "",
             'signature_3_title': "وكيل الكلية لشئون التعليم والطلاب",
             'signature_3_name': "",
-            'font_path': font_path,
+            'font_base64': font_base64, 
+            'logo_base64': logo_base64,  
             'base_url': request.build_absolute_uri('/').rstrip('/'),
             'STATIC_URL': settings.STATIC_URL,
         }
         html_string = render_to_string('event/activity_report.html', context)
-        pdf_buffer = generate_pdf_sync(html_string)
+        pdf_buffer = generate_pdf_sync(html_string)  
         response = HttpResponse(pdf_buffer, content_type='application/pdf')
         filename = f"plan_{plan_id}.pdf" 
         encoded_filename = quote(filename)
@@ -111,6 +132,6 @@ def export_plan_pdf(request, plan_id):
         return response
     except Exception as e:
         import traceback
-        print(f"Error: {str(e)}")
+        logger.exception("Error generating PDF for plan %s: %s", plan_id, str(e))
         print(traceback.format_exc())
         return HttpResponse(f"Error: {str(e)}", status=500)

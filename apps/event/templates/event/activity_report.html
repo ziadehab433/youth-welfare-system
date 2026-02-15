@@ -7,10 +7,11 @@
     <style>
         @font-face {
             font-family: 'Amiri';
-            src: local('Amiri'), url('{{ base_url }}{{ STATIC_URL }}fonts/Amiri-Regular.ttf') format('truetype');
+            src: url('data:font/truetype;charset=utf-8;base64,{{ font_base64 }}') format('truetype');
             font-weight: normal;
             font-style: normal;
-        } 
+            font-display: swap;
+        }
         body {
             font-family: 'Amiri', 'Traditional Arabic', 'Tahoma', serif;
             background: #fff;
@@ -141,11 +142,18 @@
             {{ office_name }}
         </div>
         <div class="left-logo">
-            <img src="{{ base_url }}{{ STATIC_URL }}logo.png" 
-                 alt="شعار الكلية" 
-                 onerror="this.onerror=null; this.src='{{ base_url }}static/logo.png';">
+            {% if logo_base64 %}
+            <img src="data:image/png;base64,{{ logo_base64 }}" 
+                alt="شعار الكلية" 
+                style="max-height: 80px; width: auto;">
+            {% else %}
+            <img src="/static/logo.png" 
+                alt="شعار الكلية" 
+                onerror="this.onerror=null; this.src='{{ base_url }}static/logo.png';"
+                style="max-height: 80px; width: auto;">
+            {% endif %}
         </div>
-    </div>
+    </div>  
     <div class="title">
         {{ plan.report_title|default:"خطة الأنشطة الطلابية" }}<br>
         للترم {{ plan.term }} للعام الجامعي {{ plan.academic_year|default:"2024/2025" }}
