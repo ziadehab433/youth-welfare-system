@@ -59,7 +59,7 @@ class FamilyService:
         """Get all families the student is a member of"""
         return FamilyMembers.objects.filter(
             student=student,
-            status='مقبول' 
+            #status='مقبول' 
         ).select_related('family', 'family__faculty').order_by('-joined_at')
     
     @staticmethod
@@ -78,7 +78,7 @@ class FamilyService:
         available_families = Families.objects.annotate(
             current_members=Count('family_members')
         ).filter(
-            status='موافقة مبدئية'
+            status__in=['موافقة مبدئية', 'مقبول']
         ).exclude(
             family_id__in=student_family_ids
         ).filter(
@@ -168,7 +168,7 @@ class FamilyService:
             raise ValidationError("Family not found")
         
         # Check 1: Family status must be approved
-        if family.status != 'مقبول':
+        if family.status != 'مقبول' and family.status != 'موافقة مبدئية':
             raise ValidationError(f"Family is not open for joining (Status: {family.status})")
         
         # Check 2: Student not already a member

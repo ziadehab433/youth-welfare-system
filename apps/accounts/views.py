@@ -23,7 +23,7 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 import os
 from django.core.files.storage import default_storage
 
-from apps.solidarity.models import Faculties
+from apps.solidarity.models import Faculties , Departments
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -59,13 +59,57 @@ class LoginView(APIView):
         except Faculties.DoesNotExist:
             return faculty_id, None
     
+    def get_dept_ids_for_admin(self, user):
+        """
+        Returns a list of dept_ids the admin has access to.
+        - مدير ادارة → single dept from FK
+        - مسؤول كلية → multiple depts resolved from dept_fac_ls names
+        - مشرف النظام → empty list (has access to everything)
+        """
+        dept_ids = []
+        dept_names_map = {}  # {dept_id: dept_name}
+
+        if user.role == 'مدير ادارة':
+            # Single department from FK
+            if user.dept_id:
+                dept_ids = [user.dept_id]
+                try:
+                    dept = Departments.objects.get(dept_id=user.dept_id)
+                    dept_names_map[user.dept_id] = dept.name
+                except Departments.DoesNotExist:
+                    dept_names_map[user.dept_id] = None
+
+        elif user.role == 'مسؤول كلية':
+            # Multiple departments resolved from dept_fac_ls (names → ids)
+            if user.dept_fac_ls:
+                departments = Departments.objects.filter(
+                    name__in=user.dept_fac_ls
+                )
+                for dept in departments:
+                    dept_ids.append(dept.dept_id)
+                    dept_names_map[dept.dept_id] = dept.name
+                
+                # Log warning if some names didn't resolve
+                resolved_names = set(dept_names_map.values())
+                missing = set(user.dept_fac_ls) - resolved_names
+                if missing:
+                    logger.warning(
+                        f"Admin {user.admin_id}: Could not resolve "
+                        f"department names: {missing}"
+                    )
+
+        elif user.role == 'مشرف النظام':
+            # Super admin has access to everything — no dept restriction
+            pass
+
+        return dept_ids, dept_names_map
+    
     def log_login_attempt(self, identifier, success=False):
         """
         Safely log login attempts without exposing sensitive data
-        SECURITY: Hash the identifier before logging
         """
         from django.contrib.auth.hashers import make_password
-        hashed_identifier = make_password(identifier)[:20]  # First 20 chars only
+        hashed_identifier = make_password(identifier)[:20]
         
         if success:
             logger.info(f"Successful login attempt: {hashed_identifier}")
@@ -77,16 +121,22 @@ class LoginView(APIView):
         password = request.data.get('password')
         
         if not identifier or not password:
-            return Response({'detail': 'email and password required'}, status=400)
+            return Response(
+                {'detail': 'email and password required'}, 
+                status=400
+            )
 
-        # Log attempt (hashed)
         self.log_login_attempt(identifier)
 
+        # =====================
         # Try admin authentication
+        # =====================
         user = authenticate(request, username=identifier, password=password)
         if user:
             if hasattr(user, 'acc_status') and user.acc_status != 'active':
-                logger.warning(f"Login attempt by inactive admin: {user.admin_id}")
+                logger.warning(
+                    f"Login attempt by inactive admin: {user.admin_id}"
+                )
                 return Response(
                     {
                         'detail': f'حسابك غير مفعل. الحالة الحالية: {user.acc_status}',
@@ -95,18 +145,31 @@ class LoginView(APIView):
                     status=status.HTTP_401_UNAUTHORIZED
                 )
             
+            # --- Get department IDs ---
+            dept_ids, dept_names_map = self.get_dept_ids_for_admin(user)
+            
+            # --- Build dept_info list for response ---
+            dept_info = [
+                {"dept_id": did, "dept_name": dept_names_map.get(did)}
+                for did in dept_ids
+            ]
+            
+            # --- Build JWT tokens ---
             refresh = RefreshToken.for_user(user)
             refresh['user_type'] = 'admin'
             refresh['admin_id'] = user.admin_id
             refresh['role'] = user.role
             refresh['name'] = user.name
+            refresh['dept_ids'] = dept_ids  # ✅ Always an array
             
             access_token = refresh.access_token
             access_token['user_type'] = 'admin'
             access_token['admin_id'] = user.admin_id
             access_token['role'] = user.role
             access_token['name'] = user.name
+            access_token['dept_ids'] = dept_ids  # ✅ Always an array
             
+            # --- Build response ---
             response_data = {
                 'refresh': str(refresh),
                 'access': str(access_token),
@@ -114,10 +177,15 @@ class LoginView(APIView):
                 'admin_id': user.admin_id,
                 'role': user.role,
                 'name': user.name,
+                'dept_ids': dept_ids,         # ✅ Array of IDs
+                'departments': dept_info,      # ✅ Array of {id, name}
             }
             
+            # --- Faculty info (for مسؤول كلية / مدير كلية) ---
             if user.role in ['مسؤول كلية', 'مدير كلية']:
-                faculty_id, faculty_name = self.get_faculty_info(user.faculty_id)
+                faculty_id, faculty_name = self.get_faculty_info(
+                    user.faculty_id
+                )
                 refresh['faculty_id'] = faculty_id
                 refresh['faculty_name'] = faculty_name
                 access_token['faculty_id'] = faculty_id
@@ -125,17 +193,24 @@ class LoginView(APIView):
                 response_data['faculty_id'] = faculty_id
                 response_data['faculty_name'] = faculty_name
             
+            # Re-serialize tokens after adding faculty claims
             response_data['refresh'] = str(refresh)
             response_data['access'] = str(access_token)
             
             self.log_login_attempt(identifier, success=True)
             return Response(response_data, status=status.HTTP_200_OK)
 
+        # =====================
         # Fallback: try student
+        # =====================
         student = Students.objects.filter(email=identifier).first()
         
-        if student and bcrypt.checkpw(password.encode(), student.password.encode()):
-            faculty_id, faculty_name = self.get_faculty_info(student.faculty_id)
+        if student and bcrypt.checkpw(
+            password.encode(), student.password.encode()
+        ):
+            faculty_id, faculty_name = self.get_faculty_info(
+                student.faculty_id
+            )
             
             refresh = RefreshToken()
             refresh['user_type'] = 'student'

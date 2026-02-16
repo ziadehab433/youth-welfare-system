@@ -189,3 +189,61 @@ def require_any_permission(*permission_types):
             return view_func(self_or_request, *args, **kwargs)
         return wrapper
     return decorator
+
+
+class HasDepartmentAccess(BasePermission):
+    """
+    Checks if the admin has access to the requested department.
+    
+    Usage in views:
+        permission_classes = [IsAuthenticated, HasDepartmentAccess]
+        
+    The view must provide dept_id via:
+        - URL kwargs (e.g., /departments/<dept_id>/...)
+        - request.data['dept_id']
+        - request.query_params['dept_id']
+    """
+    message = "ليس لديك صلاحية الوصول لهذا القسم"
+
+    def has_permission(self, request, view):
+        token = getattr(request, 'auth', None)
+        if not token:
+            return False
+
+        payload = getattr(token, 'payload', {})
+        user_type = payload.get('user_type')
+        role = payload.get('role')
+
+        # Students don't have department access
+        if user_type == 'student':
+            return False
+
+        # Super admin has access to everything
+        if role == 'مشرف النظام':
+            return True
+
+        # Get dept_ids from token
+        token_dept_ids = payload.get('dept_ids', [])
+        
+        if not token_dept_ids:
+            return False
+
+        # Try to get requested dept_id from various sources
+        requested_dept_id = (
+            view.kwargs.get('dept_id') or
+            view.kwargs.get('pk') or
+            request.data.get('dept_id') or
+            request.query_params.get('dept_id')
+        )
+
+        if not requested_dept_id:
+            # No specific department requested — 
+            # let view handle filtering
+            return True
+
+        try:
+            requested_dept_id = int(requested_dept_id)
+        except (ValueError, TypeError):
+            return False
+
+        return requested_dept_id in token_dept_ids
