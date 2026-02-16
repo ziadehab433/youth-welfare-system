@@ -1,4 +1,19 @@
+
+
+
+
+
+
+
+
+
+
+
 from django.urls import path, include
+
+urlpatterns = [
+    path('events/', include('apps.event.plans.urls')),
+  
 from rest_framework.routers import DefaultRouter
 from apps.event.events.views import EventManagementViewSet , EventARViewSet, EventActivationViewSet, EventGetterViewSet
 
