@@ -95,30 +95,42 @@ class PlanService:
     # ─────────────────────── add event ───────────────────────
 
     @staticmethod
-    def add_event_to_plan(admin, plan_id, event_id):
+    def add_event_to_plan(admin, plan_id, validated_data):
         plan = get_object_or_404(Plans, pk=plan_id)
         PlanService._can_manage_plan(admin, plan)
 
+        event_id = validated_data.pop('event_id')
         event = get_object_or_404(Events, pk=event_id)
 
         # event already in another plan?
         if event.plan_id is not None and event.plan_id != plan.plan_id:
             raise ValidationError("هذا النشاط مُضاف بالفعل إلى خطة أخرى")
 
-        # already in this plan?
-        if event.plan_id == plan.plan_id:
-            raise ValidationError("هذا النشاط مُضاف بالفعل إلى هذه الخطة")
+        # # already in this plan?
+        # if event.plan_id == plan.plan_id:
+        #     raise ValidationError("هذا النشاط مُضاف بالفعل إلى هذه الخطة")
 
         # faculty-level plan → event must belong to same faculty
         if plan.faculty_id is not None:
             if event.faculty_id != plan.faculty_id:
                 raise ValidationError(
-                    "لا يمكن إضافة حدث من كلية مختلفة إلى خطة خاصة بكلية محددة"
+                    "لا يمكن إضافة نشاط من كلية مختلفة إلى خطة خاصة بكلية محددة"
                 )
 
+        # Handle dept_id separately (FK field)
+        dept_id = validated_data.pop('dept_id', None)
+        if dept_id is not None:
+            from apps.solidarity.models import Departments
+            event.dept = get_object_or_404(Departments, pk=dept_id)
+
+        # Update any other provided fields on the event
+        for attr, value in validated_data.items():
+            setattr(event, attr, value)
+
+        # Link to plan and activate
         event.plan = plan
         event.active = True
-        event.save(update_fields=['plan_id' , 'active'])
+        event.save()
         return event
 
     # ─────────────────────── remove event ───────────────────────

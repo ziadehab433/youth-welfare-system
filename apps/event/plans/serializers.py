@@ -134,7 +134,34 @@ class PlanUpdateSerializer(serializers.Serializer):
 class AddEventToPlanSerializer(serializers.Serializer):
     event_id = serializers.IntegerField()
 
+    # Optional fields to update on the event
+    title = serializers.CharField(max_length=150, required=True)
+    description = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    type = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    st_date = serializers.DateField(required=False)
+    end_date = serializers.DateField(required=False)
+    location = serializers.CharField(max_length=150, required=False, allow_blank=True, allow_null=True)
+    s_limit = serializers.IntegerField(required=True, allow_null=True)
+    cost = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, allow_null=True)
+    restrictions = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    reward = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    dept_id = serializers.IntegerField(required=False, allow_null=True)
+
     def validate_event_id(self, value):
         if not Events.objects.filter(pk=value).exists():
             raise serializers.ValidationError("النشاط المحدد غير موجود")
         return value
+
+    def validate(self, data):
+        if data.get('st_date') and data.get('end_date'):
+            if data['end_date'] < data['st_date']:
+                raise serializers.ValidationError(
+                    {"end_date": "تاريخ الانتهاء يجب أن يكون بعد تاريخ البداية"}
+                )
+
+        if data.get('dept_id'):
+            from apps.solidarity.models import Departments
+            if not Departments.objects.filter(pk=data['dept_id']).exists():
+                raise serializers.ValidationError({"dept_id": "القسم المحدد غير موجود"})
+
+        return data

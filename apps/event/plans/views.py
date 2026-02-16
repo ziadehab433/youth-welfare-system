@@ -111,7 +111,7 @@ class PlansViewSet(viewsets.GenericViewSet):
     # ───────────────── ADD EVENT ─────────────────
 
     @extend_schema(
-        description="Add an existing event to a plan by event_id",
+        description="Add an existing event to a plan by event_id, with optional event detail updates",
         request=AddEventToPlanSerializer,
         responses={200: PlanEventSerializer},
     )
@@ -124,7 +124,7 @@ class PlansViewSet(viewsets.GenericViewSet):
 
         try:
             event = PlanService.add_event_to_plan(
-                admin, pk, serializer.validated_data['event_id']
+                admin, pk, serializer.validated_data
             )
         except ValidationError as e:
             return Response(
