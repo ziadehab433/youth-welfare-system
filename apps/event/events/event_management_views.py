@@ -16,7 +16,7 @@ from apps.accounts.utils import (
 )
 
 # faculty admins & department managers 
-@extend_schema(tags=["Event APIs"])
+@extend_schema(tags=["Event Management APIs"])
 class EventGetterViewSet(viewsets.GenericViewSet):
     permission_classes = [IsRole]
     allowed_roles = ['مسؤول كلية', 'مدير ادارة', 'مدير عام', 'مدير كلية']
@@ -82,7 +82,7 @@ class EventGetterViewSet(viewsets.GenericViewSet):
         return Response(serializer.data)
 
 # faculty admins & department managers 
-@extend_schema(tags=["Event APIs"])
+@extend_schema(tags=["Event Management APIs"])
 class EventManagementViewSet(viewsets.GenericViewSet):
     permission_classes = [IsRole]
     allowed_roles = ['مسؤول كلية', 'مدير ادارة']
@@ -206,7 +206,7 @@ class EventManagementViewSet(viewsets.GenericViewSet):
         return Response(detail_serializer.data)
 
 # faculty head & general admin
-@extend_schema(tags=["Event APIs"])
+@extend_schema(tags=["Event Management APIs"])
 class EventARViewSet(viewsets.GenericViewSet):
     permission_classes = [IsRole]
     allowed_roles = ['مدير عام', 'مدير كلية']
@@ -324,7 +324,7 @@ class EventARViewSet(viewsets.GenericViewSet):
 
 
 # faculty admins activating an event from a plan 
-@extend_schema(tags=["Event APIs"])
+@extend_schema(tags=["Event Management APIs"])
 class EventActivationViewSet(viewsets.GenericViewSet):
     permission_classes = [IsRole]
     allowed_roles = ['مسؤول كلية']
