@@ -127,3 +127,58 @@ class EventDetailSerializer(serializers.ModelSerializer):
                 representation.pop('selected_facs')
         
         return representation
+
+class EventAvailableSerializer(serializers.ModelSerializer):
+    """
+    Serializer for available events list view
+    """
+    faculty_name = serializers.CharField(source='faculty.name', read_only=True, allow_null=True)
+    dept_name = serializers.CharField(source='dept.name', read_only=True, allow_null=True)
+    days_remaining = serializers.SerializerMethodField()
+    is_full = serializers.SerializerMethodField()
+    current_participants = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Events
+        fields = [
+            'event_id', 'title', 'description', 'st_date', 'end_date',
+            'location', 'type', 'cost', 's_limit', 'faculty_name', 
+            'dept_name', 'days_remaining', 'is_full', 'current_participants',
+            'imgs', 'reward'
+        ]
+
+    def get_days_remaining(self, obj):
+        from django.utils import timezone
+        if obj.st_date:
+            delta = obj.st_date - timezone.now().date()
+            return delta.days
+        return None
+
+    def get_current_participants(self, obj):
+        return obj.prtcps_set.filter(status='مقبول').count()
+
+    def get_is_full(self, obj):
+        if obj.s_limit:
+            current = self.get_current_participants(obj)
+            return current >= obj.s_limit
+        return False
+
+
+class EventJoinedSerializer(serializers.ModelSerializer):
+    """
+    Serializer for events the student has joined
+    """
+    faculty_name = serializers.CharField(source='faculty.name', read_only=True, allow_null=True)
+    dept_name = serializers.CharField(source='dept.name', read_only=True, allow_null=True)
+    participation_status = serializers.CharField(source='prtcps_set.first.status', read_only=True)
+    participation_rank = serializers.IntegerField(source='prtcps_set.first.rank', read_only=True)
+    participation_reward = serializers.CharField(source='prtcps_set.first.reward', read_only=True)
+
+    class Meta:
+        model = Events
+        fields = [
+            'event_id', 'title', 'description', 'st_date', 'end_date',
+            'location', 'type', 'cost', 'faculty_name', 'dept_name',
+            'participation_status', 'participation_rank', 'participation_reward',
+            'imgs', 'reward'
+        ]
