@@ -182,3 +182,22 @@ class EventJoinedSerializer(serializers.ModelSerializer):
             'participation_status', 'participation_rank', 'participation_reward',
             'imgs', 'reward'
         ]
+        
+class ParticipantResultSerializer(serializers.Serializer):
+    rank = serializers.IntegerField(
+        required=False, 
+        allow_null=True, 
+        min_value=1,
+    )
+    reward = serializers.CharField(
+        required=False, 
+        allow_null=True, 
+        max_length=255,
+    )
+
+    def validate(self, data):
+        if not data.get('rank') and not data.get('reward'):
+            raise serializers.ValidationError(
+                "At least one of 'rank' or 'reward' must be provided."
+            )
+        return data
