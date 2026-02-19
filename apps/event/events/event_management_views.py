@@ -16,6 +16,24 @@ from apps.accounts.utils import (
 )
 from django.db.models import Q
 
+from rest_framework import viewsets, status
+from rest_framework.response import Response
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.decorators import action
+from drf_spectacular.utils import extend_schema, OpenApiResponse
+from django.db import transaction
+from apps.event.models import Events
+from .serializers import EventCreateUpdateSerializer, EventListSerializer, EventDetailSerializer
+from apps.accounts.models import AdminsUser
+from apps.accounts.permissions import require_permission, IsRole
+from apps.accounts.utils import (
+    get_current_admin,
+    get_client_ip,
+    get_current_student,
+    log_data_access
+)
+from django.db.models import Q
+
 # faculty admins & department managers 
 @extend_schema(tags=["Event Management APIs"])
 class EventGetterViewSet(viewsets.GenericViewSet):
@@ -30,46 +48,42 @@ class EventGetterViewSet(viewsets.GenericViewSet):
         return EventListSerializer
 
     def get_serializer_context(self):
-        """Add request to serializer context for role-based field access"""
         context = super().get_serializer_context()
         context['request'] = self.request
         return context
-
-    def get_object(self):
-        """Override get_object to add faculty validation for faculty admins only"""
-        obj = super().get_object()
-        admin = get_current_admin(self.request)
-        
-        if admin.role == 'مدير ادارة':
-            if obj.faculty_id is not None:
-                raise PermissionDenied("You don't have permission to access this event")
-        else:
-            if obj.faculty_id != admin.faculty_id:
-                raise PermissionDenied("You don't have permission to access this event")
-    
-        return obj
 
     def get_queryset(self):
         admin = get_current_admin(self.request)
         
         queryset = Events.objects.select_related(
             'created_by', 'faculty', 'dept', 'family'
-        ).order_by('-created_at')
+        ).filter(family__isnull=True) 
         
         if admin.role == 'مدير ادارة' or admin.role == 'مدير عام':
-            return queryset.filter(faculty_id__isnull=True, family__isnull=True)
+            return queryset.filter(faculty_id__isnull=True)
         elif admin.role == 'مسؤول كلية' or admin.role == 'مدير كلية':
-            return queryset.filter(Q(faculty_id=admin.faculty_id) | Q(faculty_id__isnull=True), family__isnull=True)
+            return queryset.filter(
+                Q(faculty_id=admin.faculty_id) | Q(faculty_id__isnull=True)
+            ).order_by('-created_at')
+        
+        return queryset.none() 
+
+    def get_object(self):
+        queryset = self.get_queryset()
+        
+        obj = queryset.filter(pk=self.kwargs['pk']).first()
+        
+        if obj is None:
+            raise PermissionDenied("You don't have permission to access this event")
+        
+        return obj
 
     @extend_schema(
         description="List all events in the admin's faculty",
         responses={200: EventListSerializer(many=True)}
     )
     def list(self, request):
-        admin = get_current_admin(request)
-        
         queryset = self.get_queryset()
-        
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
