@@ -14,6 +14,7 @@ from apps.accounts.utils import (
     get_current_student,
     log_data_access
 )
+from django.db.models import Q
 
 # faculty admins & department managers 
 @extend_schema(tags=["Event Management APIs"])
@@ -55,10 +56,10 @@ class EventGetterViewSet(viewsets.GenericViewSet):
             'created_by', 'faculty', 'dept', 'family'
         ).order_by('-created_at')
         
-        if admin.role == 'مدير ادارة':
-            return queryset.filter(faculty_id__isnull=True)
-        else:
-            return queryset.filter(faculty_id=admin.faculty_id)
+        if admin.role == 'مدير ادارة' or admin.role == 'مدير عام':
+            return queryset.filter(faculty_id__isnull=True, family__isnull=True)
+        elif admin.role == 'مسؤول كلية' or admin.role == 'مدير كلية':
+            return queryset.filter(Q(faculty_id=admin.faculty_id) | Q(faculty_id__isnull=True), family__isnull=True)
 
     @extend_schema(
         description="List all events in the admin's faculty",
