@@ -8,7 +8,7 @@ from apps.event.events.event_management_views import (
     EventGetterViewSet
 )
 from apps.event.events.event_student_views import StudentEventViewSet
-
+from apps.event.views import export_plan_pdf
 router = DefaultRouter()
 router.register(r'manage-events', EventManagementViewSet, basename='faculty_events')
 router.register(r'approve-events', EventARViewSet, basename='admin_events')
@@ -19,4 +19,5 @@ router.register(r'manage-participants', EventParticipantViewSet, basename='manag
 urlpatterns = [
     path('events/', include('apps.event.plans.urls')),
     path('event/', include(router.urls)),
+    path('event/export-plan-pdf/<int:plan_id>/', export_plan_pdf, name='export_plan_pdf'),
 ]

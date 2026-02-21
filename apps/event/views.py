@@ -26,7 +26,6 @@ class PDFRenderer(BaseRenderer):
 
 @extend_schema(
     tags=["Events APIs"],
-    summary="Export Plan PDF",
     description="Export plan activities as PDF file",
     responses={
         200: OpenApiResponse(
