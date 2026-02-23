@@ -1,7 +1,8 @@
 from jsonschema import ValidationError
 from rest_framework import viewsets, status, serializers
 from django.db.models import Count
-from django.http import HttpResponse
+from django.http import FileResponse, HttpResponse
+from django.utils import timezone 
 from django.template.loader import render_to_string
 import asyncio
 from django.db import DatabaseError
@@ -363,8 +364,6 @@ class FamilyFacultyAdminViewSet(viewsets.GenericViewSet):
     def export(self, request, family_id=None):
         admin = get_current_admin(request)
         data = {}
-
-
         try:
             family = Families.objects.select_related('faculty').get(family_id=family_id)
             if admin.faculty and family.faculty_id != admin.faculty.faculty_id:
@@ -389,7 +388,7 @@ class FamilyFacultyAdminViewSet(viewsets.GenericViewSet):
                 def __init__(self):
                     self.distribution = distribution
                     self.family_admins = FamilyAdmins.objects.filter(family=family_id)
-                    self.family_members = FamilyMembers.objects.select_related( 'student').filter(family_id=family_id)
+                    self.family_members = FamilyMembers.objects.select_related('student').filter(family_id=family_id)
                     self.family = family
             data = DataObject()
 
@@ -402,19 +401,22 @@ class FamilyFacultyAdminViewSet(viewsets.GenericViewSet):
             buffer = asyncio.new_event_loop().run_until_complete(
                 html_to_pdf_buffer(html_content)
             )
-        except Exception:
+        except Exception as e:
+            print(f"PDF generation error: {e}")
             return Response({'detail': 'could not generate pdf'}, status=500)
-        
-        response = HttpResponse( 
+        filename = f"family_report_{family_id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        response = FileResponse(
             buffer,
+            as_attachment=True,
+            filename=filename,
             content_type='application/pdf'
         )
-
-        response['Content-Disposition'] = f'attachment; filename="generated_pdf.pdf"'
-        
+        response['Content-Length'] = len(buffer.getvalue())
+        response['Access-Control-Expose-Headers'] = 'Content-Disposition'
+        response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response['Pragma'] = 'no-cache'
+        response['Expires'] = '0'
         return response
-
-
 # ------------------------------------------------------------------
 # Events Approval (Faculty Admin)
 # ------------------------------------------------------------------
