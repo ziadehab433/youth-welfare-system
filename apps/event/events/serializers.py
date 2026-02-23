@@ -10,7 +10,7 @@ class EventCreateUpdateSerializer(serializers.ModelSerializer):
         fields = [
             'title', 'description', 'dept', 'cost',
             'location', 'restrictions', 'reward', 'imgs',
-            'st_date', 'end_date', 's_limit', 'type', 'family',
+            'st_date', 'end_date', 's_limit', 'type',
             'resource', 'selected_facs' 
         ]
 
@@ -101,7 +101,7 @@ class EventListSerializer(serializers.ModelSerializer):
         model = Events
         fields = [
             'event_id', 'title', 'description', 'st_date', 'end_date',
-            'location', 'status', 'type', 'cost', 's_limit', 'faculty_id'
+            'location', 'status', 'type', 'cost', 's_limit', 'faculty_id', 'dept_id'
         ]
 
 class EventDetailSerializer(serializers.ModelSerializer):
