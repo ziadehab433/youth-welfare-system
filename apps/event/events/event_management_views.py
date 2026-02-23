@@ -59,12 +59,14 @@ class EventGetterViewSet(viewsets.GenericViewSet):
             'created_by', 'faculty', 'dept', 'family'
         ).filter(family__isnull=True) 
         
-        if admin.role == 'مدير ادارة' or admin.role == 'مدير عام':
-            return queryset.filter(faculty_id__isnull=True)
-        elif admin.role == 'مسؤول كلية' or admin.role == 'مدير كلية':
+        if admin.role == 'مسؤول كلية' or admin.role == 'مدير كلية':
             return queryset.filter(
                 Q(faculty_id=admin.faculty_id) | Q(faculty_id__isnull=True)
             ).order_by('-created_at')
+        elif admin.role == 'مدير عام':
+            return queryset.filter(faculty_id__isnull=True)
+        else: 
+            return queryset.filter(faculty_id__isnull=True, dept_id=admin.dept_id)
         
         return queryset.none() 
 
@@ -96,6 +98,29 @@ class EventGetterViewSet(viewsets.GenericViewSet):
         serializer = self.get_serializer(event)
         return Response(serializer.data)
 
+    @extend_schema(
+        description="Get events for department manager filtered by faculty_id",
+        responses={200: EventListSerializer(many=True)}
+    )
+    @action(detail=False, methods=['get'], url_path=r'faculty/(?P<faculty_id>\d+)')
+    def get_events_by_faculty(self, request, faculty_id=None):
+        admin = get_current_admin(request)
+        faculty_id = int(faculty_id)
+        
+        if admin.role != 'مدير ادارة':
+            raise PermissionDenied("ليس لديك صلاحية الوصول لهذا المورد")
+        
+        queryset = Events.objects.select_related(
+            'created_by', 'faculty', 'dept', 'family'
+        ).filter(
+            family__isnull=True,
+            dept_id=admin.dept_id, 
+            faculty=faculty_id  
+        ).order_by('-created_at')
+        
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
 # faculty admins & department managers 
 @extend_schema(tags=["Event Management APIs"])
 class EventManagementViewSet(viewsets.GenericViewSet):
@@ -110,13 +135,11 @@ class EventManagementViewSet(viewsets.GenericViewSet):
         return EventListSerializer
 
     def get_serializer_context(self):
-        """Add request to serializer context for role-based field access"""
         context = super().get_serializer_context()
         context['request'] = self.request
         return context
 
     def get_object(self):
-        """Override get_object to add faculty validation for faculty admins only"""
         obj = super().get_object()
         admin = get_current_admin(self.request)
         
@@ -154,6 +177,14 @@ class EventManagementViewSet(viewsets.GenericViewSet):
         if admin.role == 'مسؤول كلية' and 'selected_facs' in request.data:
             raise PermissionDenied("Faculty admins cannot use the selected_facs field")
         
+        if admin.role == 'مدير ادارة' and 'dept' in request.data:
+            requested_dept_id = request.data.get('dept')
+            if requested_dept_id != admin.dept_id:
+                raise PermissionDenied(
+                    f"You can only create events in your own department (ID: {admin.dept_id}). "
+                    f"Requested department ID: {requested_dept_id}"
+                )
+        
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
@@ -164,6 +195,7 @@ class EventManagementViewSet(viewsets.GenericViewSet):
             
             if admin.role == 'مدير ادارة':
                 create_kwargs['faculty_id'] = None
+                create_kwargs['dept_id'] = admin.dept_id
             else:
                 create_kwargs['faculty_id'] = admin.faculty_id
             
@@ -198,15 +230,35 @@ class EventManagementViewSet(viewsets.GenericViewSet):
         if 'faculty' in request.data:
             request.data.pop('faculty')
         
+        if admin.role == 'مدير ادارة':
+            if 'dept' in request.data:
+                requested_dept_id = request.data.get('dept')
+                if requested_dept_id != admin.dept_id:
+                    raise PermissionDenied(
+                        f"You can only update events in your own department (ID: {admin.dept_id}). "
+                        f"Cannot change to department ID: {requested_dept_id}"
+                    )
+            
+            if event.dept_id != admin.dept_id:
+                raise PermissionDenied(
+                    f"You can only update events in your own department. "
+                    f"This event belongs to department ID: {event.dept_id}"
+                )
+        
         serializer = self.get_serializer(event, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         
         with transaction.atomic():
             updated_event = serializer.save()
             
-            if admin.role == 'مدير ادارة' and updated_event.faculty_id is not None:
-                updated_event.faculty_id = None
-                updated_event.save(update_fields=['faculty_id'])
+            if admin.role == 'مدير ادارة':
+                if updated_event.faculty_id is not None:
+                    updated_event.faculty_id = None
+                    updated_event.save(update_fields=['faculty_id'])
+                
+                if updated_event.dept_id != admin.dept_id:
+                    updated_event.dept_id = admin.dept_id
+                    updated_event.save(update_fields=['dept_id'])
             
             log_data_access(
                 actor_id=admin.admin_id,
