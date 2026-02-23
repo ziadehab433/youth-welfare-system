@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.conf import settings
 
 from io import BytesIO
-from pyppeteer import launch
+
     
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.exceptions import AuthenticationFailed
@@ -24,30 +24,6 @@ def get_client_ip(request):
         ip = request.META.get('REMOTE_ADDR')
     return ip
 
-async def html_to_pdf_buffer(html):
-    browser = await launch(
-        headless=True,
-        args=[
-            '--no-sandbox',
-            '--disable-setuid-sandbox'
-        ],
-        handleSIGINT=False,
-        handleSIGTERM=False,
-        handleSIGHUP=False
-    )
-
-    page = await browser.newPage()
-    await page.setContent(html)
-    pdf = await page.pdf({
-        "format": "A4",
-        "printBackground": True
-    })
-
-    await browser.close()
-
-    buffer = BytesIO(pdf)
-    buffer.seek(0)
-    return buffer
 
 def get_current_student(request):
     """
