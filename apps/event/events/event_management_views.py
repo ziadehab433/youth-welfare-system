@@ -230,9 +230,7 @@ class EventManagementViewSet(viewsets.GenericViewSet):
         if 'faculty' in request.data:
             request.data.pop('faculty')
         
-        # Validate department for department managers
         if admin.role == 'مدير ادارة':
-            # Check if trying to update to a different department
             if 'dept' in request.data:
                 requested_dept_id = request.data.get('dept')
                 if requested_dept_id != admin.dept_id:
@@ -241,7 +239,6 @@ class EventManagementViewSet(viewsets.GenericViewSet):
                         f"Cannot change to department ID: {requested_dept_id}"
                     )
             
-            # Ensure the event belongs to admin's department
             if event.dept_id != admin.dept_id:
                 raise PermissionDenied(
                     f"You can only update events in your own department. "
@@ -255,12 +252,10 @@ class EventManagementViewSet(viewsets.GenericViewSet):
             updated_event = serializer.save()
             
             if admin.role == 'مدير ادارة':
-                # Ensure faculty_id is None
                 if updated_event.faculty_id is not None:
                     updated_event.faculty_id = None
                     updated_event.save(update_fields=['faculty_id'])
                 
-                # Ensure dept_id matches admin's department
                 if updated_event.dept_id != admin.dept_id:
                     updated_event.dept_id = admin.dept_id
                     updated_event.save(update_fields=['dept_id'])

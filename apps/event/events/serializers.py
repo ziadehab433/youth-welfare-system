@@ -11,18 +11,19 @@ class EventCreateUpdateSerializer(serializers.ModelSerializer):
             'title', 'description', 'dept', 'cost',
             'location', 'restrictions', 'reward', 'imgs',
             'st_date', 'end_date', 's_limit', 'type',
-            'resource', 'selected_facs' 
+            'resource', 'selected_facs', 'plan' 
         ]
+        extra_kwargs = {
+            'plan': {'required': False, 'allow_null': True}
+        }
 
     def __init__(self, *args, **kwargs):
         """Dynamically remove selected_facs field for non-department managers"""
         super().__init__(*args, **kwargs)
         
-        # Check if we have request in context
         request = self.context.get('request')
         if request:
-            admin = get_current_admin(request)  # You'll need to import this
-            # Remove selected_facs field for faculty admins
+            admin = get_current_admin(request) 
             if admin.role == 'مسؤول كلية' and 'selected_facs' in self.fields:
                 self.fields.pop('selected_facs')
 
@@ -59,11 +60,9 @@ class EventCreateUpdateSerializer(serializers.ModelSerializer):
             if data['end_date'] < data['st_date']:
                 raise serializers.ValidationError("End date must be after start date")
         
-        # Additional validation for faculty admins
         request = self.context.get('request')
         if request:
             admin = get_current_admin(request)
-            # If faculty admin, ensure selected_facs is not in data (should be removed already)
             if admin.role == 'مسؤول كلية' and 'selected_facs' in data:
                 raise serializers.ValidationError({
                     "selected_facs": "Faculty admins cannot use the selected_facs field"
@@ -72,13 +71,11 @@ class EventCreateUpdateSerializer(serializers.ModelSerializer):
         return data
     
     def create(self, validated_data):
-        validated_data['plan'] = None
         validated_data['active'] = True 
         validated_data['status'] = 'منتظر' 
         return super().create(validated_data)
     
     def update(self, instance, validated_data):
-        validated_data['plan'] = None
         validated_data['active'] = True 
         validated_data['status'] = 'منتظر' 
         return super().update(instance, validated_data)
@@ -87,7 +84,6 @@ class EventCreateUpdateSerializer(serializers.ModelSerializer):
         representation = super().to_representation(instance)
         representation.pop('active', None)
         
-        # Optionally remove selected_facs from response for faculty admins
         request = self.context.get('request')
         if request:
             admin = get_current_admin(request)
@@ -118,11 +114,9 @@ class EventDetailSerializer(serializers.ModelSerializer):
         """Remove selected_facs from response for faculty admins"""
         representation = super().to_representation(instance)
         
-        # Check if we have request in context
         request = self.context.get('request')
         if request:
             admin = get_current_admin(request)
-            # Remove selected_facs for faculty admins
             if admin.role == 'مسؤول كلية' and 'selected_facs' in representation:
                 representation.pop('selected_facs')
         
