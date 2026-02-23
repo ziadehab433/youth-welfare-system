@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.conf import settings
 
 from io import BytesIO
-from pyppeteer import launch
+from playwright.async_api import async_playwright
     
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.exceptions import AuthenticationFailed
@@ -145,27 +145,45 @@ def handle_report_data(data):
 #         ip = request.META.get('REMOTE_ADDR')
 #     return ip
 
-async def html_to_pdf_buffer(html):
-    browser = await launch(
-        headless=True,
-        args=[
-            '--no-sandbox',
-            '--disable-setuid-sandbox'
-        ],
-        handleSIGINT=False,
-        handleSIGTERM=False,
-        handleSIGHUP=False
-    )
-
-    page = await browser.newPage()
-    await page.setContent(html)
-    pdf = await page.pdf({
-        "format": "A4",
-        "printBackground": True
-    })
-
-    await browser.close()
-
-    buffer = BytesIO(pdf)
-    buffer.seek(0)
-    return buffer
+async def html_to_pdf_buffer(html_pages):
+    playwright = None
+    browser = None
+    try:
+        playwright = await async_playwright().start()
+        browser = await playwright.chromium.launch(
+            headless=True,
+            args=[
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+            ]
+        )
+        page = await browser.new_page()
+        if isinstance(html_pages, list):
+            html_content = "".join(html_pages)
+        else:
+            html_content = html_pages
+        
+        await page.set_content(html_content, wait_until='networkidle')
+        
+        pdf_bytes = await page.pdf(
+            format='A4',
+            print_background=True,
+            margin={
+                'top': '10mm',
+                'bottom': '10mm',
+                'left': '10mm',
+                'right': '10mm'
+            }
+        )
+        buffer = BytesIO(pdf_bytes)
+        buffer.seek(0)
+        return buffer
+    except Exception as e:
+        print(f"Playwright error: {e}")
+        raise e
+    finally:
+        if browser:
+            await browser.close()
+        if playwright:
+            await playwright.stop()

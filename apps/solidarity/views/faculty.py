@@ -3,7 +3,8 @@ from asyncio.log import logger
 from django.db import DatabaseError
 from django.http import HttpResponse
 from django.template.loader import render_to_string
-
+from django.http import FileResponse, HttpResponse
+from django.utils import timezone 
 from apps.solidarity.models import Solidarities
 
 from rest_framework import viewsets, status
@@ -297,20 +298,16 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
     @require_permission('read')
     def export(self, request):
         admin = get_current_admin(request)
-
         try: 
             data = Solidarities.objects.filter(faculty=admin.faculty, req_status="مقبول")
         except DatabaseError:
             return Response({'detail': 'database error while fetching data'}, status=500)
-
-        if not data.exists:
+        if not data.exists():
             return Response({'detail': 'Cant generate a report (no data)'}, status=422)
 
         html_content = render_to_string("api/solidarity-report.html", handle_report_data(data))
-
         html_pages = []
         html_pages.append(html_content)
-
         try:
             buffer = asyncio.new_event_loop().run_until_complete(
                 html_to_pdf_buffer(html_pages)
@@ -318,12 +315,16 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         except Exception as e:
             print("error: ", e)
             return Response({'detail': 'could not generate pdf'}, status=500)
-        
-        response = HttpResponse( 
+        filename = f"solidarity_report_{admin.faculty.faculty_id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        response = FileResponse(
             buffer,
+            as_attachment=True,
+            filename=filename,
             content_type='application/pdf'
         )
-
-        response['Content-Disposition'] = f'attachment; filename="generated_pdf.pdf"'
-        
+        response['Content-Length'] = len(buffer.getvalue())
+        response['Access-Control-Expose-Headers'] = 'Content-Disposition'
+        response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response['Pragma'] = 'no-cache'
+        response['Expires'] = '0'
         return response
