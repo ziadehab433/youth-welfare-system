@@ -98,6 +98,29 @@ class EventGetterViewSet(viewsets.GenericViewSet):
         serializer = self.get_serializer(event)
         return Response(serializer.data)
 
+    @extend_schema(
+        description="Get events for department manager filtered by faculty_id",
+        responses={200: EventListSerializer(many=True)}
+    )
+    @action(detail=False, methods=['get'], url_path=r'faculty/(?P<faculty_id>\d+)')
+    def get_events_by_faculty(self, request, faculty_id=None):
+        admin = get_current_admin(request)
+        faculty_id = int(faculty_id)
+        
+        if admin.role != 'مدير ادارة':
+            raise PermissionDenied("ليس لديك صلاحية الوصول لهذا المورد")
+        
+        queryset = Events.objects.select_related(
+            'created_by', 'faculty', 'dept', 'family'
+        ).filter(
+            family__isnull=True,
+            dept_id=admin.dept_id, 
+            faculty=faculty_id  
+        ).order_by('-created_at')
+        
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
 # faculty admins & department managers 
 @extend_schema(tags=["Event Management APIs"])
 class EventManagementViewSet(viewsets.GenericViewSet):
