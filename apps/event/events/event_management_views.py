@@ -73,7 +73,13 @@ class EventGetterViewSet(viewsets.GenericViewSet):
         return queryset.none() 
 
     def get_object(self):
-        queryset = self.get_queryset()
+        admin = get_current_admin(self.request)
+        if admin.role == 'مدير ادارة':
+            queryset = Events.objects.select_related(
+                'created_by', 'faculty', 'dept', 'family'
+            ).filter(family__isnull=True, dept_id=admin.dept_id) 
+        else: 
+            queryset = self.get_queryset()
         
         obj = queryset.filter(pk=self.kwargs['pk']).first()
         
@@ -104,10 +110,9 @@ class EventGetterViewSet(viewsets.GenericViewSet):
         description="Get events for department manager filtered by faculty_id",
         responses={200: EventListSerializer(many=True)}
     )
-    @action(detail=False, methods=['get'], url_path=r'faculty/(?P<faculty_id>\d+)')
+    @action(detail=False, methods=['get'], url_path=r'faculty')
     def get_events_by_faculty(self, request, faculty_id=None):
         admin = get_current_admin(request)
-        faculty_id = int(faculty_id)
         
         if admin.role != 'مدير ادارة':
             raise PermissionDenied("ليس لديك صلاحية الوصول لهذا المورد")
@@ -117,7 +122,7 @@ class EventGetterViewSet(viewsets.GenericViewSet):
         ).filter(
             family__isnull=True,
             dept_id=admin.dept_id, 
-            faculty=faculty_id  
+            faculty__isnull=False  
         ).order_by('-created_at')
         
         serializer = self.get_serializer(queryset, many=True)
