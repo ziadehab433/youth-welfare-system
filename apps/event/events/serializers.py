@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from apps.event.models import Events
+from apps.event.models import Events, Prtcps
 from apps.accounts.models import AdminsUser
 from apps.solidarity.models import Faculties
 from apps.accounts.utils import get_current_admin
@@ -100,19 +100,119 @@ class EventListSerializer(serializers.ModelSerializer):
             'location', 'status', 'type', 'cost', 's_limit', 'faculty_id', 'dept_id'
         ]
 
+class ParticipantSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source='student.name', read_only=True)
+    student_id = serializers.CharField(source='student.student_id', read_only=True)
+    
+    class Meta:
+        model = Prtcps
+        fields = ['id', 'student_id', 'student_name', 'rank', 'reward']
+
 class EventDetailSerializer(serializers.ModelSerializer):
     created_by_name = serializers.CharField(source='created_by.name', read_only=True)
     faculty_name = serializers.CharField(source='faculty.name', read_only=True, allow_null=True)
     dept_name = serializers.CharField(source='dept.name', read_only=True, allow_null=True)
     family_name = serializers.CharField(source='family.name', read_only=True, allow_null=True)
     
+    participants = serializers.SerializerMethodField()
+    
     class Meta:
         model = Events
         exclude = ['plan']
+    
+    def get_participants(self, obj):
+        if hasattr(obj, 'participants'):
+            participants = obj.participants
+        else:
+            participants = obj.prtcps_set.all()
+        
+        return ParticipantSerializer(participants, many=True).data
 
     def to_representation(self, instance):
         """Remove selected_facs from response for faculty admins"""
         representation = super().to_representation(instance)
+        
+        request = self.context.get('request')
+        if request:
+            admin = get_current_admin(request)
+            if admin.role == 'مسؤول كلية' and 'selected_facs' in representation:
+                representation.pop('selected_facs')
+        
+        return representation
+
+class EventActivateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Events
+        fields = [
+            'title', 'description', 'dept', 'cost',
+            'location', 'restrictions', 'reward', 'imgs',
+            'st_date', 'end_date', 's_limit', 'type',
+            'resource', 'selected_facs', 'plan' 
+        ]
+        extra_kwargs = {
+            'plan': {'required': False, 'allow_null': True}
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        request = self.context.get('request')
+        if request:
+            admin = get_current_admin(request) 
+            if admin.role == 'مسؤول كلية' and 'selected_facs' in self.fields:
+                self.fields.pop('selected_facs')
+
+    def validate_selected_facs(self, value):
+        if not value: 
+            return value
+        
+        if not isinstance(value, list):
+            raise serializers.ValidationError("selected_facs must be a list of faculty IDs")
+        
+        if len(value) != len(set(value)):
+            raise serializers.ValidationError("Duplicate faculty IDs are not allowed")
+        
+        existing_faculties = Faculties.objects.filter(faculty_id__in=value).values_list('faculty_id', flat=True)
+        existing_faculties_set = set(existing_faculties)
+        provided_faculties_set = set(value)
+        
+        invalid_faculties = provided_faculties_set - existing_faculties_set
+        
+        if invalid_faculties:
+            raise serializers.ValidationError(
+                f"The following faculty IDs do not exist: {sorted(invalid_faculties)}"
+            )
+        
+        return value
+    
+    def validate(self, data):
+        if data.get('st_date') and data.get('end_date'):
+            if data['end_date'] < data['st_date']:
+                raise serializers.ValidationError("End date must be after start date")
+        
+        request = self.context.get('request')
+        if request:
+            admin = get_current_admin(request)
+            if admin.role == 'مسؤول كلية' and 'selected_facs' in data:
+                raise serializers.ValidationError({
+                    "selected_facs": "Faculty admins cannot use the selected_facs field"
+                })
+        
+        return data
+    
+    def update(self, instance, validated_data):
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        
+        instance.active = not instance.active
+        instance.status = 'منتظر' 
+        
+        instance.save()
+        return instance
+    
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation.pop('active', None)
         
         request = self.context.get('request')
         if request:

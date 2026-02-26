@@ -4,8 +4,8 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.decorators import action
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 from django.db import transaction
-from apps.event.models import Events
-from .serializers import EventCreateUpdateSerializer, EventListSerializer, EventDetailSerializer
+from apps.event.models import Events, Prtcps
+from .serializers import EventCreateUpdateSerializer, EventListSerializer, EventDetailSerializer, EventActivateSerializer
 from apps.accounts.models import AdminsUser
 from apps.accounts.permissions import require_permission, IsRole
 from apps.accounts.utils import (
@@ -14,31 +14,13 @@ from apps.accounts.utils import (
     get_current_student,
     log_data_access
 )
-from django.db.models import Q
-
-from rest_framework import viewsets, status
-from rest_framework.response import Response
-from rest_framework.exceptions import PermissionDenied
-from rest_framework.decorators import action
-from drf_spectacular.utils import extend_schema, OpenApiResponse
-from django.db import transaction
-from apps.event.models import Events
-from .serializers import EventCreateUpdateSerializer, EventListSerializer, EventDetailSerializer
-from apps.accounts.models import AdminsUser
-from apps.accounts.permissions import require_permission, IsRole
-from apps.accounts.utils import (
-    get_current_admin,
-    get_client_ip,
-    get_current_student,
-    log_data_access
-)
-from django.db.models import Q
+from django.db.models import Q, Prefetch
 
 # faculty admins & department managers 
 @extend_schema(tags=["Event Management APIs"])
 class EventGetterViewSet(viewsets.GenericViewSet):
     permission_classes = [IsRole]
-    allowed_roles = ['مسؤول كلية', 'مدير ادارة', 'مدير عام', 'مدير كلية']
+    allowed_roles = ['مسؤول كلية', 'مدير ادارة', 'مدير عام', 'مدير كلية', 'مشرف النظام']
 
     def get_serializer_class(self):
         if self.action == 'create' or self.action == 'partial_update':
@@ -52,12 +34,13 @@ class EventGetterViewSet(viewsets.GenericViewSet):
         context['request'] = self.request
         return context
 
-    def get_queryset(self):
+    def get_queryset(self, queryset=None):
         admin = get_current_admin(self.request)
         
-        queryset = Events.objects.select_related(
-            'created_by', 'faculty', 'dept', 'family'
-        ).filter(family__isnull=True) 
+        if queryset is None: 
+            queryset = Events.objects.select_related(
+                'created_by', 'faculty', 'dept', 'family'
+            ).filter(family__isnull=True) 
         
         if admin.role == 'مسؤول كلية':
             return queryset.filter(
@@ -67,19 +50,28 @@ class EventGetterViewSet(viewsets.GenericViewSet):
             return queryset.filter(faculty_id=admin.faculty_id).order_by('-created_at')
         elif admin.role == 'مدير عام':
             return queryset.filter(faculty_id__isnull=True)
+        elif admin.role == 'مشرف النظام': 
+            return queryset
         else: 
-            return queryset.filter(faculty_id__isnull=True, dept_id=admin.dept_id)
+            return queryset.filter(dept_id=admin.dept_id)
         
         return queryset.none() 
 
     def get_object(self):
         admin = get_current_admin(self.request)
-        if admin.role == 'مدير ادارة':
-            queryset = Events.objects.select_related(
-                'created_by', 'faculty', 'dept', 'family'
-            ).filter(family__isnull=True, dept_id=admin.dept_id) 
-        else: 
-            queryset = self.get_queryset()
+        queryset = Events.objects.select_related(
+            'created_by', 'faculty', 'dept', 'family'
+        ).filter(
+            family__isnull=True
+        ).prefetch_related(
+            Prefetch(
+                'prtcps_set',
+                queryset=Prtcps.objects.select_related('student').filter(status='مقبول'),  
+                to_attr='participants'  
+            )
+        )
+
+        queryset = self.get_queryset(queryset=queryset)
         
         obj = queryset.filter(pk=self.kwargs['pk']).first()
         
@@ -127,6 +119,46 @@ class EventGetterViewSet(viewsets.GenericViewSet):
         
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+    
+    @extend_schema(
+        description="delete an event",
+        responses={200: EventDetailSerializer}
+    )
+    def destroy(self, request, pk=None):
+        event = self.get_object()
+        admin = get_current_admin(request)
+        ip = get_client_ip(request)
+        
+        if admin.role == 'مدير ادارة':
+            if event.dept_id != admin.dept_id and event.faculty_id is not None:
+                raise PermissionDenied("لا يمكنك حذف فعاليات من إدارة أخرى")
+        elif admin.role == 'مسؤول كلية':
+            if event.faculty_id and event.faculty_id != admin.faculty_id:
+                raise PermissionDenied("لا يمكنك حذف فعاليات من كلية أخرى")
+        
+        event.active = False
+        event.status = 'ملغي'
+        event.save()
+        
+        log_data_access(
+            actor_id=admin.admin_id,
+            actor_type=admin.role,
+            action=f"Deleted event: {event.title}",
+            target_type='نشاط',
+            event_id=event.event_id,
+            ip_address=ip
+        )
+        
+        return Response(
+            {
+                "detail": "تم إلغاء الفعالية بنجاح",
+                "event_id": event.event_id,
+                "title": event.title,
+                "status": event.status,
+                "active": event.active
+            },
+            status=status.HTTP_200_OK
+        )
 
 # faculty admins & department managers 
 @extend_schema(tags=["Event Management APIs"])
@@ -443,14 +475,14 @@ class EventActivationViewSet(viewsets.GenericViewSet):
             return queryset.filter(faculty_id=admin.faculty_id)
 
     @extend_schema(
-        description="Partially update an event and activate it (set active=True)",
+        description="Partially update an event and toggle the active attribute",
         request=EventCreateUpdateSerializer,
         responses={200: EventDetailSerializer},
     )
     @action(detail=True, methods=['patch'], url_path='activate')
     def activate_event(self, request, pk=None):
         """
-        Partially update an event and activate it by setting active to True
+        Partially update an event and toggle the active attribute 
         """
         admin = get_current_admin(request)
         ip = get_client_ip(request)
@@ -463,14 +495,11 @@ class EventActivationViewSet(viewsets.GenericViewSet):
         if 'faculty' in request.data:
             request.data.pop('faculty')
         
-        serializer = self.get_serializer(event, data=request.data, partial=True)
+        serializer = EventActivateSerializer(event, data=request.data, partial=True, context={'request': request})
         serializer.is_valid(raise_exception=True)
         
         with transaction.atomic():
             updated_event = serializer.save()
-            
-            updated_event.active = True
-            updated_event.save(update_fields=['active'])
             
             if admin.role == 'مدير ادارة' and updated_event.faculty_id is not None:
                 updated_event.faculty_id = None
@@ -479,7 +508,7 @@ class EventActivationViewSet(viewsets.GenericViewSet):
             log_data_access(
                 actor_id=admin.admin_id,
                 actor_type=admin.role,
-                action=f"Activated event: {event.title}",
+                action=f"{'Activated' if updated_event.active else 'Deactivated'} event: {event.title}",
                 target_type='نشاط',
                 event_id=event.event_id,
                 ip_address=ip
