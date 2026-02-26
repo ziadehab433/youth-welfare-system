@@ -68,18 +68,13 @@ class EventGetterViewSet(viewsets.GenericViewSet):
         elif admin.role == 'مدير عام':
             return queryset.filter(faculty_id__isnull=True)
         else: 
-            return queryset.filter(faculty_id__isnull=True, dept_id=admin.dept_id)
+            return queryset.filter(dept_id=admin.dept_id)
         
         return queryset.none() 
 
     def get_object(self):
         admin = get_current_admin(self.request)
-        if admin.role == 'مدير ادارة':
-            queryset = Events.objects.select_related(
-                'created_by', 'faculty', 'dept', 'family'
-            ).filter(family__isnull=True, dept_id=admin.dept_id) 
-        else: 
-            queryset = self.get_queryset()
+        queryset = self.get_queryset()
         
         obj = queryset.filter(pk=self.kwargs['pk']).first()
         
