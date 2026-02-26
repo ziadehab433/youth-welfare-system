@@ -119,6 +119,46 @@ class EventGetterViewSet(viewsets.GenericViewSet):
         
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+    
+    @extend_schema(
+        description="delete an event",
+        responses={200: EventDetailSerializer}
+    )
+    def destroy(self, request, pk=None):
+        event = self.get_object()
+        admin = get_current_admin(request)
+        ip = get_client_ip(request)
+        
+        if admin.role == 'مدير ادارة':
+            if event.dept_id != admin.dept_id and event.faculty_id is not None:
+                raise PermissionDenied("لا يمكنك حذف فعاليات من إدارة أخرى")
+        elif admin.role == 'مسؤول كلية':
+            if event.faculty_id and event.faculty_id != admin.faculty_id:
+                raise PermissionDenied("لا يمكنك حذف فعاليات من كلية أخرى")
+        
+        event.active = False
+        event.status = 'ملغي'
+        event.save()
+        
+        log_data_access(
+            actor_id=admin.admin_id,
+            actor_type=admin.role,
+            action=f"Deleted event: {event.title}",
+            target_type='نشاط',
+            event_id=event.event_id,
+            ip_address=ip
+        )
+        
+        return Response(
+            {
+                "detail": "تم إلغاء الفعالية بنجاح",
+                "event_id": event.event_id,
+                "title": event.title,
+                "status": event.status,
+                "active": event.active
+            },
+            status=status.HTTP_200_OK
+        )
 
 # faculty admins & department managers 
 @extend_schema(tags=["Event Management APIs"])
