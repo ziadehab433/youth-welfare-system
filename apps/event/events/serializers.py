@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from apps.event.models import Events
+from apps.event.models import Events, Prtcps
 from apps.accounts.models import AdminsUser
 from apps.solidarity.models import Faculties
 from apps.accounts.utils import get_current_admin
@@ -100,15 +100,33 @@ class EventListSerializer(serializers.ModelSerializer):
             'location', 'status', 'type', 'cost', 's_limit', 'faculty_id', 'dept_id'
         ]
 
+class ParticipantSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source='student.name', read_only=True)
+    student_id = serializers.CharField(source='student.student_id', read_only=True)
+    
+    class Meta:
+        model = Prtcps
+        fields = ['id', 'student_id', 'student_name', 'rank', 'reward']
+
 class EventDetailSerializer(serializers.ModelSerializer):
     created_by_name = serializers.CharField(source='created_by.name', read_only=True)
     faculty_name = serializers.CharField(source='faculty.name', read_only=True, allow_null=True)
     dept_name = serializers.CharField(source='dept.name', read_only=True, allow_null=True)
     family_name = serializers.CharField(source='family.name', read_only=True, allow_null=True)
     
+    participants = serializers.SerializerMethodField()
+    
     class Meta:
         model = Events
         exclude = ['plan']
+    
+    def get_participants(self, obj):
+        if hasattr(obj, 'participants'):
+            participants = obj.participants
+        else:
+            participants = obj.prtcps_set.all()
+        
+        return ParticipantSerializer(participants, many=True).data
 
     def to_representation(self, instance):
         """Remove selected_facs from response for faculty admins"""

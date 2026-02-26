@@ -4,7 +4,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.decorators import action
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 from django.db import transaction
-from apps.event.models import Events
+from apps.event.models import Events, Prtcps
 from .serializers import EventCreateUpdateSerializer, EventListSerializer, EventDetailSerializer
 from apps.accounts.models import AdminsUser
 from apps.accounts.permissions import require_permission, IsRole
@@ -14,25 +14,7 @@ from apps.accounts.utils import (
     get_current_student,
     log_data_access
 )
-from django.db.models import Q
-
-from rest_framework import viewsets, status
-from rest_framework.response import Response
-from rest_framework.exceptions import PermissionDenied
-from rest_framework.decorators import action
-from drf_spectacular.utils import extend_schema, OpenApiResponse
-from django.db import transaction
-from apps.event.models import Events
-from .serializers import EventCreateUpdateSerializer, EventListSerializer, EventDetailSerializer
-from apps.accounts.models import AdminsUser
-from apps.accounts.permissions import require_permission, IsRole
-from apps.accounts.utils import (
-    get_current_admin,
-    get_client_ip,
-    get_current_student,
-    log_data_access
-)
-from django.db.models import Q
+from django.db.models import Q, Prefetch
 
 # faculty admins & department managers 
 @extend_schema(tags=["Event Management APIs"])
@@ -52,12 +34,13 @@ class EventGetterViewSet(viewsets.GenericViewSet):
         context['request'] = self.request
         return context
 
-    def get_queryset(self):
+    def get_queryset(self, queryset=None):
         admin = get_current_admin(self.request)
         
-        queryset = Events.objects.select_related(
-            'created_by', 'faculty', 'dept', 'family'
-        ).filter(family__isnull=True) 
+        if queryset is None: 
+            queryset = Events.objects.select_related(
+                'created_by', 'faculty', 'dept', 'family'
+            ).filter(family__isnull=True) 
         
         if admin.role == 'مسؤول كلية':
             return queryset.filter(
@@ -74,7 +57,19 @@ class EventGetterViewSet(viewsets.GenericViewSet):
 
     def get_object(self):
         admin = get_current_admin(self.request)
-        queryset = self.get_queryset()
+        queryset = Events.objects.select_related(
+            'created_by', 'faculty', 'dept', 'family'
+        ).filter(
+            family__isnull=True
+        ).prefetch_related(
+            Prefetch(
+                'prtcps_set',
+                queryset=Prtcps.objects.select_related('student').filter(status='مقبول'),  
+                to_attr='participants'  
+            )
+        )
+
+        queryset = self.get_queryset(queryset=queryset)
         
         obj = queryset.filter(pk=self.kwargs['pk']).first()
         
@@ -438,7 +433,7 @@ class EventActivationViewSet(viewsets.GenericViewSet):
             return queryset.filter(faculty_id=admin.faculty_id)
 
     @extend_schema(
-        description="Partially update an event and activate it (set active=True)",
+        description="Partially update an event and toggle the active attribute",
         request=EventCreateUpdateSerializer,
         responses={200: EventDetailSerializer},
     )
@@ -464,7 +459,7 @@ class EventActivationViewSet(viewsets.GenericViewSet):
         with transaction.atomic():
             updated_event = serializer.save()
             
-            updated_event.active = True
+            updated_event.active = not updated_event.active
             updated_event.save(update_fields=['active'])
             
             if admin.role == 'مدير ادارة' and updated_event.faculty_id is not None:
