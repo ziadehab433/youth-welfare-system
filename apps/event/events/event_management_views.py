@@ -20,7 +20,7 @@ from django.db.models import Q, Prefetch
 @extend_schema(tags=["Event Management APIs"])
 class EventGetterViewSet(viewsets.GenericViewSet):
     permission_classes = [IsRole]
-    allowed_roles = ['مسؤول كلية', 'مدير ادارة', 'مدير عام', 'مدير كلية']
+    allowed_roles = ['مسؤول كلية', 'مدير ادارة', 'مدير عام', 'مدير كلية', 'مشرف النظام']
 
     def get_serializer_class(self):
         if self.action == 'create' or self.action == 'partial_update':
@@ -50,6 +50,8 @@ class EventGetterViewSet(viewsets.GenericViewSet):
             return queryset.filter(faculty_id=admin.faculty_id).order_by('-created_at')
         elif admin.role == 'مدير عام':
             return queryset.filter(faculty_id__isnull=True)
+        elif admin.role == 'مشرف النظام': 
+            return queryset
         else: 
             return queryset.filter(dept_id=admin.dept_id)
         
