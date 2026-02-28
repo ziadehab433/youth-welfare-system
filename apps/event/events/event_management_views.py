@@ -5,7 +5,7 @@ from rest_framework.decorators import action
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 from django.db import transaction
 from apps.event.models import Events, Prtcps
-from .serializers import EventCreateUpdateSerializer, EventListSerializer, EventDetailSerializer, EventActivateSerializer
+from .serializers import EventCreateUpdateSerializer, EventListSerializer, EventDetailSerializer
 from apps.accounts.models import AdminsUser
 from apps.accounts.permissions import require_permission, IsRole
 from apps.accounts.utils import (
@@ -475,44 +475,28 @@ class EventActivationViewSet(viewsets.GenericViewSet):
             return queryset.filter(faculty_id=admin.faculty_id)
 
     @extend_schema(
-        description="Partially update an event and toggle the active attribute",
-        request=EventCreateUpdateSerializer,
+        description="Toggle the active attribute for an event (no request body needed)",
         responses={200: EventDetailSerializer},
     )
-    @action(detail=True, methods=['patch'], url_path='activate')
+    @action(detail=True, methods=['post'], url_path='activate')
     def activate_event(self, request, pk=None):
-        """
-        Partially update an event and toggle the active attribute 
-        """
         admin = get_current_admin(request)
         ip = get_client_ip(request)
         
         event = self.get_object()
         
-        if admin.role == 'مسؤول كلية' and 'selected_facs' in request.data:
-            raise PermissionDenied("Faculty admins cannot modify the selected_facs field")
-        
-        if 'faculty' in request.data:
-            request.data.pop('faculty')
-        
-        serializer = EventActivateSerializer(event, data=request.data, partial=True, context={'request': request})
-        serializer.is_valid(raise_exception=True)
-        
         with transaction.atomic():
-            updated_event = serializer.save()
-            
-            if admin.role == 'مدير ادارة' and updated_event.faculty_id is not None:
-                updated_event.faculty_id = None
-                updated_event.save(update_fields=['faculty_id'])
+            event.active = not event.active
+            event.save(update_fields=['active'])
             
             log_data_access(
                 actor_id=admin.admin_id,
                 actor_type=admin.role,
-                action=f"{'Activated' if updated_event.active else 'Deactivated'} event: {event.title}",
+                action=f"{'Activated' if event.active else 'Deactivated'} event: {event.title}",
                 target_type='نشاط',
                 event_id=event.event_id,
                 ip_address=ip
             )
         
-        detail_serializer = EventDetailSerializer(updated_event)
+        detail_serializer = EventDetailSerializer(event)
         return Response(detail_serializer.data)
