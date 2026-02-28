@@ -1,3 +1,4 @@
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import viewsets, serializers, status
 from rest_framework.decorators import action
@@ -9,7 +10,8 @@ from apps.accounts.permissions import require_permission
 from apps.event.models import Events, Prtcps
 from apps.family.models import Students
 from .serializers import ParticipantResultSerializer
-
+from apps.accounts.permissions import require_permission, IsRole 
+from apps.accounts.serializers import StudentDetailSerializer
 @extend_schema(tags=["Event Management APIs"])
 class EventParticipantViewSet(viewsets.GenericViewSet):
     queryset = Events.objects.all()
@@ -256,3 +258,15 @@ class EventParticipantViewSet(viewsets.GenericViewSet):
                 "assigned_at": timezone.now().isoformat()  
             }
         })
+    @extend_schema(
+        tags=["Event Management APIs"],
+        description="Retrieve detailed information of a specific student for admins.",
+        responses={200: StudentDetailSerializer},
+        parameters=[OpenApiParameter(name='student_id', type=int, location=OpenApiParameter.PATH)]
+    )
+    @action(detail=False, methods=['get'], url_path=r'student-details/(?P<student_id>\d+)')
+    @require_permission('read')
+    def get_student_info(self, request, student_id=None):
+        student = get_object_or_404(Students, pk=student_id)
+        serializer = StudentDetailSerializer(student, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
