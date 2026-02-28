@@ -6,7 +6,6 @@ from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse
 from django.db import transaction
 from apps.accounts.utils import get_current_admin, get_client_ip, log_data_access
-from apps.accounts.permissions import require_permission
 from apps.event.models import Events, Prtcps
 from apps.family.models import Students
 from .serializers import ParticipantResultSerializer
@@ -14,13 +13,16 @@ from apps.accounts.permissions import require_permission, IsRole
 from apps.accounts.serializers import StudentDetailSerializer
 @extend_schema(tags=["Event Management APIs"])
 class EventParticipantViewSet(viewsets.GenericViewSet):
-    queryset = Events.objects.all()
-    """
-    Complete event management system for admins
-    - Approve/reject participant requests
-    - Bulk operations
-    - Assign results and rewards
-    """
+    permission_classes = [IsRole]
+    allowed_roles = ['مسؤول كلية', 'مدير ادارة', 'مشرف النظام']
+    def get_queryset(self):
+        admin = get_current_admin(self.request)
+        queryset = Events.objects.filter(family__isnull=True).select_related('faculty', 'dept')
+        if admin.role == 'مشرف النظام':
+            return queryset
+        if admin.role == 'مدير ادارة':
+            return queryset.filter(dept_id=admin.dept_id)
+        return queryset.filter(faculty_id=admin.faculty_id)
     def _validate_event_editable(self, event):
         if event.status != 'مقبول':
             raise serializers.ValidationError(
@@ -81,11 +83,18 @@ class EventParticipantViewSet(viewsets.GenericViewSet):
                     {"error": "Student not found in system"}, 
                     status=status.HTTP_404_NOT_FOUND
                 )
-            if student.faculty_id != event.faculty_id:
-                return Response(
-                    {"error": "Student does not belong to event's faculty"}, 
-                    status=status.HTTP_403_FORBIDDEN
-                )
+            if event.faculty_id:
+                if student.faculty_id != event.faculty_id:
+                    return Response(
+                        {"error": "Student does not belong to the organizing faculty"}, 
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+            elif event.selected_facs:
+                if student.faculty_id not in event.selected_facs:
+                    return Response(
+                        {"error": "Student's faculty is not selected for this event"}, 
+                        status=status.HTTP_403_FORBIDDEN
+                    )
             participation.status = 'مقبول'
             participation.save()
             log_data_access(
@@ -95,7 +104,7 @@ class EventParticipantViewSet(viewsets.GenericViewSet):
             target_type='نشاط', 
             event_id=event.event_id, 
             ip_address=ip
-        )
+            )
             return Response({
                 "message": "Student approved successfully",
                 "data": {
@@ -175,6 +184,10 @@ class EventParticipantViewSet(viewsets.GenericViewSet):
                 event=event, 
                 status='منتظر'
             )
+            if event.faculty_id:
+                participants_qs = participants_qs.filter(student__faculty_id=event.faculty_id)
+            elif event.selected_facs:
+                participants_qs = participants_qs.filter(student__faculty_id__in=event.selected_facs)
             updated_count = participants_qs.update(status='مقبول')
             log_data_access(
                 actor_id=admin.admin_id, 
