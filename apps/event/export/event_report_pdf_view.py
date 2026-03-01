@@ -1,5 +1,4 @@
 import os
-import base64
 import logging
 from django.conf import settings
 from django.template.loader import render_to_string
@@ -10,23 +9,13 @@ from urllib.parse import quote
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.renderers import BaseRenderer
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 from apps.event.models import Events, Prtcps
 from apps.accounts.utils import get_current_admin
-from .utils import generate_pdf_from_html
+from .utils import generate_pdf_from_html, PDFRenderer, get_report_assets
 
 logger = logging.getLogger(__name__)
 
-class PDFRenderer(BaseRenderer):
-    media_type = 'application/pdf'
-    format = 'pdf'
-    charset = None
-    render_style = 'binary'
-    
-    def render(self, data, accepted_media_type=None, renderer_context=None):
-        return data
-    
 class EventReportViewSet(viewsets.GenericViewSet):
     permission_classes = [IsAuthenticated]
     renderer_classes = [PDFRenderer]
@@ -54,41 +43,22 @@ class EventReportViewSet(viewsets.GenericViewSet):
             admin = get_current_admin(request)
             if admin.role == 'مسؤول كلية' and event.faculty_id != admin.faculty_id:
                 return HttpResponse("ليس لديك صلاحية لعرض هذا التقرير", status=403)
+            
             participants = Prtcps.objects.filter(
                 event=event,
                 status='مقبول'
-            ).select_related('student')   
+            ).select_related('student')
+            
             male_count = participants.filter(student__gender='M').count()
             female_count = participants.filter(student__gender='F').count()
+            
             if event.st_date and event.end_date:
                 duration_days = (event.end_date - event.st_date).days
             else:
                 duration_days = 0
-            logo_base64 = ""
-            logo_path = os.path.join(settings.BASE_DIR, 'static', 'logo', 'logo.png')
-            if os.path.exists(logo_path):
-                try:
-                    with open(logo_path, 'rb') as f:
-                        logo_base64 = base64.b64encode(f.read()).decode('ascii')
-                    logger.info("Logo loaded as base64: %s", logo_path)
-                except Exception as e:
-                    logger.warning("Logo error: %s", e)
-            else:
-                logger.warning("Logo not found at: %s", logo_path)
-            font_base64 = ""
-            possible_paths = [
-                os.path.join(settings.STATIC_ROOT, 'fonts', 'Amiri-Regular.ttf'),
-                os.path.join(settings.BASE_DIR, 'static', 'fonts', 'Amiri-Regular.ttf'),
-            ]
-            for path in possible_paths:
-                if os.path.exists(path):
-                    try:
-                        with open(path, 'rb') as f:
-                            font_base64 = base64.b64encode(f.read()).decode('ascii')
-                        logger.info("Font loaded as base64: %s", path)
-                        break
-                    except Exception as e:
-                        logger.warning("Font error: %s", e)
+            
+            assets = get_report_assets()
+            
             report_data = {
                 'event': event,
                 'male_count': male_count,
@@ -96,13 +66,12 @@ class EventReportViewSet(viewsets.GenericViewSet):
                 'total_participants': participants.count(),
                 'duration_days': duration_days,
                 'issue_date': timezone.now(),
-                'participants': participants,
-                'show_participants': participants.count() > 0,
-                'logo_base64': logo_base64,  
-                'font_base64': font_base64,  
+                'logo_base64': assets['logo'],
+                'font_base64': assets['font'],
                 'base_url': request.build_absolute_uri('/').rstrip('/'),
                 'STATIC_URL': settings.STATIC_URL,
             }
+            
             filename = f"event_report_{event.event_id}.pdf"
             folder_path = os.path.join(settings.MEDIA_ROOT, 'event_reports')
             if not os.path.exists(folder_path):
@@ -114,8 +83,10 @@ class EventReportViewSet(viewsets.GenericViewSet):
             
             if not success:
                 return HttpResponse("Error generating PDF", status=500)
+            
             with open(full_path, 'rb') as pdf_file:
                 pdf_buffer = pdf_file.read()
+            
             response = HttpResponse(pdf_buffer, content_type='application/pdf')
             filename_encoded = quote(filename)
             response['Content-Disposition'] = f'attachment; filename="{filename}"; filename*=UTF-8\'\'{filename_encoded}'
@@ -123,6 +94,7 @@ class EventReportViewSet(viewsets.GenericViewSet):
             response['Access-Control-Expose-Headers'] = 'Content-Disposition'
             
             return response
+            
         except Exception as e:
             logger.exception("Error generating PDF for event %s: %s", pk, str(e))
             return HttpResponse(f"Error generating PDF: {str(e)}", status=500)

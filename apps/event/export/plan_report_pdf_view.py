@@ -1,28 +1,19 @@
 import os
-import base64
 import logging
 from django.conf import settings
+from django.core.cache import cache
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 from django.shortcuts import get_object_or_404
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Sum
 from urllib.parse import quote
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 from rest_framework.decorators import api_view, permission_classes, renderer_classes
-from rest_framework.permissions import IsAuthenticated 
-from rest_framework.renderers import BaseRenderer
+from rest_framework.permissions import IsAuthenticated
 from apps.event.models import Plans, Events
-from apps.event.pdf_utils import generate_pdf_sync
-logger = logging.getLogger(__name__)
+from .utils import generate_pdf_sync, PDFRenderer, get_report_assets
 
-class PDFRenderer(BaseRenderer):
-    media_type = 'application/pdf'
-    format = 'pdf'
-    charset = None
-    render_style = 'binary'
-    
-    def render(self, data, accepted_media_type=None, renderer_context=None):
-        return data
+logger = logging.getLogger(__name__)
 
 @extend_schema(
     tags=["Events APIs"],
@@ -45,6 +36,17 @@ def export_plan_pdf(request, plan_id):
             Plans.objects.select_related('faculty'), 
             pk=plan_id
         )
+        
+        cache_key = f"plan_pdf_{plan_id}_{plan.updated_at.timestamp()}"
+        cached_pdf = cache.get(cache_key)
+        if cached_pdf:
+            logger.info(f"PDF for plan {plan_id} served from cache")
+            response = HttpResponse(cached_pdf, content_type='application/pdf')
+            filename = f"plan_{plan_id}.pdf"
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            response['Content-Length'] = len(cached_pdf)
+            return response
+        
         events = Events.objects.filter(
             plan=plan
         ).annotate(
@@ -52,47 +54,24 @@ def export_plan_pdf(request, plan_id):
             females=Count('prtcps_set', filter=Q(prtcps_set__student__gender='F', prtcps_set__status='مقبول')),
             total_p=Count('prtcps_set', filter=Q(prtcps_set__status='مقبول'))
         ).order_by('type', 'st_date')
+        
+        totals = events.aggregate(
+            total_cost=Sum('cost'),
+            total_males=Sum('males'),
+            total_females=Sum('females'),
+            total_participants=Sum('total_p')
+        )
+        
         grouped_data = {}
-        total_cost = 0
-        total_males = 0
-        total_females = 0
-        total_participants = 0
         for event in events:
             etype = event.type or "أنشطة متنوعة"
             if etype not in grouped_data:
                 grouped_data[etype] = []
             grouped_data[etype].append(event)
-            total_cost += (event.cost or 0)
-            total_males += (event.males or 0)
-            total_females += (event.females or 0)
-            total_participants += (event.total_p or 0)
-        font_base64 = ""
-        possible_paths = [
-            os.path.join(settings.STATIC_ROOT, 'fonts', 'Amiri-Regular.ttf'),
-            os.path.join(settings.BASE_DIR, 'static', 'fonts', 'Amiri-Regular.ttf'),
-        ]
-        for path in possible_paths:
-            if os.path.exists(path):
-                try:
-                    with open(path, 'rb') as f:
-                        font_base64 = base64.b64encode(f.read()).decode('ascii')
-                    logger.info("Font loaded as base64: %s", path)
-                    break
-                except Exception as e:
-                    logger.warning("Font error: %s", e)
-        logo_base64 = ""
-        logo_path = os.path.join(settings.BASE_DIR, 'static', 'logo', 'logo.png')
-        if os.path.exists(logo_path):
-            try:
-                with open(logo_path, 'rb') as f:
-                    logo_base64 = base64.b64encode(f.read()).decode('ascii')
-                logger.info("Logo loaded as base64: %s", logo_path)
-            except Exception as e:
-                logger.warning("Logo error: %s", e)
-        else:
-            logger.warning("Logo not found at: %s", logo_path)
         
+        assets = get_report_assets()
         faculty = plan.faculty
+        
         context = {
             'plan': plan,
             'plan_name': plan.name,
@@ -103,23 +82,28 @@ def export_plan_pdf(request, plan_id):
             'events': events,
             'grouped_data': grouped_data,
             'total_events': events.count(),
-            'total_cost': total_cost,
-            'total_males': total_males,
-            'total_females': total_females,
-            'total_participants': total_participants,
+            'total_cost': totals['total_cost'] or 0,
+            'total_males': totals['total_males'] or 0,
+            'total_females': totals['total_females'] or 0,
+            'total_participants': totals['total_participants'] or 0,
             'signature_1_title': "مسئول الأنشطة",
             'signature_1_name': "",
             'signature_2_title': "أمين الكلية",
             'signature_2_name': "",
             'signature_3_title': "وكيل الكلية لشئون التعليم والطلاب",
             'signature_3_name': "",
-            'font_base64': font_base64, 
-            'logo_base64': logo_base64,  
+            'font_base64': assets['font'],
+            'logo_base64': assets['logo'],
             'base_url': request.build_absolute_uri('/').rstrip('/'),
             'STATIC_URL': settings.STATIC_URL,
         }
+        
         html_string = render_to_string('event/activity_report.html', context)
-        pdf_buffer = generate_pdf_sync(html_string)  
+        pdf_buffer = generate_pdf_sync(html_string)
+        
+        cache.set(cache_key, pdf_buffer, timeout=60 * 60)
+        logger.info(f"PDF for plan {plan_id} generated and cached")
+        
         response = HttpResponse(pdf_buffer, content_type='application/pdf')
         filename = f"plan_{plan_id}.pdf" 
         encoded_filename = quote(filename)
