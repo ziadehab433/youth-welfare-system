@@ -8,7 +8,7 @@ from apps.event.events.event_management_views import (
     EventGetterViewSet
 )
 from apps.event.events.event_student_views import StudentEventViewSet
-from apps.event.views import export_plan_pdf
+from apps.event.export.plan_report_pdf_view import export_plan_pdf
 from apps.event.export.event_report_pdf_view import EventReportViewSet
 router = DefaultRouter()
 router.register(r'manage-events', EventManagementViewSet, basename='faculty_events')
