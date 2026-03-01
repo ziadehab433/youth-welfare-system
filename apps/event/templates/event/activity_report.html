@@ -1,19 +1,15 @@
-{% load static %}
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <title>تقرير خطة الأنشطة - {{ plan.name }}</title>
     <style>
-        @font-face {
-            font-family: 'Amiri';
-            src: url('data:font/truetype;charset=utf-8;base64,{{ font_base64 }}') format('truetype');
-            font-weight: normal;
-            font-style: normal;
-            font-display: swap;
-        }
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+        
+        * { box-sizing: border-box; }
+        
         body {
-            font-family: 'Amiri', 'Traditional Arabic', 'Tahoma', serif;
+            font-family: 'Cairo', 'Traditional Arabic', 'Tahoma', serif;
             background: #fff;
             margin: 0;
             padding: 0;
@@ -22,36 +18,44 @@
         }
         @page {
             size: A4 portrait;
-            margin: 15mm;
+            margin: 12mm 15mm;
         }
 
         .sheet {
             width: 100%;
-        }
+        } 
         .college-header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            margin-bottom: 20px;
+            margin-bottom: 10px;
             font-weight: bold;
             border-bottom: 2px solid #333;
-            padding-bottom: 10px;
+            padding-bottom: 8px;
         }
         .right-info {
-            line-height: 1.8;
+            line-height: 1.6;
+            font-size: 15px;
+        }
+
+        .left-logo {
+            text-align: left;
+            margin-top: -25px;
         }
 
         .left-logo img {
-            max-height: 80px;
+            max-height: 150px;
             width: auto;
             border-radius: 5px;
+            object-fit: contain;
         }
         .title {
             text-align: center;
             font-weight: bold;
-            font-size: 20px;
-            margin: 10px 0 30px;
+            font-size: 22px;
+            margin: 5px 0 20px;
             text-decoration: underline;
+            line-height: 1.5;
         }
         table {
             width: 100%;
@@ -63,8 +67,9 @@
             border: 1px solid black;
             text-align: center;
             vertical-align: middle;
-            padding: 8px 4px;
+            padding: 6px 3px;
             word-wrap: break-word;
+            font-size: 13px;
         }
         th {
             background-color: #d9d9d9;
@@ -72,18 +77,20 @@
         }
         .sub-th {
             font-size: 12px;
-            height: 10mm;
+            height: 8mm;
         }
-        .w-id { width: 10mm; }
-        .v-side { width: 15mm; }
+        
+        .w-id { width: 8mm; }
+        .v-side { width: 12mm; }
         .w-name { width: auto; }
-        .w-place { width: 30mm; }
-        .w-time { width: 35mm; }
-        .w-cost { width: 25mm; }
-        .w-count { width: 15mm; }
+        .w-place { width: 28mm; }
+        .w-time { width: 32mm; }
+        .w-cost { width: 22mm; }
+        .w-count { width: 13mm; }
+        
         .text-right {
             text-align: right;
-            padding-right: 10px;
+            padding-right: 8px;
         }
         .v-side-content {
             font-weight: bold;
@@ -91,17 +98,18 @@
             writing-mode: vertical-rl;
             transform: rotate(180deg);
             white-space: nowrap;
-            padding: 10px 0;
+            padding: 8px 0;
+            font-size: 14px;
         }
         .total-row {
             background-color: #eee;
             font-weight: bold;
-            height: 12mm;
+            height: 10mm;
         }
 
         .summary-box {
-            margin-top: 30px;
-            padding: 15px;
+            margin-top: 20px;
+            padding: 12px;
             background-color: #f9f9f9;
             border: 2px solid #333;
             border-radius: 5px;
@@ -109,22 +117,21 @@
             font-size: 16px;
             font-weight: bold;
         }
-
         .footer-sigs {
-            margin-top: 50px;
+            margin-top: 30px;
             display: flex;
             justify-content: space-between;
             text-align: center;
             font-weight: bold;
             page-break-inside: avoid;
+            gap: 15px;
         }
-
         .sig-item {
             width: 30%;
         }
 
         .sig-line {
-            margin: 40px 0 10px;
+            margin: 25px 0 5px;
             border-top: 1px solid black;
         }
         
@@ -144,13 +151,12 @@
         <div class="left-logo">
             {% if logo_base64 %}
             <img src="data:image/png;base64,{{ logo_base64 }}" 
-                alt="شعار الكلية" 
-                style="max-height: 80px; width: auto;">
+                alt="شعار الكلية">
             {% else %}
             <img src="/static/logo.png" 
                 alt="شعار الكلية" 
                 onerror="this.onerror=null; this.src='{{ base_url }}static/logo.png';"
-                style="max-height: 80px; width: auto;">
+                style="max-height: 110px; width: auto;">
             {% endif %}
         </div>
     </div>  
@@ -198,7 +204,7 @@
                 {% endfor %}
             {% empty %}
                 <tr>
-                    <td colspan="9" style="text-align: center; padding: 30px;">
+                    <td colspan="9" style="text-align: center; padding: 25px;">
                         لا توجد أنشطة مضافة لهذه الخطة حتى الآن.
                     </td>
                 </tr>

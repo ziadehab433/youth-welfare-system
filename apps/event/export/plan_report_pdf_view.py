@@ -1,7 +1,6 @@
 import os
 import logging
 from django.conf import settings
-from django.core.cache import cache
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 from django.shortcuts import get_object_or_404
@@ -36,17 +35,6 @@ def export_plan_pdf(request, plan_id):
             Plans.objects.select_related('faculty'), 
             pk=plan_id
         )
-        
-        cache_key = f"plan_pdf_{plan_id}_{plan.updated_at.timestamp()}"
-        cached_pdf = cache.get(cache_key)
-        if cached_pdf:
-            logger.info(f"PDF for plan {plan_id} served from cache")
-            response = HttpResponse(cached_pdf, content_type='application/pdf')
-            filename = f"plan_{plan_id}.pdf"
-            response['Content-Disposition'] = f'attachment; filename="{filename}"'
-            response['Content-Length'] = len(cached_pdf)
-            return response
-        
         events = Events.objects.filter(
             plan=plan
         ).annotate(
@@ -54,6 +42,8 @@ def export_plan_pdf(request, plan_id):
             females=Count('prtcps_set', filter=Q(prtcps_set__student__gender='F', prtcps_set__status='مقبول')),
             total_p=Count('prtcps_set', filter=Q(prtcps_set__status='مقبول'))
         ).order_by('type', 'st_date')
+        
+        events_list = list(events)
         
         totals = events.aggregate(
             total_cost=Sum('cost'),
@@ -63,7 +53,7 @@ def export_plan_pdf(request, plan_id):
         )
         
         grouped_data = {}
-        for event in events:
+        for event in events_list:
             etype = event.type or "أنشطة متنوعة"
             if etype not in grouped_data:
                 grouped_data[etype] = []
@@ -76,12 +66,12 @@ def export_plan_pdf(request, plan_id):
             'plan': plan,
             'plan_name': plan.name,
             'plan_term': plan.term,
-            'university_name': "جامعة حلوان",
+            'university_name': "جامعة العاصمة",
             'faculty_name': faculty.name if faculty else "كلية الحاسبات والذكاء الاصطناعي",
             'office_name': "إدارة رعاية الشباب",
-            'events': events,
+            'events': events_list,
             'grouped_data': grouped_data,
-            'total_events': events.count(),
+            'total_events': len(events_list),
             'total_cost': totals['total_cost'] or 0,
             'total_males': totals['total_males'] or 0,
             'total_females': totals['total_females'] or 0,
@@ -101,9 +91,6 @@ def export_plan_pdf(request, plan_id):
         html_string = render_to_string('event/activity_report.html', context)
         pdf_buffer = generate_pdf_sync(html_string)
         
-        cache.set(cache_key, pdf_buffer, timeout=60 * 60)
-        logger.info(f"PDF for plan {plan_id} generated and cached")
-        
         response = HttpResponse(pdf_buffer, content_type='application/pdf')
         filename = f"plan_{plan_id}.pdf" 
         encoded_filename = quote(filename)
@@ -113,6 +100,7 @@ def export_plan_pdf(request, plan_id):
         response['Access-Control-Expose-Headers'] = 'Content-Disposition'  
         
         return response
+        
     except Exception as e:
         import traceback
         logger.exception("Error generating PDF for plan %s: %s", plan_id, str(e))
