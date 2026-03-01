@@ -19,12 +19,6 @@ class PDFRenderer(BaseRenderer):
         return data
 
 def get_report_assets():
-    CACHE_KEY = "report_assets"
-    cached = cache.get(CACHE_KEY)
-    if cached:
-        logger.debug("Assets loaded from cache")
-        return cached
-
     assets = {'logo': '', 'font': ''}
     
     logo_path = os.path.join(settings.BASE_DIR, 'static', 'logo', 'logo.png')
@@ -45,7 +39,6 @@ def get_report_assets():
         except Exception as e:
             logger.warning(f"Font loading error: {e}")
     
-    cache.set(CACHE_KEY, assets, timeout=60 * 60 * 24)
     return assets
 
 async def _run_playwright_core(html_content, output_path=None, margins=None):
