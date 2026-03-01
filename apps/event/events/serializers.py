@@ -173,7 +173,7 @@ class EventListSerializer(serializers.ModelSerializer):
         model = Events
         fields = [
             'event_id', 'title', 'description', 'st_date', 'end_date',
-            'location', 'status', 'type', 'cost', 's_limit', 'faculty_id', 'dept_id'
+            'location', 'status', 'type', 'cost', 's_limit', 'faculty_id', 'dept_id','active'
         ]
 
 class ParticipantSerializer(serializers.ModelSerializer):

@@ -608,7 +608,7 @@ class EventARViewSet(viewsets.GenericViewSet):
 @extend_schema(tags=["Event Management APIs"])
 class EventActivationViewSet(viewsets.GenericViewSet):
     permission_classes = [IsRole]
-    allowed_roles = ['مسؤول كلية']
+    allowed_roles = ['مسؤول كلية','مدير ادارة']
     serializer_class = EventCreateUpdateSerializer
 
     def get_serializer_class(self):
