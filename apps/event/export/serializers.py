@@ -15,26 +15,26 @@ class EventReportSerializer(serializers.Serializer):
     achieved_goals = serializers.CharField(required=False, allow_blank=True, max_length=500)
     
     def validate_project_stages(self, value):
-        if len(value) > 500:
+        if len(value) > 290:
             raise serializers.ValidationError("Project stages must not exceed 500 characters.")
         return value
     
     def validate_preparation_stage(self, value):
-        if len(value) > 500:
+        if len(value) > 290:
             raise serializers.ValidationError("Preparation stage must not exceed 500 characters.")
         return value
     
     def validate_execution_stage(self, value):
-        if len(value) > 500:
+        if len(value) > 290:
             raise serializers.ValidationError("Execution stage must not exceed 500 characters.")
         return value
     
     def validate_evaluation_stage(self, value):
-        if len(value) > 500:
+        if len(value) > 290:
             raise serializers.ValidationError("Evaluation stage must not exceed 500 characters.")
         return value
     
     def validate_achieved_goals(self, value):
-        if len(value) > 500:
+        if len(value) > 290:
             raise serializers.ValidationError("Achieved goals must not exceed 500 characters.")
         return value
