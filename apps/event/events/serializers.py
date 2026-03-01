@@ -106,7 +106,7 @@ class ParticipantSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Prtcps
-        fields = ['id', 'student_id', 'student_name', 'rank', 'reward']
+        fields = ['id', 'student_id', 'student_name', 'rank', 'reward', 'status']
 
 class EventDetailSerializer(serializers.ModelSerializer):
     created_by_name = serializers.CharField(source='created_by.name', read_only=True)

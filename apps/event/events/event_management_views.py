@@ -66,7 +66,7 @@ class EventGetterViewSet(viewsets.GenericViewSet):
         ).prefetch_related(
             Prefetch(
                 'prtcps_set',
-                queryset=Prtcps.objects.select_related('student').filter(status='مقبول'),  
+                queryset=Prtcps.objects.select_related('student'),  
                 to_attr='participants'  
             )
         )
