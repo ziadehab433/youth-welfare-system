@@ -10,6 +10,7 @@ from apps.event.events.event_management_views import (
 from apps.event.events.event_student_views import StudentEventViewSet
 from apps.event.export.plan_report_pdf_view import export_plan_pdf
 from apps.event.export.event_report_pdf_view import EventReportViewSet
+from apps.event.export.event_summary_report_view import EventSummaryReportViewSet
 router = DefaultRouter()
 router.register(r'manage-events', EventManagementViewSet, basename='faculty_events')
 router.register(r'approve-events', EventARViewSet, basename='admin_events')
@@ -18,6 +19,7 @@ router.register(r'activate-events', EventActivationViewSet, basename='event_acti
 router.register(r'student-events', StudentEventViewSet, basename='student_events')
 router.register(r'manage-participants', EventParticipantViewSet, basename='manage_participants')
 router.register(r'reports', EventReportViewSet, basename='event_reports') 
+router.register(r'summary-reports', EventSummaryReportViewSet, basename='event_summary_reports')
 urlpatterns = [
     path('events/', include('apps.event.plans.urls')),
     path('event/', include(router.urls)),
