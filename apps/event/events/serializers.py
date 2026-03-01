@@ -1,15 +1,91 @@
 from rest_framework import serializers
-from apps.event.models import Events, Prtcps
+from apps.event.models import Events, Prtcps, EventDocs
 from apps.accounts.models import AdminsUser
 from apps.solidarity.models import Faculties
 from apps.accounts.utils import get_current_admin
+from drf_spectacular.utils import extend_schema_field
+
+class EventDocsSerializer(serializers.ModelSerializer):
+    """Serializer for event documents/images"""
+    file_url = serializers.SerializerMethodField()
+    uploaded_by_name = serializers.CharField(source='uploaded_by.name', read_only=True, allow_null=True)
+
+    class Meta:
+        model = EventDocs
+        fields = [
+            'doc_id', 
+            'event', 
+            'doc_type', 
+            'file_name',
+            'file_url', 
+            'mime_type', 
+            'file_size', 
+            'uploaded_at', 
+            'uploaded_by',
+            'uploaded_by_name'
+        ]
+        read_only_fields = ['doc_id', 'uploaded_at', 'uploaded_by', 'uploaded_by_name']
+
+    @extend_schema_field(serializers.URLField)
+    def get_file_url(self, obj):
+        request = self.context.get('request')
+        if obj.file_path:
+            from django.conf import settings
+            url = f"{settings.MEDIA_URL}{obj.file_path}"
+            return request.build_absolute_uri(url) if request else url
+        return None
+
+
+class EventImageUploadSerializer(serializers.Serializer):
+    """Serializer for uploading event images"""
+    
+    ALLOWED_EXTENSIONS = {'pdf', 'jpg', 'jpeg', 'png'}
+    MAX_FILE_SIZE = 20 * 1024 * 1024  # 20MB
+    
+    images = serializers.ListField(
+        child=serializers.FileField(),
+        required=True,
+        allow_empty=False,
+        max_length=10,  # Maximum 10 images per upload
+        help_text="List of image files (max 10, each max 20MB)"
+    )
+    
+    doc_type = serializers.ChoiceField(
+        choices=[
+            ('event_image', 'صورة الفعالية'),
+            ('poster', 'ملصق'),
+            ('certificate', 'شهادة'),
+            ('other', 'أخرى'),
+        ],
+        default='event_image',
+        required=False
+    )
+    
+    def validate_images(self, images):
+        """Validate each image file"""
+        for image in images:
+            # Check file size
+            if image.size > self.MAX_FILE_SIZE:
+                raise serializers.ValidationError(
+                    f"File {image.name} exceeds {self.MAX_FILE_SIZE / (1024*1024):.0f}MB limit"
+                )
+            
+            # Check file extension
+            ext = image.name.split('.')[-1].lower()
+            if ext not in self.ALLOWED_EXTENSIONS:
+                raise serializers.ValidationError(
+                    f"File {image.name} has invalid extension. Allowed: {', '.join(self.ALLOWED_EXTENSIONS)}"
+                )
+        
+        return images
+
 
 class EventCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Events
         fields = [
             'title', 'description', 'dept', 'cost',
-            'location', 'restrictions', 'reward', 'imgs',
+            'location', 'restrictions', 'reward', 
             'st_date', 'end_date', 's_limit', 'type',
             'resource', 'selected_facs', 'plan' 
         ]
@@ -106,7 +182,7 @@ class ParticipantSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Prtcps
-        fields = ['id', 'student_id', 'student_name', 'rank', 'reward']
+        fields = ['id', 'student_id', 'student_name', 'rank', 'reward', 'status']
 
 class EventDetailSerializer(serializers.ModelSerializer):
     created_by_name = serializers.CharField(source='created_by.name', read_only=True)
@@ -115,6 +191,7 @@ class EventDetailSerializer(serializers.ModelSerializer):
     family_name = serializers.CharField(source='family.name', read_only=True, allow_null=True)
     
     participants = serializers.SerializerMethodField()
+    images = serializers.SerializerMethodField()
     
     class Meta:
         model = Events
@@ -127,6 +204,11 @@ class EventDetailSerializer(serializers.ModelSerializer):
             participants = obj.prtcps_set.all()
         
         return ParticipantSerializer(participants, many=True).data
+    
+    def get_images(self, obj):
+        """Return all images for this event"""
+        docs = obj.event_docs.all()
+        return EventDocsSerializer(docs, many=True, context=self.context).data
 
     def to_representation(self, instance):
         """Remove selected_facs from response for faculty admins"""
@@ -156,7 +238,7 @@ class EventAvailableSerializer(serializers.ModelSerializer):
             'event_id', 'title', 'description', 'st_date', 'end_date',
             'location', 'type', 'cost', 's_limit', 'faculty_name', 
             'dept_name', 'days_remaining', 'is_full', 'current_participants',
-            'imgs', 'reward'
+             'reward'
         ]
 
     def get_days_remaining(self, obj):
@@ -192,7 +274,7 @@ class EventJoinedSerializer(serializers.ModelSerializer):
             'event_id', 'title', 'description', 'st_date', 'end_date',
             'location', 'type', 'cost', 'faculty_name', 'dept_name',
             'participation_status', 'participation_rank', 'participation_reward',
-            'imgs', 'reward'
+         'reward'
         ]
         
 class ParticipantResultSerializer(serializers.Serializer):

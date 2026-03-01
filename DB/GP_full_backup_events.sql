@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict Hcop7CUbwNSQjhcDJt2N3PDcYTP9rXEz8VivpXQBnWgXCVrAgNEcyig6xPtOdRM
+\restrict MFMySPXL1bz0dpq2x4g8P78Ey1MG2A6NWOceF5Jqzmw4COxqpPLcIosovnACEKT
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.6
@@ -19,8 +19,196 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
+ALTER TABLE IF EXISTS ONLY public.students DROP CONSTRAINT IF EXISTS students_faculty_fk;
+ALTER TABLE IF EXISTS ONLY public.solidarity_docs DROP CONSTRAINT IF EXISTS solidarity_docs_solidarity_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.solidarities DROP CONSTRAINT IF EXISTS solidarities_student_fk;
+ALTER TABLE IF EXISTS ONLY public.solidarities DROP CONSTRAINT IF EXISTS solidarities_faculty_fk;
+ALTER TABLE IF EXISTS ONLY public.solidarities DROP CONSTRAINT IF EXISTS solidarities_approved_by_fk;
+ALTER TABLE IF EXISTS ONLY public.prtcps DROP CONSTRAINT IF EXISTS prtcps_student_fk;
+ALTER TABLE IF EXISTS ONLY public.prtcps DROP CONSTRAINT IF EXISTS prtcps_event_fk;
+ALTER TABLE IF EXISTS ONLY public.plans DROP CONSTRAINT IF EXISTS plans_faculty_fk;
+ALTER TABLE IF EXISTS ONLY public.logs DROP CONSTRAINT IF EXISTS logs_student_fk;
+ALTER TABLE IF EXISTS ONLY public.logs DROP CONSTRAINT IF EXISTS logs_solidarity_fk;
+ALTER TABLE IF EXISTS ONLY public.logs DROP CONSTRAINT IF EXISTS logs_family_fk;
+ALTER TABLE IF EXISTS ONLY public.logs DROP CONSTRAINT IF EXISTS logs_event_fk;
+ALTER TABLE IF EXISTS ONLY public.logs DROP CONSTRAINT IF EXISTS logs_actor_fk;
+ALTER TABLE IF EXISTS ONLY public.posts DROP CONSTRAINT IF EXISTS fk_posts_family;
+ALTER TABLE IF EXISTS ONLY public.posts DROP CONSTRAINT IF EXISTS fk_posts_faculty;
+ALTER TABLE IF EXISTS ONLY public.family_members DROP CONSTRAINT IF EXISTS fk_family_members_dept;
+ALTER TABLE IF EXISTS ONLY public.events DROP CONSTRAINT IF EXISTS fk_events_family;
+ALTER TABLE IF EXISTS ONLY public.family_admins DROP CONSTRAINT IF EXISTS fk_admin_family;
+ALTER TABLE IF EXISTS ONLY public.family_members DROP CONSTRAINT IF EXISTS family_members_student_fk;
+ALTER TABLE IF EXISTS ONLY public.family_members DROP CONSTRAINT IF EXISTS family_members_family_fk;
+ALTER TABLE IF EXISTS ONLY public.families DROP CONSTRAINT IF EXISTS families_faculty_fk;
+ALTER TABLE IF EXISTS ONLY public.families DROP CONSTRAINT IF EXISTS families_created_by_fk;
+ALTER TABLE IF EXISTS ONLY public.families DROP CONSTRAINT IF EXISTS families_approved_by_fk;
+ALTER TABLE IF EXISTS ONLY public.events DROP CONSTRAINT IF EXISTS events_plan_fk;
+ALTER TABLE IF EXISTS ONLY public.events DROP CONSTRAINT IF EXISTS events_faculty_fk;
+ALTER TABLE IF EXISTS ONLY public.events DROP CONSTRAINT IF EXISTS events_dept_fk;
+ALTER TABLE IF EXISTS ONLY public.events DROP CONSTRAINT IF EXISTS events_created_by_fk;
+ALTER TABLE IF EXISTS ONLY public.event_docs DROP CONSTRAINT IF EXISTS event_docs_uploaded_by_fkey;
+ALTER TABLE IF EXISTS ONLY public.event_docs DROP CONSTRAINT IF EXISTS event_docs_event_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.django_admin_log DROP CONSTRAINT IF EXISTS django_admin_log_user_id_c564eba6_fk_auth_user_id;
+ALTER TABLE IF EXISTS ONLY public.django_admin_log DROP CONSTRAINT IF EXISTS django_admin_log_content_type_id_c4bce8eb_fk_django_co;
+ALTER TABLE IF EXISTS ONLY public.auth_user_user_permissions DROP CONSTRAINT IF EXISTS auth_user_user_permissions_user_id_a95ead1b_fk_auth_user_id;
+ALTER TABLE IF EXISTS ONLY public.auth_user_user_permissions DROP CONSTRAINT IF EXISTS auth_user_user_permi_permission_id_1fbb5f2c_fk_auth_perm;
+ALTER TABLE IF EXISTS ONLY public.auth_user_groups DROP CONSTRAINT IF EXISTS auth_user_groups_user_id_6a12ed8b_fk_auth_user_id;
+ALTER TABLE IF EXISTS ONLY public.auth_user_groups DROP CONSTRAINT IF EXISTS auth_user_groups_group_id_97559544_fk_auth_group_id;
+ALTER TABLE IF EXISTS ONLY public.auth_permission DROP CONSTRAINT IF EXISTS auth_permission_content_type_id_2f476e4b_fk_django_co;
+ALTER TABLE IF EXISTS ONLY public.auth_group_permissions DROP CONSTRAINT IF EXISTS auth_group_permissions_group_id_b120cbf9_fk_auth_group_id;
+ALTER TABLE IF EXISTS ONLY public.auth_group_permissions DROP CONSTRAINT IF EXISTS auth_group_permissio_permission_id_84c5c92e_fk_auth_perm;
+ALTER TABLE IF EXISTS ONLY public.admins DROP CONSTRAINT IF EXISTS admins_faculty_fk;
+ALTER TABLE IF EXISTS ONLY public.admins DROP CONSTRAINT IF EXISTS admins_dept_fk;
+DROP TRIGGER IF EXISTS trg_solidarities_touch ON public.solidarities;
+DROP TRIGGER IF EXISTS trg_log_solidarity_rejection ON public.solidarities;
+DROP TRIGGER IF EXISTS trg_log_solidarity_pre_approval ON public.solidarities;
+DROP TRIGGER IF EXISTS trg_log_solidarity_approval ON public.solidarities;
+DROP TRIGGER IF EXISTS trg_log_family_insert ON public.families;
+DROP TRIGGER IF EXISTS trg_log_event_insert ON public.events;
+DROP TRIGGER IF EXISTS trg_families_touch ON public.families;
+DROP TRIGGER IF EXISTS trg_events_touch ON public.events;
+DROP INDEX IF EXISTS public.idx_students_faculty_id;
+DROP INDEX IF EXISTS public.idx_solidarities_student;
+DROP INDEX IF EXISTS public.idx_solidarities_faculty;
+DROP INDEX IF EXISTS public.idx_prtcps_student;
+DROP INDEX IF EXISTS public.idx_prtcps_event;
+DROP INDEX IF EXISTS public.idx_posts_family_id;
+DROP INDEX IF EXISTS public.idx_posts_faculty_id;
+DROP INDEX IF EXISTS public.idx_posts_created_at;
+DROP INDEX IF EXISTS public.idx_plans_name;
+DROP INDEX IF EXISTS public.idx_plans_faculty_id;
+DROP INDEX IF EXISTS public.idx_logs_target;
+DROP INDEX IF EXISTS public.idx_logs_student_id;
+DROP INDEX IF EXISTS public.idx_logs_logged_at;
+DROP INDEX IF EXISTS public.idx_logs_actor_id;
+DROP INDEX IF EXISTS public.idx_logs_action;
+DROP INDEX IF EXISTS public.idx_family_members_student;
+DROP INDEX IF EXISTS public.idx_family_admins_family_id;
+DROP INDEX IF EXISTS public.idx_families_faculty_id;
+DROP INDEX IF EXISTS public.idx_families_created_by;
+DROP INDEX IF EXISTS public.idx_events_selected_facs;
+DROP INDEX IF EXISTS public.idx_events_plan_id;
+DROP INDEX IF EXISTS public.idx_events_faculty_id;
+DROP INDEX IF EXISTS public.idx_events_dept_id;
+DROP INDEX IF EXISTS public.idx_events_created_by;
+DROP INDEX IF EXISTS public.idx_event_docs_uploaded_by;
+DROP INDEX IF EXISTS public.idx_event_docs_uploaded_at;
+DROP INDEX IF EXISTS public.idx_event_docs_event_id;
+DROP INDEX IF EXISTS public.idx_event_docs_event;
+DROP INDEX IF EXISTS public.idx_admins_faculty_id;
+DROP INDEX IF EXISTS public.idx_admins_dept_id;
+DROP INDEX IF EXISTS public.django_session_session_key_c0390e0f_like;
+DROP INDEX IF EXISTS public.django_session_expire_date_a5c62663;
+DROP INDEX IF EXISTS public.django_admin_log_user_id_c564eba6;
+DROP INDEX IF EXISTS public.django_admin_log_content_type_id_c4bce8eb;
+DROP INDEX IF EXISTS public.auth_user_username_6821ab7c_like;
+DROP INDEX IF EXISTS public.auth_user_user_permissions_user_id_a95ead1b;
+DROP INDEX IF EXISTS public.auth_user_user_permissions_permission_id_1fbb5f2c;
+DROP INDEX IF EXISTS public.auth_user_groups_user_id_6a12ed8b;
+DROP INDEX IF EXISTS public.auth_user_groups_group_id_97559544;
+DROP INDEX IF EXISTS public.auth_permission_content_type_id_2f476e4b;
+DROP INDEX IF EXISTS public.auth_group_permissions_permission_id_84c5c92e;
+DROP INDEX IF EXISTS public.auth_group_permissions_group_id_b120cbf9;
+DROP INDEX IF EXISTS public.auth_group_name_a6ea08ec_like;
+ALTER TABLE IF EXISTS ONLY public.students DROP CONSTRAINT IF EXISTS students_uid_key;
+ALTER TABLE IF EXISTS ONLY public.students DROP CONSTRAINT IF EXISTS students_pkey;
+ALTER TABLE IF EXISTS ONLY public.students DROP CONSTRAINT IF EXISTS students_phone_number_key;
+ALTER TABLE IF EXISTS ONLY public.students DROP CONSTRAINT IF EXISTS students_nid_key;
+ALTER TABLE IF EXISTS ONLY public.students DROP CONSTRAINT IF EXISTS students_google_id_key;
+ALTER TABLE IF EXISTS ONLY public.students DROP CONSTRAINT IF EXISTS students_email_key;
+ALTER TABLE IF EXISTS ONLY public.solidarity_docs DROP CONSTRAINT IF EXISTS solidarity_docs_solidarity_id_doc_type_key;
+ALTER TABLE IF EXISTS ONLY public.solidarity_docs DROP CONSTRAINT IF EXISTS solidarity_docs_pkey;
+ALTER TABLE IF EXISTS ONLY public.solidarities DROP CONSTRAINT IF EXISTS solidarities_pkey;
+ALTER TABLE IF EXISTS ONLY public.prtcps DROP CONSTRAINT IF EXISTS prtcps_id_pkey;
+ALTER TABLE IF EXISTS ONLY public.prtcps DROP CONSTRAINT IF EXISTS prtcps_event_student_unique;
+ALTER TABLE IF EXISTS ONLY public.posts DROP CONSTRAINT IF EXISTS posts_pkey;
+ALTER TABLE IF EXISTS ONLY public.plans DROP CONSTRAINT IF EXISTS plans_pkey;
+ALTER TABLE IF EXISTS ONLY public.logs DROP CONSTRAINT IF EXISTS logs_pkey;
+ALTER TABLE IF EXISTS ONLY public.family_members DROP CONSTRAINT IF EXISTS family_members_pkey;
+ALTER TABLE IF EXISTS ONLY public.family_admins DROP CONSTRAINT IF EXISTS family_admins_pkey;
+ALTER TABLE IF EXISTS ONLY public.families DROP CONSTRAINT IF EXISTS families_pkey;
+ALTER TABLE IF EXISTS ONLY public.faculties DROP CONSTRAINT IF EXISTS faculties_pkey;
+ALTER TABLE IF EXISTS ONLY public.events DROP CONSTRAINT IF EXISTS events_pkey;
+ALTER TABLE IF EXISTS ONLY public.event_docs DROP CONSTRAINT IF EXISTS event_docs_pkey;
+ALTER TABLE IF EXISTS ONLY public.documents DROP CONSTRAINT IF EXISTS documents_pkey;
+ALTER TABLE IF EXISTS ONLY public.django_session DROP CONSTRAINT IF EXISTS django_session_pkey;
+ALTER TABLE IF EXISTS ONLY public.django_migrations DROP CONSTRAINT IF EXISTS django_migrations_pkey;
+ALTER TABLE IF EXISTS ONLY public.django_content_type DROP CONSTRAINT IF EXISTS django_content_type_pkey;
+ALTER TABLE IF EXISTS ONLY public.django_content_type DROP CONSTRAINT IF EXISTS django_content_type_app_label_model_76bd3d3b_uniq;
+ALTER TABLE IF EXISTS ONLY public.django_admin_log DROP CONSTRAINT IF EXISTS django_admin_log_pkey;
+ALTER TABLE IF EXISTS ONLY public.departments DROP CONSTRAINT IF EXISTS departments_pkey;
+ALTER TABLE IF EXISTS ONLY public.auth_user DROP CONSTRAINT IF EXISTS auth_user_username_key;
+ALTER TABLE IF EXISTS ONLY public.auth_user_user_permissions DROP CONSTRAINT IF EXISTS auth_user_user_permissions_user_id_permission_id_14a6b632_uniq;
+ALTER TABLE IF EXISTS ONLY public.auth_user_user_permissions DROP CONSTRAINT IF EXISTS auth_user_user_permissions_pkey;
+ALTER TABLE IF EXISTS ONLY public.auth_user DROP CONSTRAINT IF EXISTS auth_user_pkey;
+ALTER TABLE IF EXISTS ONLY public.auth_user_groups DROP CONSTRAINT IF EXISTS auth_user_groups_user_id_group_id_94350c0c_uniq;
+ALTER TABLE IF EXISTS ONLY public.auth_user_groups DROP CONSTRAINT IF EXISTS auth_user_groups_pkey;
+ALTER TABLE IF EXISTS ONLY public.auth_permission DROP CONSTRAINT IF EXISTS auth_permission_pkey;
+ALTER TABLE IF EXISTS ONLY public.auth_permission DROP CONSTRAINT IF EXISTS auth_permission_content_type_id_codename_01ab375a_uniq;
+ALTER TABLE IF EXISTS ONLY public.auth_group DROP CONSTRAINT IF EXISTS auth_group_pkey;
+ALTER TABLE IF EXISTS ONLY public.auth_group_permissions DROP CONSTRAINT IF EXISTS auth_group_permissions_pkey;
+ALTER TABLE IF EXISTS ONLY public.auth_group_permissions DROP CONSTRAINT IF EXISTS auth_group_permissions_group_id_permission_id_0cd325b0_uniq;
+ALTER TABLE IF EXISTS ONLY public.auth_group DROP CONSTRAINT IF EXISTS auth_group_name_key;
+ALTER TABLE IF EXISTS ONLY public.admins DROP CONSTRAINT IF EXISTS admins_pkey;
+ALTER TABLE IF EXISTS ONLY public.admins DROP CONSTRAINT IF EXISTS admins_phone_number_unique;
+ALTER TABLE IF EXISTS ONLY public.admins DROP CONSTRAINT IF EXISTS admins_national_id_unique;
+ALTER TABLE IF EXISTS ONLY public.admins DROP CONSTRAINT IF EXISTS admins_email_key;
+ALTER TABLE IF EXISTS public.solidarity_docs ALTER COLUMN doc_id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.prtcps ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.posts ALTER COLUMN post_id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.family_admins ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.event_docs ALTER COLUMN doc_id DROP DEFAULT;
+DROP TABLE IF EXISTS public.students;
+DROP SEQUENCE IF EXISTS public.solidarity_docs_doc_id_seq;
+DROP TABLE IF EXISTS public.solidarity_docs;
+DROP TABLE IF EXISTS public.solidarities;
+DROP SEQUENCE IF EXISTS public.prtcps_id_seq;
+DROP TABLE IF EXISTS public.prtcps;
+DROP SEQUENCE IF EXISTS public.posts_post_id_seq;
+DROP TABLE IF EXISTS public.posts;
+DROP TABLE IF EXISTS public.plans;
+DROP TABLE IF EXISTS public.logs;
+DROP TABLE IF EXISTS public.family_members;
+DROP SEQUENCE IF EXISTS public.family_admins_id_seq;
+DROP TABLE IF EXISTS public.family_admins;
+DROP TABLE IF EXISTS public.families;
+DROP TABLE IF EXISTS public.faculties;
+DROP TABLE IF EXISTS public.events;
+DROP SEQUENCE IF EXISTS public.event_docs_doc_id_seq;
+DROP TABLE IF EXISTS public.event_docs;
+DROP TABLE IF EXISTS public.documents;
+DROP TABLE IF EXISTS public.django_session;
+DROP TABLE IF EXISTS public.django_migrations;
+DROP TABLE IF EXISTS public.django_content_type;
+DROP TABLE IF EXISTS public.django_admin_log;
+DROP TABLE IF EXISTS public.departments;
+DROP TABLE IF EXISTS public.auth_user_user_permissions;
+DROP TABLE IF EXISTS public.auth_user_groups;
+DROP TABLE IF EXISTS public.auth_user;
+DROP TABLE IF EXISTS public.auth_permission;
+DROP TABLE IF EXISTS public.auth_group_permissions;
+DROP TABLE IF EXISTS public.auth_group;
+DROP TABLE IF EXISTS public.admins;
+DROP FUNCTION IF EXISTS public.set_updated_at();
+DROP FUNCTION IF EXISTS public.log_solidarity_rejection();
+DROP FUNCTION IF EXISTS public.log_solidarity_pre_approval();
+DROP FUNCTION IF EXISTS public.log_solidarity_approval();
+DROP FUNCTION IF EXISTS public.log_family_insert();
+DROP FUNCTION IF EXISTS public.log_event_insert();
+DROP FUNCTION IF EXISTS public.client_ip();
+DROP TYPE IF EXISTS public.target_type;
+DROP TYPE IF EXISTS public.sol_doc_type;
+DROP TYPE IF EXISTS public.req_type_enum;
+DROP TYPE IF EXISTS public.owner_type;
+DROP TYPE IF EXISTS public.housing_status;
+DROP TYPE IF EXISTS public.general_status;
+DROP TYPE IF EXISTS public.family_type;
+DROP TYPE IF EXISTS public.family_members_roles;
+DROP TYPE IF EXISTS public.event_type;
+DROP TYPE IF EXISTS public.admin_role;
+DROP TYPE IF EXISTS public.actor_type;
 --
--- Name: actor_type; Type: TYPE; Schema: public; Owner: postgres
+-- Name: actor_type; Type: TYPE; Schema: public; Owner: -
 --
 
 CREATE TYPE public.actor_type AS ENUM (
@@ -34,10 +222,8 @@ CREATE TYPE public.actor_type AS ENUM (
 );
 
 
-ALTER TYPE public.actor_type OWNER TO postgres;
-
 --
--- Name: admin_role; Type: TYPE; Schema: public; Owner: postgres
+-- Name: admin_role; Type: TYPE; Schema: public; Owner: -
 --
 
 CREATE TYPE public.admin_role AS ENUM (
@@ -49,10 +235,8 @@ CREATE TYPE public.admin_role AS ENUM (
 );
 
 
-ALTER TYPE public.admin_role OWNER TO postgres;
-
 --
--- Name: event_type; Type: TYPE; Schema: public; Owner: postgres
+-- Name: event_type; Type: TYPE; Schema: public; Owner: -
 --
 
 CREATE TYPE public.event_type AS ENUM (
@@ -71,10 +255,8 @@ CREATE TYPE public.event_type AS ENUM (
 );
 
 
-ALTER TYPE public.event_type OWNER TO postgres;
-
 --
--- Name: family_members_roles; Type: TYPE; Schema: public; Owner: postgres
+-- Name: family_members_roles; Type: TYPE; Schema: public; Owner: -
 --
 
 CREATE TYPE public.family_members_roles AS ENUM (
@@ -92,10 +274,8 @@ CREATE TYPE public.family_members_roles AS ENUM (
 );
 
 
-ALTER TYPE public.family_members_roles OWNER TO postgres;
-
 --
--- Name: family_type; Type: TYPE; Schema: public; Owner: postgres
+-- Name: family_type; Type: TYPE; Schema: public; Owner: -
 --
 
 CREATE TYPE public.family_type AS ENUM (
@@ -105,10 +285,8 @@ CREATE TYPE public.family_type AS ENUM (
 );
 
 
-ALTER TYPE public.family_type OWNER TO postgres;
-
 --
--- Name: general_status; Type: TYPE; Schema: public; Owner: postgres
+-- Name: general_status; Type: TYPE; Schema: public; Owner: -
 --
 
 CREATE TYPE public.general_status AS ENUM (
@@ -120,10 +298,8 @@ CREATE TYPE public.general_status AS ENUM (
 );
 
 
-ALTER TYPE public.general_status OWNER TO postgres;
-
 --
--- Name: housing_status; Type: TYPE; Schema: public; Owner: postgres
+-- Name: housing_status; Type: TYPE; Schema: public; Owner: -
 --
 
 CREATE TYPE public.housing_status AS ENUM (
@@ -132,10 +308,8 @@ CREATE TYPE public.housing_status AS ENUM (
 );
 
 
-ALTER TYPE public.housing_status OWNER TO postgres;
-
 --
--- Name: owner_type; Type: TYPE; Schema: public; Owner: postgres
+-- Name: owner_type; Type: TYPE; Schema: public; Owner: -
 --
 
 CREATE TYPE public.owner_type AS ENUM (
@@ -146,10 +320,8 @@ CREATE TYPE public.owner_type AS ENUM (
 );
 
 
-ALTER TYPE public.owner_type OWNER TO postgres;
-
 --
--- Name: req_type_enum; Type: TYPE; Schema: public; Owner: postgres
+-- Name: req_type_enum; Type: TYPE; Schema: public; Owner: -
 --
 
 CREATE TYPE public.req_type_enum AS ENUM (
@@ -161,10 +333,8 @@ CREATE TYPE public.req_type_enum AS ENUM (
 );
 
 
-ALTER TYPE public.req_type_enum OWNER TO postgres;
-
 --
--- Name: sol_doc_type; Type: TYPE; Schema: public; Owner: postgres
+-- Name: sol_doc_type; Type: TYPE; Schema: public; Owner: -
 --
 
 CREATE TYPE public.sol_doc_type AS ENUM (
@@ -177,10 +347,8 @@ CREATE TYPE public.sol_doc_type AS ENUM (
 );
 
 
-ALTER TYPE public.sol_doc_type OWNER TO postgres;
-
 --
--- Name: target_type; Type: TYPE; Schema: public; Owner: postgres
+-- Name: target_type; Type: TYPE; Schema: public; Owner: -
 --
 
 CREATE TYPE public.target_type AS ENUM (
@@ -192,10 +360,8 @@ CREATE TYPE public.target_type AS ENUM (
 );
 
 
-ALTER TYPE public.target_type OWNER TO postgres;
-
 --
--- Name: client_ip(); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: client_ip(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.client_ip() RETURNS inet
@@ -203,10 +369,8 @@ CREATE FUNCTION public.client_ip() RETURNS inet
     AS $$ SELECT COALESCE(inet_client_addr(), '0.0.0.0') $$;
 
 
-ALTER FUNCTION public.client_ip() OWNER TO postgres;
-
 --
--- Name: log_event_insert(); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: log_event_insert(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.log_event_insert() RETURNS trigger
@@ -228,10 +392,8 @@ END;
 $$;
 
 
-ALTER FUNCTION public.log_event_insert() OWNER TO postgres;
-
 --
--- Name: log_family_insert(); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: log_family_insert(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.log_family_insert() RETURNS trigger
@@ -246,10 +408,8 @@ BEGIN
 END;$$;
 
 
-ALTER FUNCTION public.log_family_insert() OWNER TO postgres;
-
 --
--- Name: log_solidarity_approval(); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: log_solidarity_approval(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.log_solidarity_approval() RETURNS trigger
@@ -284,10 +444,8 @@ END;
 $$;
 
 
-ALTER FUNCTION public.log_solidarity_approval() OWNER TO postgres;
-
 --
--- Name: log_solidarity_pre_approval(); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: log_solidarity_pre_approval(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.log_solidarity_pre_approval() RETURNS trigger
@@ -322,10 +480,8 @@ END;
 $$;
 
 
-ALTER FUNCTION public.log_solidarity_pre_approval() OWNER TO postgres;
-
 --
--- Name: log_solidarity_rejection(); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: log_solidarity_rejection(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.log_solidarity_rejection() RETURNS trigger
@@ -360,10 +516,8 @@ END;
 $$;
 
 
-ALTER FUNCTION public.log_solidarity_rejection() OWNER TO postgres;
-
 --
--- Name: set_updated_at(); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: set_updated_at(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.set_updated_at() RETURNS trigger
@@ -376,14 +530,12 @@ END;
 $$;
 
 
-ALTER FUNCTION public.set_updated_at() OWNER TO postgres;
-
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
 
 --
--- Name: admins; Type: TABLE; Schema: public; Owner: postgres
+-- Name: admins; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.admins (
@@ -408,10 +560,8 @@ CREATE TABLE public.admins (
 );
 
 
-ALTER TABLE public.admins OWNER TO postgres;
-
 --
--- Name: admins_admin_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: admins_admin_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.admins ALTER COLUMN admin_id ADD GENERATED ALWAYS AS IDENTITY (
@@ -425,7 +575,7 @@ ALTER TABLE public.admins ALTER COLUMN admin_id ADD GENERATED ALWAYS AS IDENTITY
 
 
 --
--- Name: auth_group; Type: TABLE; Schema: public; Owner: postgres
+-- Name: auth_group; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.auth_group (
@@ -434,10 +584,8 @@ CREATE TABLE public.auth_group (
 );
 
 
-ALTER TABLE public.auth_group OWNER TO postgres;
-
 --
--- Name: auth_group_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: auth_group_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.auth_group ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -451,7 +599,7 @@ ALTER TABLE public.auth_group ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTI
 
 
 --
--- Name: auth_group_permissions; Type: TABLE; Schema: public; Owner: postgres
+-- Name: auth_group_permissions; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.auth_group_permissions (
@@ -461,10 +609,8 @@ CREATE TABLE public.auth_group_permissions (
 );
 
 
-ALTER TABLE public.auth_group_permissions OWNER TO postgres;
-
 --
--- Name: auth_group_permissions_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: auth_group_permissions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.auth_group_permissions ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -478,7 +624,7 @@ ALTER TABLE public.auth_group_permissions ALTER COLUMN id ADD GENERATED BY DEFAU
 
 
 --
--- Name: auth_permission; Type: TABLE; Schema: public; Owner: postgres
+-- Name: auth_permission; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.auth_permission (
@@ -489,10 +635,8 @@ CREATE TABLE public.auth_permission (
 );
 
 
-ALTER TABLE public.auth_permission OWNER TO postgres;
-
 --
--- Name: auth_permission_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: auth_permission_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.auth_permission ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -506,7 +650,7 @@ ALTER TABLE public.auth_permission ALTER COLUMN id ADD GENERATED BY DEFAULT AS I
 
 
 --
--- Name: auth_user; Type: TABLE; Schema: public; Owner: postgres
+-- Name: auth_user; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.auth_user (
@@ -524,10 +668,8 @@ CREATE TABLE public.auth_user (
 );
 
 
-ALTER TABLE public.auth_user OWNER TO postgres;
-
 --
--- Name: auth_user_groups; Type: TABLE; Schema: public; Owner: postgres
+-- Name: auth_user_groups; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.auth_user_groups (
@@ -537,10 +679,8 @@ CREATE TABLE public.auth_user_groups (
 );
 
 
-ALTER TABLE public.auth_user_groups OWNER TO postgres;
-
 --
--- Name: auth_user_groups_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: auth_user_groups_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.auth_user_groups ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -554,7 +694,7 @@ ALTER TABLE public.auth_user_groups ALTER COLUMN id ADD GENERATED BY DEFAULT AS 
 
 
 --
--- Name: auth_user_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: auth_user_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.auth_user ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -568,7 +708,7 @@ ALTER TABLE public.auth_user ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTIT
 
 
 --
--- Name: auth_user_user_permissions; Type: TABLE; Schema: public; Owner: postgres
+-- Name: auth_user_user_permissions; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.auth_user_user_permissions (
@@ -578,10 +718,8 @@ CREATE TABLE public.auth_user_user_permissions (
 );
 
 
-ALTER TABLE public.auth_user_user_permissions OWNER TO postgres;
-
 --
--- Name: auth_user_user_permissions_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: auth_user_user_permissions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.auth_user_user_permissions ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -595,7 +733,7 @@ ALTER TABLE public.auth_user_user_permissions ALTER COLUMN id ADD GENERATED BY D
 
 
 --
--- Name: departments; Type: TABLE; Schema: public; Owner: postgres
+-- Name: departments; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.departments (
@@ -607,10 +745,8 @@ CREATE TABLE public.departments (
 );
 
 
-ALTER TABLE public.departments OWNER TO postgres;
-
 --
--- Name: departments_dept_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: departments_dept_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.departments ALTER COLUMN dept_id ADD GENERATED ALWAYS AS IDENTITY (
@@ -624,7 +760,7 @@ ALTER TABLE public.departments ALTER COLUMN dept_id ADD GENERATED ALWAYS AS IDEN
 
 
 --
--- Name: django_admin_log; Type: TABLE; Schema: public; Owner: postgres
+-- Name: django_admin_log; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.django_admin_log (
@@ -640,10 +776,8 @@ CREATE TABLE public.django_admin_log (
 );
 
 
-ALTER TABLE public.django_admin_log OWNER TO postgres;
-
 --
--- Name: django_admin_log_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: django_admin_log_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.django_admin_log ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -657,7 +791,7 @@ ALTER TABLE public.django_admin_log ALTER COLUMN id ADD GENERATED BY DEFAULT AS 
 
 
 --
--- Name: django_content_type; Type: TABLE; Schema: public; Owner: postgres
+-- Name: django_content_type; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.django_content_type (
@@ -667,10 +801,8 @@ CREATE TABLE public.django_content_type (
 );
 
 
-ALTER TABLE public.django_content_type OWNER TO postgres;
-
 --
--- Name: django_content_type_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: django_content_type_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.django_content_type ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -684,7 +816,7 @@ ALTER TABLE public.django_content_type ALTER COLUMN id ADD GENERATED BY DEFAULT 
 
 
 --
--- Name: django_migrations; Type: TABLE; Schema: public; Owner: postgres
+-- Name: django_migrations; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.django_migrations (
@@ -695,10 +827,8 @@ CREATE TABLE public.django_migrations (
 );
 
 
-ALTER TABLE public.django_migrations OWNER TO postgres;
-
 --
--- Name: django_migrations_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: django_migrations_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.django_migrations ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -712,7 +842,7 @@ ALTER TABLE public.django_migrations ALTER COLUMN id ADD GENERATED BY DEFAULT AS
 
 
 --
--- Name: django_session; Type: TABLE; Schema: public; Owner: postgres
+-- Name: django_session; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.django_session (
@@ -722,10 +852,8 @@ CREATE TABLE public.django_session (
 );
 
 
-ALTER TABLE public.django_session OWNER TO postgres;
-
 --
--- Name: documents; Type: TABLE; Schema: public; Owner: postgres
+-- Name: documents; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.documents (
@@ -739,10 +867,8 @@ CREATE TABLE public.documents (
 );
 
 
-ALTER TABLE public.documents OWNER TO postgres;
-
 --
--- Name: documents_doc_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: documents_doc_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.documents ALTER COLUMN doc_id ADD GENERATED ALWAYS AS IDENTITY (
@@ -756,7 +882,7 @@ ALTER TABLE public.documents ALTER COLUMN doc_id ADD GENERATED ALWAYS AS IDENTIT
 
 
 --
--- Name: event_docs; Type: TABLE; Schema: public; Owner: postgres
+-- Name: event_docs; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.event_docs (
@@ -772,10 +898,8 @@ CREATE TABLE public.event_docs (
 );
 
 
-ALTER TABLE public.event_docs OWNER TO postgres;
-
 --
--- Name: event_docs_doc_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: event_docs_doc_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.event_docs_doc_id_seq
@@ -787,17 +911,15 @@ CREATE SEQUENCE public.event_docs_doc_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.event_docs_doc_id_seq OWNER TO postgres;
-
 --
--- Name: event_docs_doc_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: event_docs_doc_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.event_docs_doc_id_seq OWNED BY public.event_docs.doc_id;
 
 
 --
--- Name: events; Type: TABLE; Schema: public; Owner: postgres
+-- Name: events; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.events (
@@ -813,7 +935,6 @@ CREATE TABLE public.events (
     restrictions text,
     reward text,
     status public.general_status DEFAULT 'منتظر'::public.general_status,
-    imgs character varying(255),
     st_date date NOT NULL,
     end_date date NOT NULL,
     s_limit integer,
@@ -823,15 +944,13 @@ CREATE TABLE public.events (
     resource character varying(100),
     selected_facs integer[],
     plan_id integer,
-    active boolean DEFAULT true,
+    active boolean DEFAULT false,
     CONSTRAINT events_check CHECK ((end_date >= st_date))
 );
 
 
-ALTER TABLE public.events OWNER TO postgres;
-
 --
--- Name: events_event_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: events_event_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.events ALTER COLUMN event_id ADD GENERATED ALWAYS AS IDENTITY (
@@ -845,7 +964,7 @@ ALTER TABLE public.events ALTER COLUMN event_id ADD GENERATED ALWAYS AS IDENTITY
 
 
 --
--- Name: faculties; Type: TABLE; Schema: public; Owner: postgres
+-- Name: faculties; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.faculties (
@@ -860,10 +979,8 @@ CREATE TABLE public.faculties (
 );
 
 
-ALTER TABLE public.faculties OWNER TO postgres;
-
 --
--- Name: faculties_faculty_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: faculties_faculty_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.faculties ALTER COLUMN faculty_id ADD GENERATED ALWAYS AS IDENTITY (
@@ -877,7 +994,7 @@ ALTER TABLE public.faculties ALTER COLUMN faculty_id ADD GENERATED ALWAYS AS IDE
 
 
 --
--- Name: families; Type: TABLE; Schema: public; Owner: postgres
+-- Name: families; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.families (
@@ -896,10 +1013,8 @@ CREATE TABLE public.families (
 );
 
 
-ALTER TABLE public.families OWNER TO postgres;
-
 --
--- Name: families_family_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: families_family_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.families ALTER COLUMN family_id ADD GENERATED ALWAYS AS IDENTITY (
@@ -913,7 +1028,7 @@ ALTER TABLE public.families ALTER COLUMN family_id ADD GENERATED ALWAYS AS IDENT
 
 
 --
--- Name: family_admins; Type: TABLE; Schema: public; Owner: postgres
+-- Name: family_admins; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.family_admins (
@@ -927,10 +1042,8 @@ CREATE TABLE public.family_admins (
 );
 
 
-ALTER TABLE public.family_admins OWNER TO postgres;
-
 --
--- Name: family_admins_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: family_admins_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.family_admins_id_seq
@@ -941,17 +1054,15 @@ CREATE SEQUENCE public.family_admins_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.family_admins_id_seq OWNER TO postgres;
-
 --
--- Name: family_admins_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: family_admins_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.family_admins_id_seq OWNED BY public.family_admins.id;
 
 
 --
--- Name: family_members; Type: TABLE; Schema: public; Owner: postgres
+-- Name: family_members; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.family_members (
@@ -964,10 +1075,8 @@ CREATE TABLE public.family_members (
 );
 
 
-ALTER TABLE public.family_members OWNER TO postgres;
-
 --
--- Name: logs; Type: TABLE; Schema: public; Owner: postgres
+-- Name: logs; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.logs (
@@ -986,10 +1095,8 @@ CREATE TABLE public.logs (
 );
 
 
-ALTER TABLE public.logs OWNER TO postgres;
-
 --
--- Name: logs_log_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: logs_log_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.logs ALTER COLUMN log_id ADD GENERATED ALWAYS AS IDENTITY (
@@ -1003,7 +1110,7 @@ ALTER TABLE public.logs ALTER COLUMN log_id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
--- Name: plans; Type: TABLE; Schema: public; Owner: postgres
+-- Name: plans; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.plans (
@@ -1016,10 +1123,8 @@ CREATE TABLE public.plans (
 );
 
 
-ALTER TABLE public.plans OWNER TO postgres;
-
 --
--- Name: plans_plan_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: plans_plan_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.plans ALTER COLUMN plan_id ADD GENERATED ALWAYS AS IDENTITY (
@@ -1033,7 +1138,7 @@ ALTER TABLE public.plans ALTER COLUMN plan_id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
--- Name: posts; Type: TABLE; Schema: public; Owner: postgres
+-- Name: posts; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.posts (
@@ -1047,10 +1152,8 @@ CREATE TABLE public.posts (
 );
 
 
-ALTER TABLE public.posts OWNER TO postgres;
-
 --
--- Name: posts_post_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: posts_post_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.posts_post_id_seq
@@ -1062,17 +1165,15 @@ CREATE SEQUENCE public.posts_post_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.posts_post_id_seq OWNER TO postgres;
-
 --
--- Name: posts_post_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: posts_post_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.posts_post_id_seq OWNED BY public.posts.post_id;
 
 
 --
--- Name: prtcps; Type: TABLE; Schema: public; Owner: postgres
+-- Name: prtcps; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.prtcps (
@@ -1085,10 +1186,8 @@ CREATE TABLE public.prtcps (
 );
 
 
-ALTER TABLE public.prtcps OWNER TO postgres;
-
 --
--- Name: prtcps_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: prtcps_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.prtcps_id_seq
@@ -1099,17 +1198,15 @@ CREATE SEQUENCE public.prtcps_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.prtcps_id_seq OWNER TO postgres;
-
 --
--- Name: prtcps_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: prtcps_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.prtcps_id_seq OWNED BY public.prtcps.id;
 
 
 --
--- Name: solidarities; Type: TABLE; Schema: public; Owner: postgres
+-- Name: solidarities; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.solidarities (
@@ -1145,10 +1242,8 @@ CREATE TABLE public.solidarities (
 );
 
 
-ALTER TABLE public.solidarities OWNER TO postgres;
-
 --
--- Name: solidarities_solidarity_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: solidarities_solidarity_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.solidarities ALTER COLUMN solidarity_id ADD GENERATED ALWAYS AS IDENTITY (
@@ -1162,7 +1257,7 @@ ALTER TABLE public.solidarities ALTER COLUMN solidarity_id ADD GENERATED ALWAYS 
 
 
 --
--- Name: solidarity_docs; Type: TABLE; Schema: public; Owner: postgres
+-- Name: solidarity_docs; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.solidarity_docs (
@@ -1176,10 +1271,8 @@ CREATE TABLE public.solidarity_docs (
 );
 
 
-ALTER TABLE public.solidarity_docs OWNER TO postgres;
-
 --
--- Name: solidarity_docs_doc_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: solidarity_docs_doc_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.solidarity_docs_doc_id_seq
@@ -1191,17 +1284,15 @@ CREATE SEQUENCE public.solidarity_docs_doc_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.solidarity_docs_doc_id_seq OWNER TO postgres;
-
 --
--- Name: solidarity_docs_doc_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: solidarity_docs_doc_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.solidarity_docs_doc_id_seq OWNED BY public.solidarity_docs.doc_id;
 
 
 --
--- Name: students; Type: TABLE; Schema: public; Owner: postgres
+-- Name: students; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.students (
@@ -1231,10 +1322,8 @@ CREATE TABLE public.students (
 );
 
 
-ALTER TABLE public.students OWNER TO postgres;
-
 --
--- Name: students_student_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: students_student_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.students ALTER COLUMN student_id ADD GENERATED ALWAYS AS IDENTITY (
@@ -1248,71 +1337,71 @@ ALTER TABLE public.students ALTER COLUMN student_id ADD GENERATED ALWAYS AS IDEN
 
 
 --
--- Name: event_docs doc_id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: event_docs doc_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.event_docs ALTER COLUMN doc_id SET DEFAULT nextval('public.event_docs_doc_id_seq'::regclass);
 
 
 --
--- Name: family_admins id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: family_admins id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.family_admins ALTER COLUMN id SET DEFAULT nextval('public.family_admins_id_seq'::regclass);
 
 
 --
--- Name: posts post_id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: posts post_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.posts ALTER COLUMN post_id SET DEFAULT nextval('public.posts_post_id_seq'::regclass);
 
 
 --
--- Name: prtcps id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: prtcps id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.prtcps ALTER COLUMN id SET DEFAULT nextval('public.prtcps_id_seq'::regclass);
 
 
 --
--- Name: solidarity_docs doc_id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: solidarity_docs doc_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.solidarity_docs ALTER COLUMN doc_id SET DEFAULT nextval('public.solidarity_docs_doc_id_seq'::regclass);
 
 
 --
--- Data for Name: admins; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: admins; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.admins (admin_id, name, email, password, faculty_id, dept_id, created_at, can_create, can_update, can_read, can_delete, acc_status, role, dept_fac_ls, nid, phone_number) FROM stdin;
-8	omar	omar@gmail.com	pbkdf2_sha256$1000000$vlZHhPpW9IpNAdiVAlRLoZ$EKZZMi53hEdx/k1aLRSkqXWKnmZgVcXUMN0N8tP7RNQ=	1	\N	2025-10-30 01:10:42.356929+03	t	t	t	t	active	مسؤول كلية	{string,"فني و ثقافي"}	\N	\N
 4	سارة محمد	sara.head@example.com	$2b$12$/yfBp5mpBNUt4EZp1IWEJu22QNUjejzEuBB/0JiUNeZ.32HPn7SOq	1	\N	2025-10-20 02:53:23.217139+03	t	t	t	t	active	مدير كلية	{}	\N	\N
 12	string	user@example.com	pbkdf2_sha256$1000000$IrRY86mbOwprrogP9aOI2H$2RgAvUXSAwxSeNHNhdSuu+RXGdAhwr9bghYxx5mvfZY=	1	\N	2025-11-15 03:13:03.29534+02	t	t	t	t	active	مسؤول كلية	{}	\N	\N
-16	oo	oo@gmail.com	pbkdf2_sha256$1000000$QXXplajwQLlKBLRkvWyEDG$j2Hy8tqFThcTmWs+C0g6pFfGvVtrklz/leeYU9X0WzI=	\N	\N	2025-11-18 20:45:57.231286+02	t	t	t	t	active	مدير ادارة	{تكافل}	\N	\N
 6	منى يوسف	mona.general@example.com	$2b$12$/yfBp5mpBNUt4EZp1IWEJu22QNUjejzEuBB/0JiUNeZ.32HPn7SOq	\N	\N	2025-10-20 02:53:23.217139+03	t	t	t	t	active	مدير عام	{}	\N	\N
 13	string	admin@example.com	pbkdf2_sha256$1000000$QvWcdHW5PZf3birfhgr1K1$ze8CXVUv+iOXUkR+zOGt0dx9HGx9I5Tsl47DoOmL4KY=	\N	\N	2025-11-15 03:30:33.532263+02	t	t	t	t	string	مشرف النظام	{}	\N	\N
 14	a4	ar@gmail.com.com	pbkdf2_sha256$1000000$zBktzHX9eDrOqSc9VSreRz$eFZqgCmqCYdzJ7TUfKZQoUaOXXPxgicfH1cyjNL31dQ=	\N	\N	2025-11-15 03:36:53.711315+02	t	t	t	t	active	مشرف النظام	{}	\N	\N
-15	ali	alioamar@gmail.com	pbkdf2_sha256$1000000$MYace5Oq8w4z1fOtwxrC3A$d8Vh8UhpL/6nKz4RcdwtRDIWAoso5ZxHTELq+wOJfMs=	1	\N	2025-11-18 20:27:49.844806+02	t	t	t	t	active	مسؤول كلية	{"نشاط فني","نشاط رياضي"}	\N	\N
 17	aa	aa@gmail.com	pbkdf2_sha256$1000000$2dc1qpkT0K2Rvf8jYCZFGr$RYI8fid0TOn0KPMmVGLXDSb+4fCh2gtoN+F/KrCJ0RE=	2	\N	2025-11-18 21:42:50.130782+02	t	t	t	t	active	مسؤول كلية	{"نشاط فمي",تكافل}	\N	\N
-5	خالد إبراهيم	khaled.manager@example.com	pbkdf2_sha256$1000000$6rS7AFWRCbRmGf2v87CR0Q$XLigYMDMnB9E0MwVlDgY1YZcxbM3wADe3VuYh1mGxSM=	\N	\N	2025-10-20 02:53:23.217139+03	t	t	t	t	active	مدير ادارة	{}	\N	\N
+16	oo	oo@gmail.com	pbkdf2_sha256$1000000$QXXplajwQLlKBLRkvWyEDG$j2Hy8tqFThcTmWs+C0g6pFfGvVtrklz/leeYU9X0WzI=	\N	7	2025-11-18 20:45:57.231286+02	t	t	t	t	active	مدير ادارة	{"الأنشطة العلمية"}	\N	\N
 21	ahmed	ahmedm@gmail.com	pbkdf2_sha256$1000000$St8cjm17fUYZx0iDOZwRy0$8HFztv938EE0udu8cAekPGKmbFDVRfrWClNO6R1xEfc=	\N	\N	2025-12-09 23:28:44.320432+02	t	t	t	t	active	مشرف النظام	{string}	99739715871769	2012222222
 18	admin12	admin12@gmail.com	pbkdf2_sha256$1000000$sZ9BCWoeUQKBmW1h4mY3g8$QqXoHVTnnHG6Xtk3BeqX21BCFPeh1zN6RD1cWtz/Ads=	2	\N	2025-11-18 23:03:16.0987+02	t	t	t	t	نشط	مسؤول كلية	{"فني و رياضي",رياضي}	\N	\N
 1	ahmed	ahmed@gmail.com	pbkdf2_sha256$1000000$dx0GL2Uj1qVCDZa7x83045$0q9vmyfE+Bf0237qGzyUVvtqnJEauuW6eauxJra+CIM=	1	\N	2025-10-20 02:34:30.31113+03	t	t	t	t	active	مسؤول كلية	{"نشاط فني و ثقافي"}	\N	\N
 3	أحمد علي	ahmed.faculty@example.com	pbkdf2_sha256$1000000$k0IQx82TzGMhVAFEe6Y8Zl$oiR9QGJQIceP5VudDGMnLBdeXYfJPbgW1rmeNzobO0g=	3	\N	2025-10-20 02:53:23.217139+03	t	t	t	f	active	مسؤول كلية	{}	\N	\N
 19	admin33	admin33@example.com	pbkdf2_sha256$1000000$rEqE9UmuMQqskvYGjne6Nd$T0ST6Ew8rabU2sFpgL/o90T4uhB8PUvkNCzOOOYIUI4=	2	\N	2025-11-21 16:33:42.63292+02	t	t	t	t	active	مسؤول كلية	{فني,رياضي}	\N	\N
-20	admin34	admin34@example.com	pbkdf2_sha256$1000000$WqUSKaWUHuPX89VGicr9jA$La3PHY+349r/DeTyaXSvAoO3K3S5JvzcI/I7rq2ltVk=	2	\N	2025-11-21 16:34:27.807083+02	t	t	t	t	active	مسؤول كلية	{فني,رياضي,ثقافي}	\N	\N
 7	محمد سعيد	mohamed.super@example.com	pbkdf2_sha256$1000000$yOdSWDrX15vKLosN6Dp41Y$I5NAsjlV29vxASgyoBCPnikiCcl9wf9fPvCxXSHt4Ys=	\N	\N	2025-10-20 02:53:23.217139+03	t	t	t	t	active	مشرف النظام	{}	\N	\N
 9	ali	ali@gmail.com	pbkdf2_sha256$1000000$g5LSEHFQAOV5imJXliaDcS$EC34z7cDVSgQjTbt3313xwvXrj72TCS+GExZENNjMI4=	1	\N	2025-10-30 01:34:00.847159+03	t	t	t	t	active	مسؤول كلية	{"فني و ثقافي",رياضي}	\N	\N
 11	B	B@gmail.com	pbkdf2_sha256$1000000$wrgC5ZDwinGSr1g0SR8vrz$RZ3Xy50cG9qhkw+toLxLTBdGpMndW5G/SgY3Iewb9EE=	\N	\N	2025-10-30 02:09:47.364118+03	t	t	t	t	active	مشرف النظام	{}	\N	\N
 10	A	A@gmail.com	pbkdf2_sha256$1000000$wN2OdjwYyuKZ9kKEjKkhPH$LMzBhFiIGlM6QlllHD9z+PtdJd1aF0hNRQdCTFJgYRY=	\N	\N	2025-10-30 01:37:07.429515+03	t	t	t	t	active	مشرف النظام	{}	\N	\N
 2	سارة محمد	sara@example.com	pbkdf2_sha256$1000000$YOum6XQm4YPTyOygoretCH$qI6iJdP+RHVI5jCneq2CYhb88PnvNhsdvduSklDyMaI=	2	\N	2025-10-20 02:34:30.31113+03	t	t	t	f	active	مسؤول كلية	{"فني و ثقافي"}	\N	\N
+15	ali	alioamar@gmail.com	pbkdf2_sha256$1000000$MYace5Oq8w4z1fOtwxrC3A$d8Vh8UhpL/6nKz4RcdwtRDIWAoso5ZxHTELq+wOJfMs=	1	\N	2025-11-18 20:27:49.844806+02	t	t	t	t	active	مسؤول كلية	{"الأنشطة الثقافية","الأنشطة الرياضية"}	\N	\N
+5	خالد إبراهيم	khaled.manager@example.com	pbkdf2_sha256$1000000$6rS7AFWRCbRmGf2v87CR0Q$XLigYMDMnB9E0MwVlDgY1YZcxbM3wADe3VuYh1mGxSM=	\N	6	2025-10-20 02:53:23.217139+03	t	t	t	t	active	مدير ادارة	{}	\N	\N
+20	admin34	admin34@example.com	pbkdf2_sha256$1000000$WqUSKaWUHuPX89VGicr9jA$La3PHY+349r/DeTyaXSvAoO3K3S5JvzcI/I7rq2ltVk=	2	\N	2025-11-21 16:34:27.807083+02	t	t	t	t	active	مسؤول كلية	{"الأنشطة الرياضية","الأنشطة البيئية"}	\N	\N
+8	omar	omar@gmail.com	pbkdf2_sha256$1000000$vlZHhPpW9IpNAdiVAlRLoZ$EKZZMi53hEdx/k1aLRSkqXWKnmZgVcXUMN0N8tP7RNQ=	1	7	2025-10-30 01:10:42.356929+03	t	t	t	t	active	مسؤول كلية	{"الأنشطة العلمية","الأنشطة الرياضية"}	\N	\N
 \.
 
 
 --
--- Data for Name: auth_group; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: auth_group; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.auth_group (id, name) FROM stdin;
@@ -1320,7 +1409,7 @@ COPY public.auth_group (id, name) FROM stdin;
 
 
 --
--- Data for Name: auth_group_permissions; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: auth_group_permissions; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.auth_group_permissions (id, group_id, permission_id) FROM stdin;
@@ -1328,7 +1417,7 @@ COPY public.auth_group_permissions (id, group_id, permission_id) FROM stdin;
 
 
 --
--- Data for Name: auth_permission; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: auth_permission; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.auth_permission (id, name, content_type_id, codename) FROM stdin;
@@ -1444,7 +1533,7 @@ COPY public.auth_permission (id, name, content_type_id, codename) FROM stdin;
 
 
 --
--- Data for Name: auth_user; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: auth_user; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.auth_user (id, password, last_login, is_superuser, username, first_name, last_name, email, is_staff, is_active, date_joined) FROM stdin;
@@ -1452,7 +1541,7 @@ COPY public.auth_user (id, password, last_login, is_superuser, username, first_n
 
 
 --
--- Data for Name: auth_user_groups; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: auth_user_groups; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.auth_user_groups (id, user_id, group_id) FROM stdin;
@@ -1460,7 +1549,7 @@ COPY public.auth_user_groups (id, user_id, group_id) FROM stdin;
 
 
 --
--- Data for Name: auth_user_user_permissions; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: auth_user_user_permissions; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.auth_user_user_permissions (id, user_id, permission_id) FROM stdin;
@@ -1468,7 +1557,7 @@ COPY public.auth_user_user_permissions (id, user_id, permission_id) FROM stdin;
 
 
 --
--- Data for Name: departments; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: departments; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.departments (dept_id, name, description, created_at, for_env_fam) FROM stdin;
@@ -1481,7 +1570,7 @@ COPY public.departments (dept_id, name, description, created_at, for_env_fam) FR
 
 
 --
--- Data for Name: django_admin_log; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: django_admin_log; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.django_admin_log (id, action_time, object_id, object_repr, action_flag, change_message, content_type_id, user_id) FROM stdin;
@@ -1489,7 +1578,7 @@ COPY public.django_admin_log (id, action_time, object_id, object_repr, action_fl
 
 
 --
--- Data for Name: django_content_type; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: django_content_type; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.django_content_type (id, app_label, model) FROM stdin;
@@ -1524,7 +1613,7 @@ COPY public.django_content_type (id, app_label, model) FROM stdin;
 
 
 --
--- Data for Name: django_migrations; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: django_migrations; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.django_migrations (id, app, name, applied) FROM stdin;
@@ -1554,7 +1643,7 @@ COPY public.django_migrations (id, app, name, applied) FROM stdin;
 
 
 --
--- Data for Name: django_session; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: django_session; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.django_session (session_key, session_data, expire_date) FROM stdin;
@@ -1562,7 +1651,7 @@ COPY public.django_session (session_key, session_data, expire_date) FROM stdin;
 
 
 --
--- Data for Name: documents; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: documents; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.documents (doc_id, owner_id, f_name, f_path, f_type, uploaded_at, owner_type) FROM stdin;
@@ -1570,7 +1659,7 @@ COPY public.documents (doc_id, owner_id, f_name, f_path, f_type, uploaded_at, ow
 
 
 --
--- Data for Name: event_docs; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: event_docs; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.event_docs (doc_id, event_id, doc_type, file_name, file_path, mime_type, file_size, uploaded_at, uploaded_by) FROM stdin;
@@ -1578,68 +1667,70 @@ COPY public.event_docs (doc_id, event_id, doc_type, file_name, file_path, mime_t
 
 
 --
--- Data for Name: events; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: events; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.events (event_id, title, description, dept_id, faculty_id, created_by, updated_at, cost, location, restrictions, reward, status, imgs, st_date, end_date, s_limit, created_at, type, family_id, resource, selected_facs, plan_id, active) FROM stdin;
-4	مسابقة الخطابة والإلقاء	مسابقة لاختبار مهارات الخطابة والإلقاء لدى الطلاب	4	2	1	2025-11-29 18:47:41.600095+02	30.00	الحاضرة الكبرى	يجب أن يكون المشارك متقنًا للغة العربية	جوائز نقدية وشهادات دولية	منتظر	\N	2024-04-05	2024-04-07	120	2025-11-29 18:47:41.600095+02	نشاط ثقافي	1	\N	\N	\N	t
-5	يوم التطوع الاجتماعي	فعالية تطوعية للمساهمة في الخدمة المجتمعية والنشاطات الاجتماعية	6	1	1	2025-12-07 16:53:23.406092+02	0.00	مراكز الخدمة الاجتماعية	لا توجد قيود	شهادات تطوع معترف بها	مقبول	\N	2024-03-25	2024-03-26	250	2025-11-29 18:47:41.600095+02	نشاط اجتماعي	2	\N	\N	\N	t
-7	ندوة البحث العلمي	ندوة علمية لمناقشة أحدث الأبحاث العلمية في المجالات المختلفة	5	3	1	2025-12-07 16:53:23.406092+02	25.00	قاعة المؤتمرات	يفضل أن يكون المشارك من طلاب الدراسات العليا	شهادات حضور وفرص تعاون بحثي	مقبول	\N	2024-05-01	2024-05-02	80	2025-11-29 18:47:41.600095+02	نشاط علمي	2	\N	\N	\N	t
-8	بطولة كرة القدم الثلاثية	بطولة رياضية لكرة القدم تجمع بين فرق من مختلف الكليات	3	1	1	2025-12-07 16:53:23.406092+02	40.00	ملعب كرة القدم	يجب أن تكون الفرق من طلاب الجامعة فقط	كأس ودروع تذكارية وشهادات	مقبول	\N	2024-04-20	2024-04-25	180	2025-11-29 18:47:41.600095+02	نشاط رياضي	2	\N	\N	\N	t
-10	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 17:16:53.936213+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	\N	2025-12-07	2025-12-07	100	2025-12-07 17:16:53.936244+02	نشاط ثقافي	4	\N	\N	\N	t
-11	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 17:18:45.66422+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	\N	2025-12-07	2025-12-07	100	2025-12-07 17:18:45.664251+02	نشاط ثقافي	4	\N	\N	\N	t
-12	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 17:19:10.52061+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	\N	2025-12-07	2025-12-07	100	2025-12-07 17:19:10.520637+02	نشاط ثقافي	4	\N	\N	\N	t
-13	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 17:19:12.852796+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	\N	2025-12-07	2025-12-07	100	2025-12-07 17:19:12.85282+02	نشاط ثقافي	4	\N	\N	\N	t
-14	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 17:19:44.659524+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	\N	2025-12-07	2025-12-07	100	2025-12-07 17:19:44.659554+02	نشاط ثقافي	4	\N	\N	\N	t
-15	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 17:20:41.032704+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	\N	2025-12-07	2025-12-07	100	2025-12-07 17:20:41.032732+02	نشاط ثقافي	4	\N	\N	\N	t
-16	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 17:21:03.009015+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	\N	2025-12-07	2025-12-07	100	2025-12-07 17:21:03.009047+02	نشاط ثقافي	4	\N	\N	\N	t
-17	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 17:44:36.565793+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	\N	2025-12-07	2025-12-07	100	2025-12-07 17:44:36.565822+02	نشاط ثقافي	4	\N	\N	\N	t
-18	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 17:45:35.736096+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	\N	2025-12-07	2025-12-07	100	2025-12-07 17:45:35.736127+02	نشاط ثقافي	4	\N	\N	\N	t
-19	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 17:47:51.603418+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	\N	2025-12-07	2025-12-07	100	2025-12-07 17:47:51.603447+02	نشاط ثقافي	4	\N	\N	\N	t
-20	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 17:48:38.107583+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	\N	2025-12-07	2025-12-07	100	2025-12-07 17:48:38.107613+02	نشاط ثقافي	4	\N	\N	\N	t
-21	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 17:59:21.060944+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	\N	2025-12-07	2025-12-07	100	2025-12-07 17:59:21.060974+02	نشاط ثقافي	4	\N	\N	\N	t
-22	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 18:00:28.202776+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	\N	2025-12-07	2025-12-07	100	2025-12-07 18:00:28.202806+02	نشاط ثقافي	4	\N	\N	\N	t
-23	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 18:01:34.368368+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	\N	2025-12-07	2025-12-07	100	2025-12-07 18:01:34.368398+02	نشاط ثقافي	4	\N	\N	\N	t
-24	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 18:05:37.287877+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	\N	2025-12-07	2025-12-07	100	2025-12-07 18:05:37.287907+02	نشاط ثقافي	4	\N	\N	\N	t
-25	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 18:07:47.105303+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	\N	2025-12-07	2025-12-07	100	2025-12-07 18:07:47.105327+02	نشاط ثقافي	4	\N	\N	\N	t
-26	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 18:10:20.311338+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	\N	2025-12-07	2025-12-07	100	2025-12-07 18:10:20.31137+02	نشاط ثقافي	4	\N	\N	\N	t
-27	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 18:12:30.503864+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	\N	2025-12-07	2025-12-07	100	2025-12-07 18:12:30.503894+02	نشاط ثقافي	4	\N	\N	\N	t
-28	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 18:19:58.057411+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	\N	2025-12-07	2025-12-07	100	2025-12-07 18:19:58.057439+02	نشاط ثقافي	4	\N	\N	\N	t
-29	مسابقة دينية	مسابقة حفظ القران الكريم	4	1	1	2025-12-07 18:21:19.632783+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	\N	2025-12-07	2025-12-07	100	2025-12-07 18:21:19.632811+02	نشاط ثقافي	4	\N	\N	\N	t
-30	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 18:25:56.956089+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	\N	2025-12-07	2025-12-07	100	2025-12-07 18:25:56.956135+02	نشاط ثقافي	4	\N	\N	\N	t
-31	ندوة ثقافية حول الأدب العربي	ندوة متخصصة تناقش أهم التطورات في الأدب العربي الحديث	3	1	1	2025-12-11 23:30:45.939572+02	500.00	قاعة المحاضرات الرئيسية	\N	\N	منتظر	\N	2024-03-15	2024-03-15	\N	2025-12-11 23:30:45.939607+02	\N	19	\N	\N	\N	t
-32	معرض الفنون الشعبية	عرض للفنون الشعبية التقليدية	3	1	1	2025-12-11 23:30:45.945499+02	1000.00	مركز الفنون	\N	\N	منتظر	\N	2024-04-01	2024-04-03	\N	2025-12-11 23:30:45.945529+02	\N	19	\N	\N	\N	t
-33	ورشة تصميم الملصقات	تدريب على تصميم ملصقات جذابة	4	1	1	2025-12-11 23:30:45.948302+02	300.00	قاعة التصميم	\N	\N	منتظر	\N	2024-03-20	2024-03-20	\N	2025-12-11 23:30:45.948323+02	\N	19	\N	\N	\N	t
-34	رحلة ترفيهية إلى الطبيعة	رحلة جماعية للاستمتاع بالطبيعة	5	1	1	2025-12-11 23:30:45.950799+02	2000.00	محمية الطبيعة	\N	\N	منتظر	\N	2024-04-10	2024-04-10	\N	2025-12-11 23:30:45.950819+02	\N	19	\N	\N	\N	t
-9	مسابقة فنية	مسابقة للانشطة الفنية	\N	\N	5	2025-12-14 18:04:11.160868+02	\N	مصر		شهادة تقدير	مقبول	\N	2025-12-07	2025-12-07	10	2025-12-07 16:56:05.82235+02	نشاط فني	2	\N	\N	\N	t
-6	حملة البيئة النظيفة	حملة تطوعية للحفاظ على نظافة الحرم الجامعي والبيئة المحيطة	5	1	1	2026-01-21 17:53:06.516454+02	0.00	الحرم الجامعي	يفضل المشاركة في الأنشطة البيئية السابقة	شهادات تطوع وجوائز رمزية	مقبول	\N	2024-03-20	2027-03-21	100	2025-11-29 18:47:41.600095+02	نشاط بيئي	3	\N	\N	\N	t
-35	ورشة الرسم الحديث	تعليم تقنيات الرسم الحديثة والفن المعاصر	6	1	1	2025-12-11 23:30:45.953555+02	600.00	معهد الفنون	\N	\N	منتظر	\N	2024-03-25	2024-03-25	\N	2025-12-11 23:30:45.953575+02	\N	19	\N	\N	\N	t
-36	محاضرة علمية عن الذكاء الاصطناعي	محاضرة عن تطبيقات الذكاء الاصطناعي في العالم الحقيقي	7	1	1	2025-12-11 23:30:45.956888+02	800.00	مختبر العلوم	\N	\N	منتظر	\N	2024-05-01	2024-05-01	\N	2025-12-11 23:30:45.956916+02	\N	19	\N	\N	\N	t
-37	حملة تنظيف المجتمع	حملة تطوعية لتنظيف أماكن بيئية حساسة	3	1	1	2025-12-11 23:30:45.960643+02	400.00	الحي السكني	\N	\N	منتظر	\N	2024-04-20	2024-04-20	\N	2025-12-11 23:30:45.960667+02	\N	19	\N	\N	\N	t
-38	بطولة كرة القدم الودية	بطولة ودية بين أسر الجامعة	4	1	1	2025-12-11 23:30:45.964038+02	1500.00	الملعب الرياضي	\N	\N	منتظر	\N	2024-05-15	2024-05-20	\N	2025-12-11 23:30:45.96406+02	\N	19	\N	\N	\N	t
-39	ندوة ثقافية حول الأدب العربي	ندوة متخصصة تناقش أهم التطورات في الأدب العربي الحديث	3	1	1	2025-12-11 23:34:26.184696+02	500.00	قاعة المحاضرات الرئيسية	\N	\N	منتظر	\N	2024-03-15	2024-03-15	\N	2025-12-11 23:34:26.184728+02	اسر	20	\N	\N	\N	t
-40	معرض الفنون الشعبية	عرض للفنون الشعبية التقليدية	3	1	1	2025-12-11 23:34:26.1873+02	1000.00	مركز الفنون	\N	\N	منتظر	\N	2024-04-01	2024-04-03	\N	2025-12-11 23:34:26.187325+02	اسر	20	\N	\N	\N	t
-41	ورشة تصميم الملصقات	تدريب على تصميم ملصقات جذابة	4	1	1	2025-12-11 23:34:26.189927+02	300.00	قاعة التصميم	\N	\N	منتظر	\N	2024-03-20	2024-03-20	\N	2025-12-11 23:34:26.189949+02	اسر	20	\N	\N	\N	t
-42	رحلة ترفيهية إلى الطبيعة	رحلة جماعية للاستمتاع بالطبيعة	5	1	1	2025-12-11 23:34:26.192812+02	2000.00	محمية الطبيعة	\N	\N	منتظر	\N	2024-04-10	2024-04-10	\N	2025-12-11 23:34:26.192836+02	اسر	20	\N	\N	\N	t
-43	ورشة الرسم الحديث	تعليم تقنيات الرسم الحديثة والفن المعاصر	6	1	1	2025-12-11 23:34:26.195749+02	600.00	معهد الفنون	\N	\N	منتظر	\N	2024-03-25	2024-03-25	\N	2025-12-11 23:34:26.195776+02	اسر	20	\N	\N	\N	t
-44	محاضرة علمية عن الذكاء الاصطناعي	محاضرة عن تطبيقات الذكاء الاصطناعي في العالم الحقيقي	7	1	1	2025-12-11 23:34:26.198632+02	800.00	مختبر العلوم	\N	\N	منتظر	\N	2024-05-01	2024-05-01	\N	2025-12-11 23:34:26.198655+02	اسر	20	\N	\N	\N	t
-45	حملة تنظيف المجتمع	حملة تطوعية لتنظيف أماكن بيئية حساسة	3	1	1	2025-12-11 23:34:26.201236+02	400.00	الحي السكني	\N	\N	منتظر	\N	2024-04-20	2024-04-20	\N	2025-12-11 23:34:26.201259+02	اسر	20	\N	\N	\N	t
-46	بطولة كرة القدم الودية	بطولة ودية بين أسر الجامعة	4	1	1	2025-12-11 23:34:26.203541+02	1500.00	الملعب الرياضي	\N	\N	منتظر	\N	2024-05-15	2024-05-20	\N	2025-12-11 23:34:26.203563+02	اسر	20	\N	\N	\N	t
-47	ندوة ثقافية حول الأدب العربي	ندوة متخصصة تناقش أهم التطورات في الأدب العربي الحديث	3	1	1	2025-12-12 00:55:32.047353+02	500.00	قاعة المحاضرات الرئيسية	\N	\N	منتظر	\N	2024-03-15	2024-03-15	\N	2025-12-12 00:55:32.047388+02	اسر	21	\N	\N	\N	t
-48	معرض الفنون الشعبية	عرض للفنون الشعبية التقليدية	3	1	1	2025-12-12 00:55:32.052451+02	1000.00	مركز الفنون	\N	\N	منتظر	\N	2024-04-01	2024-04-03	\N	2025-12-12 00:55:32.052484+02	اسر	21	\N	\N	\N	t
-49	ورشة تصميم الملصقات	تدريب على تصميم ملصقات جذابة	4	1	1	2025-12-12 00:55:32.057435+02	300.00	قاعة التصميم	\N	\N	منتظر	\N	2024-03-20	2024-03-20	\N	2025-12-12 00:55:32.057477+02	اسر	21	\N	\N	\N	t
-50	رحلة ترفيهية إلى الطبيعة	رحلة جماعية للاستمتاع بالطبيعة	5	1	1	2025-12-12 00:55:32.061776+02	2000.00	محمية الطبيعة	\N	\N	منتظر	\N	2024-04-10	2024-04-10	\N	2025-12-12 00:55:32.061811+02	اسر	21	\N	\N	\N	t
-51	ورشة الرسم الحديث	تعليم تقنيات الرسم الحديثة والفن المعاصر	6	1	1	2025-12-12 00:55:32.065436+02	600.00	معهد الفنون	\N	\N	منتظر	\N	2024-03-25	2024-03-25	\N	2025-12-12 00:55:32.065461+02	اسر	21	\N	\N	\N	t
-52	محاضرة علمية عن الذكاء الاصطناعي	محاضرة عن تطبيقات الذكاء الاصطناعي في العالم الحقيقي	7	1	1	2025-12-12 00:55:32.06883+02	800.00	مختبر العلوم	\N	\N	منتظر	\N	2024-05-01	2024-05-01	\N	2025-12-12 00:55:32.068857+02	اسر	21	\N	\N	\N	t
-53	حملة تنظيف المجتمع	حملة تطوعية لتنظيف أماكن بيئية حساسة	3	1	1	2025-12-12 00:55:32.07342+02	400.00	الحي السكني	\N	\N	منتظر	\N	2024-04-20	2024-04-20	\N	2025-12-12 00:55:32.073447+02	اسر	21	\N	\N	\N	t
-54	بطولة كرة القدم الودية	بطولة ودية بين أسر الجامعة	4	1	1	2025-12-12 00:55:32.078057+02	1500.00	الملعب الرياضي	\N	\N	منتظر	\N	2024-05-15	2024-05-20	\N	2025-12-12 00:55:32.078086+02	اسر	21	\N	\N	\N	t
-55	مسابقة	مسابقة فنية	5	1	1	2025-12-12 02:11:20.194925+02	\N	مسرح			منتظر	\N	2025-12-12	2025-12-12	100	2025-12-12 02:11:20.194955+02	نشاط فني	21	\N	\N	\N	t
-3	ماراثون العدو السنوي	فعالية رياضية سنوية تجمع طلاب الجامعة للمشاركة في ماراثون العدو	3	1	1	2026-01-19 03:37:26.642264+02	50.00	الملعب الرياضي	يجب أن يكون المشارك طالباً حالياً بالجامعة	جوائز نقدية وشهادات تقدير	مقبول	\N	2024-03-15	2026-03-30	200	2025-11-29 18:47:41.600095+02	نشاط رياضي	1	\N	\N	\N	t
+COPY public.events (event_id, title, description, dept_id, faculty_id, created_by, updated_at, cost, location, restrictions, reward, status, st_date, end_date, s_limit, created_at, type, family_id, resource, selected_facs, plan_id, active) FROM stdin;
+7	ندوة البحث العلمي	ندوة علمية لمناقشة أحدث الأبحاث العلمية في المجالات المختلفة	5	3	1	2025-12-07 16:53:23.406092+02	25.00	قاعة المؤتمرات	يفضل أن يكون المشارك من طلاب الدراسات العليا	شهادات حضور وفرص تعاون بحثي	مقبول	2024-05-01	2024-05-02	80	2025-11-29 18:47:41.600095+02	نشاط علمي	2	\N	\N	\N	t
+10	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 17:16:53.936213+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	2025-12-07	2025-12-07	100	2025-12-07 17:16:53.936244+02	نشاط ثقافي	4	\N	\N	\N	t
+11	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 17:18:45.66422+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	2025-12-07	2025-12-07	100	2025-12-07 17:18:45.664251+02	نشاط ثقافي	4	\N	\N	\N	t
+12	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 17:19:10.52061+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	2025-12-07	2025-12-07	100	2025-12-07 17:19:10.520637+02	نشاط ثقافي	4	\N	\N	\N	t
+13	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 17:19:12.852796+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	2025-12-07	2025-12-07	100	2025-12-07 17:19:12.85282+02	نشاط ثقافي	4	\N	\N	\N	t
+14	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 17:19:44.659524+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	2025-12-07	2025-12-07	100	2025-12-07 17:19:44.659554+02	نشاط ثقافي	4	\N	\N	\N	t
+15	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 17:20:41.032704+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	2025-12-07	2025-12-07	100	2025-12-07 17:20:41.032732+02	نشاط ثقافي	4	\N	\N	\N	t
+16	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 17:21:03.009015+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	2025-12-07	2025-12-07	100	2025-12-07 17:21:03.009047+02	نشاط ثقافي	4	\N	\N	\N	t
+17	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 17:44:36.565793+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	2025-12-07	2025-12-07	100	2025-12-07 17:44:36.565822+02	نشاط ثقافي	4	\N	\N	\N	t
+18	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 17:45:35.736096+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	2025-12-07	2025-12-07	100	2025-12-07 17:45:35.736127+02	نشاط ثقافي	4	\N	\N	\N	t
+19	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 17:47:51.603418+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	2025-12-07	2025-12-07	100	2025-12-07 17:47:51.603447+02	نشاط ثقافي	4	\N	\N	\N	t
+20	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 17:48:38.107583+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	2025-12-07	2025-12-07	100	2025-12-07 17:48:38.107613+02	نشاط ثقافي	4	\N	\N	\N	t
+21	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 17:59:21.060944+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	2025-12-07	2025-12-07	100	2025-12-07 17:59:21.060974+02	نشاط ثقافي	4	\N	\N	\N	t
+22	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 18:00:28.202776+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	2025-12-07	2025-12-07	100	2025-12-07 18:00:28.202806+02	نشاط ثقافي	4	\N	\N	\N	t
+23	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 18:01:34.368368+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	2025-12-07	2025-12-07	100	2025-12-07 18:01:34.368398+02	نشاط ثقافي	4	\N	\N	\N	t
+24	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 18:05:37.287877+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	2025-12-07	2025-12-07	100	2025-12-07 18:05:37.287907+02	نشاط ثقافي	4	\N	\N	\N	t
+25	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 18:07:47.105303+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	2025-12-07	2025-12-07	100	2025-12-07 18:07:47.105327+02	نشاط ثقافي	4	\N	\N	\N	t
+26	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 18:10:20.311338+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	2025-12-07	2025-12-07	100	2025-12-07 18:10:20.31137+02	نشاط ثقافي	4	\N	\N	\N	t
+27	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 18:12:30.503864+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	2025-12-07	2025-12-07	100	2025-12-07 18:12:30.503894+02	نشاط ثقافي	4	\N	\N	\N	t
+28	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 18:19:58.057411+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	2025-12-07	2025-12-07	100	2025-12-07 18:19:58.057439+02	نشاط ثقافي	4	\N	\N	\N	t
+29	مسابقة دينية	مسابقة حفظ القران الكريم	4	1	1	2025-12-07 18:21:19.632783+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	2025-12-07	2025-12-07	100	2025-12-07 18:21:19.632811+02	نشاط ثقافي	4	\N	\N	\N	t
+30	مسابقة دينية	مسابقة حفظ القران الكريم	\N	1	1	2025-12-07 18:25:56.956089+02	\N	المسجد	ثلاث اجزاء فأعلي	مصحف	منتظر	2025-12-07	2025-12-07	100	2025-12-07 18:25:56.956135+02	نشاط ثقافي	4	\N	\N	\N	t
+31	ندوة ثقافية حول الأدب العربي	ندوة متخصصة تناقش أهم التطورات في الأدب العربي الحديث	3	1	1	2025-12-11 23:30:45.939572+02	500.00	قاعة المحاضرات الرئيسية	\N	\N	منتظر	2024-03-15	2024-03-15	\N	2025-12-11 23:30:45.939607+02	\N	19	\N	\N	\N	t
+32	معرض الفنون الشعبية	عرض للفنون الشعبية التقليدية	3	1	1	2025-12-11 23:30:45.945499+02	1000.00	مركز الفنون	\N	\N	منتظر	2024-04-01	2024-04-03	\N	2025-12-11 23:30:45.945529+02	\N	19	\N	\N	\N	t
+33	ورشة تصميم الملصقات	تدريب على تصميم ملصقات جذابة	4	1	1	2025-12-11 23:30:45.948302+02	300.00	قاعة التصميم	\N	\N	منتظر	2024-03-20	2024-03-20	\N	2025-12-11 23:30:45.948323+02	\N	19	\N	\N	\N	t
+34	رحلة ترفيهية إلى الطبيعة	رحلة جماعية للاستمتاع بالطبيعة	5	1	1	2025-12-11 23:30:45.950799+02	2000.00	محمية الطبيعة	\N	\N	منتظر	2024-04-10	2024-04-10	\N	2025-12-11 23:30:45.950819+02	\N	19	\N	\N	\N	t
+9	مسابقة فنية	مسابقة للانشطة الفنية	\N	\N	5	2026-02-15 16:38:51.967313+02	\N	مصر		شهادة تقدير	مقبول	2025-12-07	2025-12-07	10	2025-12-07 16:56:05.82235+02	نشاط فني	2	\N	\N	\N	f
+8	بطولة كرة القدم الثلاثية	بطولة رياضية لكرة القدم تجمع بين فرق من مختلف الكليات	3	1	1	2026-02-15 16:21:47.157992+02	40.00	ملعب كرة القدم	يجب أن تكون الفرق من طلاب الجامعة فقط	كأس ودروع تذكارية وشهادات	مقبول	2024-04-20	2024-04-25	180	2025-11-29 18:47:41.600095+02	نشاط رياضي	2	\N	\N	\N	f
+4	مسابقة الخطابة والإلقاء	مسابقة لاختبار مهارات الخطابة والإلقاء لدى الطلاب	4	2	1	2026-02-15 16:13:09.639703+02	30.00	الحاضرة الكبرى	يجب أن يكون المشارك متقنًا للغة العربية	جوائز نقدية وشهادات دولية	منتظر	2024-04-05	2024-04-07	120	2025-11-29 18:47:41.600095+02	نشاط ثقافي	1	\N	\N	\N	f
+5	نشاط تبع خطة 1	string	3	1	1	2026-02-16 21:55:38.502404+02	5000.00	string	string	string	مقبول	2026-02-16	2026-02-16	100	2025-11-29 18:47:41.600095+02	نشاط فني	2	\N	\N	1	t
+35	ورشة الرسم الحديث	تعليم تقنيات الرسم الحديثة والفن المعاصر	6	1	1	2025-12-11 23:30:45.953555+02	600.00	معهد الفنون	\N	\N	منتظر	2024-03-25	2024-03-25	\N	2025-12-11 23:30:45.953575+02	\N	19	\N	\N	\N	t
+36	محاضرة علمية عن الذكاء الاصطناعي	محاضرة عن تطبيقات الذكاء الاصطناعي في العالم الحقيقي	7	1	1	2025-12-11 23:30:45.956888+02	800.00	مختبر العلوم	\N	\N	منتظر	2024-05-01	2024-05-01	\N	2025-12-11 23:30:45.956916+02	\N	19	\N	\N	\N	t
+37	حملة تنظيف المجتمع	حملة تطوعية لتنظيف أماكن بيئية حساسة	3	1	1	2025-12-11 23:30:45.960643+02	400.00	الحي السكني	\N	\N	منتظر	2024-04-20	2024-04-20	\N	2025-12-11 23:30:45.960667+02	\N	19	\N	\N	\N	t
+38	بطولة كرة القدم الودية	بطولة ودية بين أسر الجامعة	4	1	1	2025-12-11 23:30:45.964038+02	1500.00	الملعب الرياضي	\N	\N	منتظر	2024-05-15	2024-05-20	\N	2025-12-11 23:30:45.96406+02	\N	19	\N	\N	\N	t
+39	ندوة ثقافية حول الأدب العربي	ندوة متخصصة تناقش أهم التطورات في الأدب العربي الحديث	3	1	1	2025-12-11 23:34:26.184696+02	500.00	قاعة المحاضرات الرئيسية	\N	\N	منتظر	2024-03-15	2024-03-15	\N	2025-12-11 23:34:26.184728+02	اسر	20	\N	\N	\N	t
+40	معرض الفنون الشعبية	عرض للفنون الشعبية التقليدية	3	1	1	2025-12-11 23:34:26.1873+02	1000.00	مركز الفنون	\N	\N	منتظر	2024-04-01	2024-04-03	\N	2025-12-11 23:34:26.187325+02	اسر	20	\N	\N	\N	t
+41	ورشة تصميم الملصقات	تدريب على تصميم ملصقات جذابة	4	1	1	2025-12-11 23:34:26.189927+02	300.00	قاعة التصميم	\N	\N	منتظر	2024-03-20	2024-03-20	\N	2025-12-11 23:34:26.189949+02	اسر	20	\N	\N	\N	t
+42	رحلة ترفيهية إلى الطبيعة	رحلة جماعية للاستمتاع بالطبيعة	5	1	1	2025-12-11 23:34:26.192812+02	2000.00	محمية الطبيعة	\N	\N	منتظر	2024-04-10	2024-04-10	\N	2025-12-11 23:34:26.192836+02	اسر	20	\N	\N	\N	t
+43	ورشة الرسم الحديث	تعليم تقنيات الرسم الحديثة والفن المعاصر	6	1	1	2025-12-11 23:34:26.195749+02	600.00	معهد الفنون	\N	\N	منتظر	2024-03-25	2024-03-25	\N	2025-12-11 23:34:26.195776+02	اسر	20	\N	\N	\N	t
+44	محاضرة علمية عن الذكاء الاصطناعي	محاضرة عن تطبيقات الذكاء الاصطناعي في العالم الحقيقي	7	1	1	2025-12-11 23:34:26.198632+02	800.00	مختبر العلوم	\N	\N	منتظر	2024-05-01	2024-05-01	\N	2025-12-11 23:34:26.198655+02	اسر	20	\N	\N	\N	t
+45	حملة تنظيف المجتمع	حملة تطوعية لتنظيف أماكن بيئية حساسة	3	1	1	2025-12-11 23:34:26.201236+02	400.00	الحي السكني	\N	\N	منتظر	2024-04-20	2024-04-20	\N	2025-12-11 23:34:26.201259+02	اسر	20	\N	\N	\N	t
+46	بطولة كرة القدم الودية	بطولة ودية بين أسر الجامعة	4	1	1	2025-12-11 23:34:26.203541+02	1500.00	الملعب الرياضي	\N	\N	منتظر	2024-05-15	2024-05-20	\N	2025-12-11 23:34:26.203563+02	اسر	20	\N	\N	\N	t
+47	ندوة ثقافية حول الأدب العربي	ندوة متخصصة تناقش أهم التطورات في الأدب العربي الحديث	3	1	1	2025-12-12 00:55:32.047353+02	500.00	قاعة المحاضرات الرئيسية	\N	\N	منتظر	2024-03-15	2024-03-15	\N	2025-12-12 00:55:32.047388+02	اسر	21	\N	\N	\N	t
+48	معرض الفنون الشعبية	عرض للفنون الشعبية التقليدية	3	1	1	2025-12-12 00:55:32.052451+02	1000.00	مركز الفنون	\N	\N	منتظر	2024-04-01	2024-04-03	\N	2025-12-12 00:55:32.052484+02	اسر	21	\N	\N	\N	t
+49	ورشة تصميم الملصقات	تدريب على تصميم ملصقات جذابة	4	1	1	2025-12-12 00:55:32.057435+02	300.00	قاعة التصميم	\N	\N	منتظر	2024-03-20	2024-03-20	\N	2025-12-12 00:55:32.057477+02	اسر	21	\N	\N	\N	t
+50	رحلة ترفيهية إلى الطبيعة	رحلة جماعية للاستمتاع بالطبيعة	5	1	1	2025-12-12 00:55:32.061776+02	2000.00	محمية الطبيعة	\N	\N	منتظر	2024-04-10	2024-04-10	\N	2025-12-12 00:55:32.061811+02	اسر	21	\N	\N	\N	t
+51	ورشة الرسم الحديث	تعليم تقنيات الرسم الحديثة والفن المعاصر	6	1	1	2025-12-12 00:55:32.065436+02	600.00	معهد الفنون	\N	\N	منتظر	2024-03-25	2024-03-25	\N	2025-12-12 00:55:32.065461+02	اسر	21	\N	\N	\N	t
+53	حملة تنظيف المجتمع	حملة تطوعية لتنظيف أماكن بيئية حساسة	3	1	1	2025-12-12 00:55:32.07342+02	400.00	الحي السكني	\N	\N	منتظر	2024-04-20	2024-04-20	\N	2025-12-12 00:55:32.073447+02	اسر	21	\N	\N	\N	t
+54	بطولة كرة القدم الودية	بطولة ودية بين أسر الجامعة	4	1	1	2025-12-12 00:55:32.078057+02	1500.00	الملعب الرياضي	\N	\N	منتظر	2024-05-15	2024-05-20	\N	2025-12-12 00:55:32.078086+02	اسر	21	\N	\N	\N	t
+6	حملة البيئة النظيفة	حملة تطوعية للحفاظ على نظافة الحرم الجامعي والبيئة المحيطة	5	1	1	2026-02-15 16:15:22.976682+02	0.00	الحرم الجامعي	يفضل المشاركة في الأنشطة البيئية السابقة	شهادات تطوع وجوائز رمزية	مقبول	2024-03-20	2027-03-21	100	2025-11-29 18:47:41.600095+02	نشاط بيئي	3	\N	\N	1	f
+52	محاضرة علمية عن الذكاء الاصطناعي	محاضرة عن تطبيقات الذكاء الاصطناعي في العالم الحقيقي	7	\N	1	2026-03-01 03:40:25.070972+02	800.00	مختبر العلوم	\N	\N	منتظر	2024-05-01	2024-05-01	\N	2025-12-12 00:55:32.068857+02	\N	\N	\N	\N	\N	t
+55	نشاط تبع خطة 2	string	3	1	1	2026-02-16 21:58:47.535497+02	5000.00	string	string	string	مقبول	2026-02-16	2026-02-16	100	2025-12-12 02:11:20.194955+02	نشاط فني	21	\N	\N	2	t
+56	string نشاط	string	3	1	1	2026-02-17 00:13:05.788745+02	62.30	string	string	string	منتظر	2026-02-16	2026-02-16	10	2026-02-17 00:13:05.788776+02	نشاط بيئي	6	\N	\N	\N	t
+58	مسابقة الشطرنج السنوية	مسابقة ذكاء	7	1	8	2026-03-01 03:36:13.070132+02	100.00	نادي	string	جايزة مادية	منتظر	2026-02-23	2026-12-23	100	2026-02-23 06:01:32.367746+02	نشاط ثقافي	\N	\N	\N	1	t
+3	ماراثون العدو السنوي	فعالية رياضية سنوية تجمع طلاب الجامعة للمشاركة في ماراثون العدو	7	\N	1	2026-03-01 03:42:16.746992+02	50.00	الملعب الرياضي	يجب أن يكون المشارك طالباً حالياً بالجامعة	جوائز نقدية وشهادات تقدير	مقبول	2024-03-15	2026-03-30	200	2025-11-29 18:47:41.600095+02	نشاط رياضي	\N	\N	\N	\N	t
 \.
 
 
 --
--- Data for Name: faculties; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: faculties; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.faculties (faculty_id, name, major, created_at, aff_discount, reg_discount, bk_discount, full_discount) FROM stdin;
@@ -1650,26 +1741,26 @@ COPY public.faculties (faculty_id, name, major, created_at, aff_discount, reg_di
 
 
 --
--- Data for Name: families; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: families; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.families (family_id, name, description, faculty_id, created_by, approved_by, status, created_at, updated_at, min_limit, type, closing_date) FROM stdin;
-3	أصدقاء البيئة	أسرة متخصصة في الأنشطة البيئية والاستدامة	1	1	16	موافقة مبدئية	2025-11-29 18:30:42.982008+02	2026-01-20 16:31:59.267622+02	30	اصدقاء البيئة	2025-01-01
+1	أسرة نوعية	أسرة نوعية متخصصة في الأنشطة الرياضية والثقافية	1	1	1	موافقة مبدئية	2025-11-29 18:30:42.982008+02	2026-02-16 20:47:40.316478+02	100	نوعية	2025-12-14
+2	أسرة مركزية	أسرة مركزية على مستوى الجامعة غير مرتبطة بكلية معينة	\N	1	10	موافقة مبدئية	2025-11-29 18:30:42.982008+02	2026-02-16 20:47:40.316478+02	100	مركزية	2025-01-01
+3	أصدقاء البيئة	أسرة متخصصة في الأنشطة البيئية والاستدامة	1	1	16	مقبول	2025-11-29 18:30:42.982008+02	2026-02-16 21:28:38.043754+02	100	اصدقاء البيئة	2025-01-01
 4	نادي الرياضة	أسرة متخصصة في الأنشطة الرياضية والنشاط البدني	1	1	\N	مرفوض	2025-12-06 23:12:48.322738+02	2025-12-14 17:44:27.358042+02	50	نوعية	2025-01-01
-2	أسرة مركزية	أسرة مركزية على مستوى الجامعة غير مرتبطة بكلية معينة	1	1	10	مقبول	2025-11-29 18:30:42.982008+02	2026-01-17 00:10:47.449816+02	100	مركزية	2025-01-01
-1	أسرة نوعية	أسرة نوعية متخصصة في الأنشطة الرياضية والثقافية	1	1	1	مقبول	2025-11-29 18:30:42.982008+02	2026-01-19 03:31:33.578567+02	100	نوعية	2025-12-14
-5	نادي الرياضة	أسرة متخصصة في الأنشطة الرياضية والنشاط البدني	1	1	\N	موافقة مبدئية	2025-12-06 23:22:21.065725+02	2025-12-12 21:21:53.420012+02	50	نوعية	2025-01-01
-6	نادي الرياضة	أسرة متخصصة في الأنشطة الرياضية والنشاط البدني	1	1	\N	موافقة مبدئية	2025-12-06 23:30:14.220471+02	2025-12-12 21:21:53.420012+02	15	نوعية	2025-01-01
+6	نادي الرياضة	أسرة متخصصة في الأنشطة الرياضية والنشاط البدني	1	1	\N	موافقة مبدئية	2025-12-06 23:30:14.220471+02	2026-02-16 20:28:55.748327+02	15	نوعية	2025-01-01
+5	نادي الرياضة	أسرة متخصصة في الأنشطة الرياضية والنشاط البدني	1	1	\N	موافقة مبدئية	2025-12-06 23:22:21.065725+02	2026-02-16 20:29:42.682564+02	50	نوعية	2025-01-01
+20	أسرة الإبداع والفنون	أسرة متخصصة في الأنشطة الإبداعية والفنية لتنمية مهارات الطلاب	1	1	\N	مقبول	2025-12-11 23:34:26.155704+02	2026-02-16 21:24:19.152637+02	20	نوعية	\N
 14	أسرة الإبداع والفنون	أسرة متخصصة في الأنشطة الإبداعية والفنية لتنمية مهارات الطلاب	1	1	\N	موافقة مبدئية	2025-12-11 23:13:26.605204+02	2025-12-12 21:21:53.420012+02	20	نوعية	\N
 16	أسرة الإبداع والفنون	أسرة متخصصة في الأنشطة الإبداعية والفنية لتنمية مهارات الطلاب	1	1	\N	موافقة مبدئية	2025-12-11 23:16:04.293144+02	2025-12-12 21:21:53.420012+02	20	نوعية	\N
 19	أسرة الإبداع والفنون	أسرة متخصصة في الأنشطة الإبداعية والفنية لتنمية مهارات الطلاب	1	1	\N	موافقة مبدئية	2025-12-11 23:30:45.911519+02	2025-12-12 21:21:53.420012+02	20	نوعية	\N
-20	أسرة الإبداع والفنون	أسرة متخصصة في الأنشطة الإبداعية والفنية لتنمية مهارات الطلاب	1	1	\N	موافقة مبدئية	2025-12-11 23:34:26.155704+02	2025-12-12 21:21:53.420012+02	20	نوعية	\N
 21	أسرة الإبداع والفنون	أسرة متخصصة في الأنشطة الإبداعية والفنية لتنمية مهارات الطلاب	1	1	\N	موافقة مبدئية	2025-12-12 00:55:32.002298+02	2025-12-12 21:21:53.420012+02	15	نوعية	\N
 \.
 
 
 --
--- Data for Name: family_admins; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: family_admins; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.family_admins (id, name, nid, ph_no, role, family_id, created_at) FROM stdin;
@@ -1697,7 +1788,7 @@ COPY public.family_admins (id, name, nid, ph_no, role, family_id, created_at) FR
 
 
 --
--- Data for Name: family_members; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: family_members; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.family_members (family_id, student_id, role, status, joined_at, dept_id) FROM stdin;
@@ -1706,6 +1797,8 @@ COPY public.family_members (family_id, student_id, role, status, joined_at, dept
 3	16	عضو	مقبول	2025-11-29 18:35:41.878043+02	5
 3	21	عضو	موافقة مبدئية	2025-11-29 18:35:41.878043+02	5
 3	11	عضو	مقبول	2025-12-06 22:42:57.139362+02	\N
+2	13	عضو	منتظر	2026-02-16 21:08:48.870811+02	\N
+3	13	عضو	مرفوض	2026-02-16 21:28:55.115167+02	\N
 2	16	أخت كبرى	منتظر	2025-11-29 18:35:41.878043+02	4
 4	22	أمين مساعد لجنة	منتظر	2025-12-06 23:12:48.338154+02	3
 4	34	أمين مساعد لجنة	منتظر	2025-12-06 23:12:48.338532+02	3
@@ -1729,7 +1822,9 @@ COPY public.family_members (family_id, student_id, role, status, joined_at, dept
 2	11	عضو	منتظر	2025-11-29 18:35:41.878043+02	4
 1	13	عضو	منتظر	2025-11-29 18:35:41.878043+02	3
 3	19	أخ أكبر	مقبول	2025-11-29 18:35:41.878043+02	5
-3	13	عضو	مقبول	2025-11-29 18:35:41.878043+02	\N
+5	13	عضو	منتظر	2026-02-16 21:28:04.16266+02	\N
+21	13	عضو	منتظر	2026-02-16 21:30:00.488855+02	\N
+6	13	أخ أكبر	مقبول	2025-12-06 23:30:14.225358+02	\N
 4	16	أمين لجنة	منتظر	2025-12-06 23:12:48.335907+02	3
 4	18	أمين لجنة	منتظر	2025-12-06 23:12:48.336729+02	4
 4	19	أمين لجنة	منتظر	2025-12-06 23:12:48.33714+02	5
@@ -1748,7 +1843,6 @@ COPY public.family_members (family_id, student_id, role, status, joined_at, dept
 1	11	أخ أكبر	منتظر	2025-11-29 18:35:41.878043+02	3
 4	11	أخ أكبر	منتظر	2025-12-06 23:12:48.334231+02	\N
 5	11	أخ أكبر	منتظر	2025-12-06 23:22:21.070555+02	\N
-6	13	أخ أكبر	منتظر	2025-12-06 23:30:14.225358+02	\N
 14	18	أخت كبرى	منتظر	2025-12-11 23:13:26.620967+02	\N
 14	29	أمين سر	منتظر	2025-12-11 23:13:26.623685+02	\N
 14	36	عضو منتخب	منتظر	2025-12-11 23:13:26.626447+02	\N
@@ -1797,7 +1891,6 @@ COPY public.family_members (family_id, student_id, role, status, joined_at, dept
 20	18	أخت كبرى	منتظر	2025-12-11 23:34:26.172512+02	\N
 20	29	أمين سر	منتظر	2025-12-11 23:34:26.175937+02	\N
 20	36	عضو منتخب	منتظر	2025-12-11 23:34:26.179042+02	\N
-20	13	عضو منتخب	منتظر	2025-12-11 23:34:26.182066+02	\N
 20	22	أمين لجنة	منتظر	2025-12-11 23:34:26.18379+02	3
 20	1	أمين مساعد لجنة	منتظر	2025-12-11 23:34:26.184247+02	3
 20	11	أمين مساعد لجنة	منتظر	2025-12-11 23:34:26.189595+02	4
@@ -1812,7 +1905,6 @@ COPY public.family_members (family_id, student_id, role, status, joined_at, dept
 21	18	أخت كبرى	منتظر	2025-12-12 00:55:32.028676+02	\N
 21	29	أمين سر	منتظر	2025-12-12 00:55:32.03241+02	\N
 21	36	عضو منتخب	منتظر	2025-12-12 00:55:32.037065+02	\N
-21	13	عضو منتخب	منتظر	2025-12-12 00:55:32.042859+02	\N
 21	22	أمين لجنة	منتظر	2025-12-12 00:55:32.045295+02	3
 21	1	أمين مساعد لجنة	منتظر	2025-12-12 00:55:32.046602+02	3
 21	11	أمين مساعد لجنة	منتظر	2025-12-12 00:55:32.056726+02	4
@@ -1828,7 +1920,7 @@ COPY public.family_members (family_id, student_id, role, status, joined_at, dept
 
 
 --
--- Data for Name: logs; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: logs; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.logs (log_id, actor_id, action, event_id, solidarity_id, family_id, ip_address, logged_at, actor_type, target_type, student_id) FROM stdin;
@@ -1939,19 +2031,39 @@ COPY public.logs (log_id, actor_id, action, event_id, solidarity_id, family_id, 
 117	8	منح صلاحية إنشاء أسرة للطالب	\N	\N	\N	127.0.0.1	2026-01-19 01:32:48.863882+02	مسؤول كلية	طالب	11
 118	8	سحب صلاحية إنشاء أسرة من الطالب	\N	\N	\N	127.0.0.1	2026-01-19 01:35:42.024131+02	مسؤول كلية	طالب	11
 119	16	رفض الأسرة (إدارة مركزية)	\N	\N	3	127.0.0.1	2026-01-20 16:16:04.820561+02	مدير ادارة	اسر	\N
+120	1	انشاء نشاط	56	\N	\N	::1	2026-02-17 00:13:05.788929+02	\N	نشاط	\N
+121	8	عرض بيانات الطلب	\N	34	\N	127.0.0.1	2026-02-23 00:48:58.267479+02	مسؤول كلية	تكافل	\N
+122	8	عرض مستندات الطلب	\N	34	\N	127.0.0.1	2026-02-23 00:48:58.287057+02	مسؤول كلية	تكافل	\N
+123	8	عرض مستندات الطلب	\N	34	\N	127.0.0.1	2026-02-23 00:48:58.375862+02	مسؤول كلية	تكافل	\N
+124	8	عرض بيانات الطلب	\N	34	\N	127.0.0.1	2026-02-23 00:48:58.395084+02	مسؤول كلية	تكافل	\N
+125	8	انشاء نشاط	58	\N	\N	::1	2026-02-23 06:01:32.367746+02	\N	نشاط	\N
+126	8	Viewed images for event: مسابقة الشطرنج السنوية	58	\N	\N	127.0.0.1	2026-03-01 02:45:48.549101+02	مسؤول كلية	نشاط	\N
+127	8	Uploaded 1 image(s) for event: مسابقة الشطرنج السنوية	58	\N	\N	127.0.0.1	2026-03-01 02:53:32.627064+02	مسؤول كلية	نشاط	\N
+128	8	Viewed images for event: مسابقة الشطرنج السنوية	58	\N	\N	127.0.0.1	2026-03-01 02:53:59.54498+02	مسؤول كلية	نشاط	\N
+129	8	Deleted image 4 from event: مسابقة الشطرنج السنوية	58	\N	\N	127.0.0.1	2026-03-01 03:00:18.252186+02	مسؤول كلية	نشاط	\N
+130	8	Uploaded 1 image(s) for event: مسابقة الشطرنج السنوية	58	\N	\N	127.0.0.1	2026-03-01 03:00:42.041997+02	مسؤول كلية	نشاط	\N
+131	8	Uploaded 3 image(s) for event: مسابقة الشطرنج السنوية	58	\N	\N	127.0.0.1	2026-03-01 03:01:01.434037+02	مسؤول كلية	نشاط	\N
+132	8	Deleted image 5 from event: مسابقة الشطرنج السنوية	58	\N	\N	127.0.0.1	2026-03-01 03:03:06.992197+02	مسؤول كلية	نشاط	\N
+133	8	Deleted image 6 from event: مسابقة الشطرنج السنوية	58	\N	\N	127.0.0.1	2026-03-01 03:03:11.283594+02	مسؤول كلية	نشاط	\N
+134	8	Uploaded 3 image(s) for event: مسابقة الشطرنج السنوية	58	\N	\N	127.0.0.1	2026-03-01 03:17:20.4348+02	مسؤول كلية	نشاط	\N
+135	8	Deleted image 11 from event: مسابقة الشطرنج السنوية	58	\N	\N	127.0.0.1	2026-03-01 03:17:57.866205+02	مسؤول كلية	نشاط	\N
 \.
 
 
 --
--- Data for Name: plans; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: plans; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.plans (plan_id, name, term, created_at, updated_at, faculty_id) FROM stdin;
+2	plan2026	1	2026-02-15 16:08:27.490535+02	2026-02-15 16:08:27.490544+02	1
+4	plan2026	1	2026-02-15 16:10:54.641662+02	2026-02-15 16:10:54.641672+02	1
+1	العام الدراسي 2025-2026	2	2026-02-15 16:07:55.641683+02	2026-02-15 16:23:03.518843+02	1
+5	global_plan2026	1	2026-02-15 16:36:57.167863+02	2026-02-15 16:36:57.167871+02	\N
 \.
 
 
 --
--- Data for Name: posts; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: posts; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.posts (post_id, title, description, family_id, faculty_id, created_at, updated_at) FROM stdin;
@@ -1962,7 +2074,7 @@ COPY public.posts (post_id, title, description, family_id, faculty_id, created_a
 
 
 --
--- Data for Name: prtcps; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: prtcps; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.prtcps (event_id, student_id, rank, reward, status, id) FROM stdin;
@@ -1970,11 +2082,12 @@ COPY public.prtcps (event_id, student_id, rank, reward, status, id) FROM stdin;
 6	2	\N	\N	مقبول	2
 6	13	\N	\N	مقبول	4
 6	11	\N	\N	مرفوض	1
+55	13	\N	\N	منتظر	5
 \.
 
 
 --
--- Data for Name: solidarities; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: solidarities; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.solidarities (solidarity_id, student_id, faculty_id, req_status, created_at, family_numbers, father_status, mother_status, father_income, mother_income, total_income, arrange_of_brothers, m_phone_num, f_phone_num, reason, disabilities, grade, acd_status, address, approved_by, updated_at, req_type, housing_status, total_discount, sd, discount_type) FROM stdin;
@@ -2013,7 +2126,7 @@ COPY public.solidarities (solidarity_id, student_id, faculty_id, req_status, cre
 
 
 --
--- Data for Name: solidarity_docs; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: solidarity_docs; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.solidarity_docs (doc_id, solidarity_id, doc_type, mime_type, file_size, uploaded_at, file) FROM stdin;
@@ -2085,7 +2198,7 @@ COPY public.solidarity_docs (doc_id, solidarity_id, doc_type, mime_type, file_si
 
 
 --
--- Data for Name: students; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: students; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.students (student_id, name, email, password, faculty_id, profile_photo, gender, nid, uid, phone_number, address, acd_year, join_date, gpa, grade, major, google_id, google_picture, is_google_auth, auth_method, last_login_method, last_google_login, can_create_fam) FROM stdin;
@@ -2114,175 +2227,175 @@ COPY public.students (student_id, name, email, password, faculty_id, profile_pho
 
 
 --
--- Name: admins_admin_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: admins_admin_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.admins_admin_id_seq', 21, true);
 
 
 --
--- Name: auth_group_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: auth_group_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.auth_group_id_seq', 1, false);
 
 
 --
--- Name: auth_group_permissions_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: auth_group_permissions_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.auth_group_permissions_id_seq', 1, false);
 
 
 --
--- Name: auth_permission_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: auth_permission_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.auth_permission_id_seq', 108, true);
 
 
 --
--- Name: auth_user_groups_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: auth_user_groups_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.auth_user_groups_id_seq', 1, false);
 
 
 --
--- Name: auth_user_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: auth_user_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.auth_user_id_seq', 1, false);
 
 
 --
--- Name: auth_user_user_permissions_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: auth_user_user_permissions_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.auth_user_user_permissions_id_seq', 1, false);
 
 
 --
--- Name: departments_dept_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: departments_dept_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.departments_dept_id_seq', 7, true);
 
 
 --
--- Name: django_admin_log_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: django_admin_log_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.django_admin_log_id_seq', 1, false);
 
 
 --
--- Name: django_content_type_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: django_content_type_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.django_content_type_id_seq', 27, true);
 
 
 --
--- Name: django_migrations_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: django_migrations_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.django_migrations_id_seq', 25, true);
 
 
 --
--- Name: documents_doc_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: documents_doc_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.documents_doc_id_seq', 2, true);
 
 
 --
--- Name: event_docs_doc_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: event_docs_doc_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.event_docs_doc_id_seq', 3, true);
-
-
---
--- Name: events_event_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.events_event_id_seq', 55, true);
+SELECT pg_catalog.setval('public.event_docs_doc_id_seq', 11, true);
 
 
 --
--- Name: faculties_faculty_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: events_event_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.events_event_id_seq', 58, true);
+
+
+--
+-- Name: faculties_faculty_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.faculties_faculty_id_seq', 3, true);
 
 
 --
--- Name: families_family_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: families_family_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.families_family_id_seq', 21, true);
 
 
 --
--- Name: family_admins_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: family_admins_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.family_admins_id_seq', 60, true);
 
 
 --
--- Name: logs_log_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: logs_log_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.logs_log_id_seq', 119, true);
-
-
---
--- Name: plans_plan_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.plans_plan_id_seq', 1, false);
+SELECT pg_catalog.setval('public.logs_log_id_seq', 135, true);
 
 
 --
--- Name: posts_post_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: plans_plan_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.plans_plan_id_seq', 5, true);
+
+
+--
+-- Name: posts_post_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.posts_post_id_seq', 3, true);
 
 
 --
--- Name: prtcps_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: prtcps_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.prtcps_id_seq', 4, true);
+SELECT pg_catalog.setval('public.prtcps_id_seq', 5, true);
 
 
 --
--- Name: solidarities_solidarity_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: solidarities_solidarity_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.solidarities_solidarity_id_seq', 34, true);
 
 
 --
--- Name: solidarity_docs_doc_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: solidarity_docs_doc_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.solidarity_docs_doc_id_seq', 114, true);
 
 
 --
--- Name: students_student_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: students_student_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.students_student_id_seq', 39, true);
 
 
 --
--- Name: admins admins_email_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: admins admins_email_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.admins
@@ -2290,7 +2403,7 @@ ALTER TABLE ONLY public.admins
 
 
 --
--- Name: admins admins_national_id_unique; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: admins admins_national_id_unique; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.admins
@@ -2298,7 +2411,7 @@ ALTER TABLE ONLY public.admins
 
 
 --
--- Name: admins admins_phone_number_unique; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: admins admins_phone_number_unique; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.admins
@@ -2306,7 +2419,7 @@ ALTER TABLE ONLY public.admins
 
 
 --
--- Name: admins admins_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: admins admins_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.admins
@@ -2314,7 +2427,7 @@ ALTER TABLE ONLY public.admins
 
 
 --
--- Name: auth_group auth_group_name_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_group auth_group_name_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_group
@@ -2322,7 +2435,7 @@ ALTER TABLE ONLY public.auth_group
 
 
 --
--- Name: auth_group_permissions auth_group_permissions_group_id_permission_id_0cd325b0_uniq; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_group_permissions auth_group_permissions_group_id_permission_id_0cd325b0_uniq; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_group_permissions
@@ -2330,7 +2443,7 @@ ALTER TABLE ONLY public.auth_group_permissions
 
 
 --
--- Name: auth_group_permissions auth_group_permissions_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_group_permissions auth_group_permissions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_group_permissions
@@ -2338,7 +2451,7 @@ ALTER TABLE ONLY public.auth_group_permissions
 
 
 --
--- Name: auth_group auth_group_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_group auth_group_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_group
@@ -2346,7 +2459,7 @@ ALTER TABLE ONLY public.auth_group
 
 
 --
--- Name: auth_permission auth_permission_content_type_id_codename_01ab375a_uniq; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_permission auth_permission_content_type_id_codename_01ab375a_uniq; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_permission
@@ -2354,7 +2467,7 @@ ALTER TABLE ONLY public.auth_permission
 
 
 --
--- Name: auth_permission auth_permission_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_permission auth_permission_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_permission
@@ -2362,7 +2475,7 @@ ALTER TABLE ONLY public.auth_permission
 
 
 --
--- Name: auth_user_groups auth_user_groups_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_user_groups auth_user_groups_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_user_groups
@@ -2370,7 +2483,7 @@ ALTER TABLE ONLY public.auth_user_groups
 
 
 --
--- Name: auth_user_groups auth_user_groups_user_id_group_id_94350c0c_uniq; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_user_groups auth_user_groups_user_id_group_id_94350c0c_uniq; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_user_groups
@@ -2378,7 +2491,7 @@ ALTER TABLE ONLY public.auth_user_groups
 
 
 --
--- Name: auth_user auth_user_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_user auth_user_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_user
@@ -2386,7 +2499,7 @@ ALTER TABLE ONLY public.auth_user
 
 
 --
--- Name: auth_user_user_permissions auth_user_user_permissions_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_user_user_permissions auth_user_user_permissions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_user_user_permissions
@@ -2394,7 +2507,7 @@ ALTER TABLE ONLY public.auth_user_user_permissions
 
 
 --
--- Name: auth_user_user_permissions auth_user_user_permissions_user_id_permission_id_14a6b632_uniq; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_user_user_permissions auth_user_user_permissions_user_id_permission_id_14a6b632_uniq; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_user_user_permissions
@@ -2402,7 +2515,7 @@ ALTER TABLE ONLY public.auth_user_user_permissions
 
 
 --
--- Name: auth_user auth_user_username_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_user auth_user_username_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_user
@@ -2410,7 +2523,7 @@ ALTER TABLE ONLY public.auth_user
 
 
 --
--- Name: departments departments_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: departments departments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.departments
@@ -2418,7 +2531,7 @@ ALTER TABLE ONLY public.departments
 
 
 --
--- Name: django_admin_log django_admin_log_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: django_admin_log django_admin_log_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.django_admin_log
@@ -2426,7 +2539,7 @@ ALTER TABLE ONLY public.django_admin_log
 
 
 --
--- Name: django_content_type django_content_type_app_label_model_76bd3d3b_uniq; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: django_content_type django_content_type_app_label_model_76bd3d3b_uniq; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.django_content_type
@@ -2434,7 +2547,7 @@ ALTER TABLE ONLY public.django_content_type
 
 
 --
--- Name: django_content_type django_content_type_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: django_content_type django_content_type_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.django_content_type
@@ -2442,7 +2555,7 @@ ALTER TABLE ONLY public.django_content_type
 
 
 --
--- Name: django_migrations django_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: django_migrations django_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.django_migrations
@@ -2450,7 +2563,7 @@ ALTER TABLE ONLY public.django_migrations
 
 
 --
--- Name: django_session django_session_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: django_session django_session_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.django_session
@@ -2458,7 +2571,7 @@ ALTER TABLE ONLY public.django_session
 
 
 --
--- Name: documents documents_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: documents documents_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.documents
@@ -2466,7 +2579,7 @@ ALTER TABLE ONLY public.documents
 
 
 --
--- Name: event_docs event_docs_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: event_docs event_docs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.event_docs
@@ -2474,7 +2587,7 @@ ALTER TABLE ONLY public.event_docs
 
 
 --
--- Name: events events_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: events events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.events
@@ -2482,7 +2595,7 @@ ALTER TABLE ONLY public.events
 
 
 --
--- Name: faculties faculties_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: faculties faculties_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.faculties
@@ -2490,7 +2603,7 @@ ALTER TABLE ONLY public.faculties
 
 
 --
--- Name: families families_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: families families_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.families
@@ -2498,7 +2611,7 @@ ALTER TABLE ONLY public.families
 
 
 --
--- Name: family_admins family_admins_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: family_admins family_admins_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.family_admins
@@ -2506,7 +2619,7 @@ ALTER TABLE ONLY public.family_admins
 
 
 --
--- Name: family_members family_members_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: family_members family_members_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.family_members
@@ -2514,7 +2627,7 @@ ALTER TABLE ONLY public.family_members
 
 
 --
--- Name: logs logs_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: logs logs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.logs
@@ -2522,7 +2635,7 @@ ALTER TABLE ONLY public.logs
 
 
 --
--- Name: plans plans_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: plans plans_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.plans
@@ -2530,7 +2643,7 @@ ALTER TABLE ONLY public.plans
 
 
 --
--- Name: posts posts_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: posts posts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.posts
@@ -2538,7 +2651,7 @@ ALTER TABLE ONLY public.posts
 
 
 --
--- Name: prtcps prtcps_event_student_unique; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: prtcps prtcps_event_student_unique; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.prtcps
@@ -2546,7 +2659,7 @@ ALTER TABLE ONLY public.prtcps
 
 
 --
--- Name: prtcps prtcps_id_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: prtcps prtcps_id_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.prtcps
@@ -2554,7 +2667,7 @@ ALTER TABLE ONLY public.prtcps
 
 
 --
--- Name: solidarities solidarities_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: solidarities solidarities_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.solidarities
@@ -2562,7 +2675,7 @@ ALTER TABLE ONLY public.solidarities
 
 
 --
--- Name: solidarity_docs solidarity_docs_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: solidarity_docs solidarity_docs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.solidarity_docs
@@ -2570,7 +2683,7 @@ ALTER TABLE ONLY public.solidarity_docs
 
 
 --
--- Name: solidarity_docs solidarity_docs_solidarity_id_doc_type_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: solidarity_docs solidarity_docs_solidarity_id_doc_type_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.solidarity_docs
@@ -2578,7 +2691,7 @@ ALTER TABLE ONLY public.solidarity_docs
 
 
 --
--- Name: students students_email_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: students students_email_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.students
@@ -2586,7 +2699,7 @@ ALTER TABLE ONLY public.students
 
 
 --
--- Name: students students_google_id_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: students students_google_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.students
@@ -2594,7 +2707,7 @@ ALTER TABLE ONLY public.students
 
 
 --
--- Name: students students_nid_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: students students_nid_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.students
@@ -2602,7 +2715,7 @@ ALTER TABLE ONLY public.students
 
 
 --
--- Name: students students_phone_number_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: students students_phone_number_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.students
@@ -2610,7 +2723,7 @@ ALTER TABLE ONLY public.students
 
 
 --
--- Name: students students_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: students students_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.students
@@ -2618,7 +2731,7 @@ ALTER TABLE ONLY public.students
 
 
 --
--- Name: students students_uid_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: students students_uid_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.students
@@ -2626,343 +2739,364 @@ ALTER TABLE ONLY public.students
 
 
 --
--- Name: auth_group_name_a6ea08ec_like; Type: INDEX; Schema: public; Owner: postgres
+-- Name: auth_group_name_a6ea08ec_like; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX auth_group_name_a6ea08ec_like ON public.auth_group USING btree (name varchar_pattern_ops);
 
 
 --
--- Name: auth_group_permissions_group_id_b120cbf9; Type: INDEX; Schema: public; Owner: postgres
+-- Name: auth_group_permissions_group_id_b120cbf9; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX auth_group_permissions_group_id_b120cbf9 ON public.auth_group_permissions USING btree (group_id);
 
 
 --
--- Name: auth_group_permissions_permission_id_84c5c92e; Type: INDEX; Schema: public; Owner: postgres
+-- Name: auth_group_permissions_permission_id_84c5c92e; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX auth_group_permissions_permission_id_84c5c92e ON public.auth_group_permissions USING btree (permission_id);
 
 
 --
--- Name: auth_permission_content_type_id_2f476e4b; Type: INDEX; Schema: public; Owner: postgres
+-- Name: auth_permission_content_type_id_2f476e4b; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX auth_permission_content_type_id_2f476e4b ON public.auth_permission USING btree (content_type_id);
 
 
 --
--- Name: auth_user_groups_group_id_97559544; Type: INDEX; Schema: public; Owner: postgres
+-- Name: auth_user_groups_group_id_97559544; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX auth_user_groups_group_id_97559544 ON public.auth_user_groups USING btree (group_id);
 
 
 --
--- Name: auth_user_groups_user_id_6a12ed8b; Type: INDEX; Schema: public; Owner: postgres
+-- Name: auth_user_groups_user_id_6a12ed8b; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX auth_user_groups_user_id_6a12ed8b ON public.auth_user_groups USING btree (user_id);
 
 
 --
--- Name: auth_user_user_permissions_permission_id_1fbb5f2c; Type: INDEX; Schema: public; Owner: postgres
+-- Name: auth_user_user_permissions_permission_id_1fbb5f2c; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX auth_user_user_permissions_permission_id_1fbb5f2c ON public.auth_user_user_permissions USING btree (permission_id);
 
 
 --
--- Name: auth_user_user_permissions_user_id_a95ead1b; Type: INDEX; Schema: public; Owner: postgres
+-- Name: auth_user_user_permissions_user_id_a95ead1b; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX auth_user_user_permissions_user_id_a95ead1b ON public.auth_user_user_permissions USING btree (user_id);
 
 
 --
--- Name: auth_user_username_6821ab7c_like; Type: INDEX; Schema: public; Owner: postgres
+-- Name: auth_user_username_6821ab7c_like; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX auth_user_username_6821ab7c_like ON public.auth_user USING btree (username varchar_pattern_ops);
 
 
 --
--- Name: django_admin_log_content_type_id_c4bce8eb; Type: INDEX; Schema: public; Owner: postgres
+-- Name: django_admin_log_content_type_id_c4bce8eb; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX django_admin_log_content_type_id_c4bce8eb ON public.django_admin_log USING btree (content_type_id);
 
 
 --
--- Name: django_admin_log_user_id_c564eba6; Type: INDEX; Schema: public; Owner: postgres
+-- Name: django_admin_log_user_id_c564eba6; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX django_admin_log_user_id_c564eba6 ON public.django_admin_log USING btree (user_id);
 
 
 --
--- Name: django_session_expire_date_a5c62663; Type: INDEX; Schema: public; Owner: postgres
+-- Name: django_session_expire_date_a5c62663; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX django_session_expire_date_a5c62663 ON public.django_session USING btree (expire_date);
 
 
 --
--- Name: django_session_session_key_c0390e0f_like; Type: INDEX; Schema: public; Owner: postgres
+-- Name: django_session_session_key_c0390e0f_like; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX django_session_session_key_c0390e0f_like ON public.django_session USING btree (session_key varchar_pattern_ops);
 
 
 --
--- Name: idx_admins_dept_id; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_admins_dept_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_admins_dept_id ON public.admins USING btree (dept_id);
 
 
 --
--- Name: idx_admins_faculty_id; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_admins_faculty_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_admins_faculty_id ON public.admins USING btree (faculty_id);
 
 
 --
--- Name: idx_event_docs_event_id; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_event_docs_event; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_event_docs_event ON public.event_docs USING btree (event_id);
+
+
+--
+-- Name: idx_event_docs_event_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_event_docs_event_id ON public.event_docs USING btree (event_id);
 
 
 --
--- Name: idx_events_created_by; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_event_docs_uploaded_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_event_docs_uploaded_at ON public.event_docs USING btree (uploaded_at DESC);
+
+
+--
+-- Name: idx_event_docs_uploaded_by; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_event_docs_uploaded_by ON public.event_docs USING btree (uploaded_by);
+
+
+--
+-- Name: idx_events_created_by; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_events_created_by ON public.events USING btree (created_by);
 
 
 --
--- Name: idx_events_dept_id; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_events_dept_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_events_dept_id ON public.events USING btree (dept_id);
 
 
 --
--- Name: idx_events_faculty_id; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_events_faculty_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_events_faculty_id ON public.events USING btree (faculty_id);
 
 
 --
--- Name: idx_events_plan_id; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_events_plan_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_events_plan_id ON public.events USING btree (plan_id) WITH (deduplicate_items='true');
 
 
 --
--- Name: idx_events_selected_facs; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_events_selected_facs; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_events_selected_facs ON public.events USING gin (selected_facs);
 
 
 --
--- Name: idx_families_created_by; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_families_created_by; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_families_created_by ON public.families USING btree (created_by);
 
 
 --
--- Name: idx_families_faculty_id; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_families_faculty_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_families_faculty_id ON public.families USING btree (faculty_id);
 
 
 --
--- Name: idx_family_admins_family_id; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_family_admins_family_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_family_admins_family_id ON public.family_admins USING btree (family_id);
 
 
 --
--- Name: idx_family_members_student; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_family_members_student; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_family_members_student ON public.family_members USING btree (student_id);
 
 
 --
--- Name: idx_logs_action; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_logs_action; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_logs_action ON public.logs USING btree (action);
 
 
 --
--- Name: idx_logs_actor_id; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_logs_actor_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_logs_actor_id ON public.logs USING btree (actor_id);
 
 
 --
--- Name: idx_logs_logged_at; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_logs_logged_at; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_logs_logged_at ON public.logs USING btree (logged_at);
 
 
 --
--- Name: idx_logs_student_id; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_logs_student_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_logs_student_id ON public.logs USING btree (student_id) WITH (fillfactor='100', deduplicate_items='true');
 
 
 --
--- Name: idx_logs_target; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_logs_target; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_logs_target ON public.logs USING btree (target_type, event_id, solidarity_id, family_id);
 
 
 --
--- Name: idx_plans_faculty_id; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_plans_faculty_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_plans_faculty_id ON public.plans USING btree (faculty_id);
 
 
 --
--- Name: idx_plans_name; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_plans_name; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_plans_name ON public.plans USING btree (name) WITH (fillfactor='100', deduplicate_items='true');
 
 
 --
--- Name: idx_posts_created_at; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_posts_created_at; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_posts_created_at ON public.posts USING btree (created_at DESC);
 
 
 --
--- Name: idx_posts_faculty_id; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_posts_faculty_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_posts_faculty_id ON public.posts USING btree (faculty_id);
 
 
 --
--- Name: idx_posts_family_id; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_posts_family_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_posts_family_id ON public.posts USING btree (family_id);
 
 
 --
--- Name: idx_prtcps_event; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_prtcps_event; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_prtcps_event ON public.prtcps USING btree (event_id);
 
 
 --
--- Name: idx_prtcps_student; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_prtcps_student; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_prtcps_student ON public.prtcps USING btree (student_id);
 
 
 --
--- Name: idx_solidarities_faculty; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_solidarities_faculty; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_solidarities_faculty ON public.solidarities USING btree (faculty_id);
 
 
 --
--- Name: idx_solidarities_student; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_solidarities_student; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_solidarities_student ON public.solidarities USING btree (student_id);
 
 
 --
--- Name: idx_students_faculty_id; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_students_faculty_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_students_faculty_id ON public.students USING btree (faculty_id);
 
 
 --
--- Name: events trg_events_touch; Type: TRIGGER; Schema: public; Owner: postgres
+-- Name: events trg_events_touch; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_events_touch BEFORE UPDATE ON public.events FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
--- Name: families trg_families_touch; Type: TRIGGER; Schema: public; Owner: postgres
+-- Name: families trg_families_touch; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_families_touch BEFORE UPDATE ON public.families FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
--- Name: events trg_log_event_insert; Type: TRIGGER; Schema: public; Owner: postgres
+-- Name: events trg_log_event_insert; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_log_event_insert AFTER INSERT ON public.events FOR EACH ROW EXECUTE FUNCTION public.log_event_insert();
 
 
 --
--- Name: families trg_log_family_insert; Type: TRIGGER; Schema: public; Owner: postgres
+-- Name: families trg_log_family_insert; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_log_family_insert AFTER INSERT ON public.families FOR EACH ROW EXECUTE FUNCTION public.log_family_insert();
 
 
 --
--- Name: solidarities trg_log_solidarity_approval; Type: TRIGGER; Schema: public; Owner: postgres
+-- Name: solidarities trg_log_solidarity_approval; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_log_solidarity_approval AFTER UPDATE ON public.solidarities FOR EACH ROW WHEN (((old.req_status IS DISTINCT FROM new.req_status) AND (new.req_status = 'مقبول'::public.general_status))) EXECUTE FUNCTION public.log_solidarity_approval();
 
 
 --
--- Name: solidarities trg_log_solidarity_pre_approval; Type: TRIGGER; Schema: public; Owner: postgres
+-- Name: solidarities trg_log_solidarity_pre_approval; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_log_solidarity_pre_approval AFTER UPDATE ON public.solidarities FOR EACH ROW WHEN (((old.req_status IS DISTINCT FROM new.req_status) AND (new.req_status = 'موافقة مبدئية'::public.general_status))) EXECUTE FUNCTION public.log_solidarity_pre_approval();
 
 
 --
--- Name: solidarities trg_log_solidarity_rejection; Type: TRIGGER; Schema: public; Owner: postgres
+-- Name: solidarities trg_log_solidarity_rejection; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_log_solidarity_rejection AFTER UPDATE ON public.solidarities FOR EACH ROW WHEN (((old.req_status IS DISTINCT FROM new.req_status) AND (new.req_status = 'مرفوض'::public.general_status))) EXECUTE FUNCTION public.log_solidarity_rejection();
 
 
 --
--- Name: solidarities trg_solidarities_touch; Type: TRIGGER; Schema: public; Owner: postgres
+-- Name: solidarities trg_solidarities_touch; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_solidarities_touch BEFORE UPDATE ON public.solidarities FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
--- Name: admins admins_dept_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: admins admins_dept_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.admins
@@ -2970,7 +3104,7 @@ ALTER TABLE ONLY public.admins
 
 
 --
--- Name: admins admins_faculty_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: admins admins_faculty_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.admins
@@ -2978,7 +3112,7 @@ ALTER TABLE ONLY public.admins
 
 
 --
--- Name: auth_group_permissions auth_group_permissio_permission_id_84c5c92e_fk_auth_perm; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_group_permissions auth_group_permissio_permission_id_84c5c92e_fk_auth_perm; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_group_permissions
@@ -2986,7 +3120,7 @@ ALTER TABLE ONLY public.auth_group_permissions
 
 
 --
--- Name: auth_group_permissions auth_group_permissions_group_id_b120cbf9_fk_auth_group_id; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_group_permissions auth_group_permissions_group_id_b120cbf9_fk_auth_group_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_group_permissions
@@ -2994,7 +3128,7 @@ ALTER TABLE ONLY public.auth_group_permissions
 
 
 --
--- Name: auth_permission auth_permission_content_type_id_2f476e4b_fk_django_co; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_permission auth_permission_content_type_id_2f476e4b_fk_django_co; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_permission
@@ -3002,7 +3136,7 @@ ALTER TABLE ONLY public.auth_permission
 
 
 --
--- Name: auth_user_groups auth_user_groups_group_id_97559544_fk_auth_group_id; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_user_groups auth_user_groups_group_id_97559544_fk_auth_group_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_user_groups
@@ -3010,7 +3144,7 @@ ALTER TABLE ONLY public.auth_user_groups
 
 
 --
--- Name: auth_user_groups auth_user_groups_user_id_6a12ed8b_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_user_groups auth_user_groups_user_id_6a12ed8b_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_user_groups
@@ -3018,7 +3152,7 @@ ALTER TABLE ONLY public.auth_user_groups
 
 
 --
--- Name: auth_user_user_permissions auth_user_user_permi_permission_id_1fbb5f2c_fk_auth_perm; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_user_user_permissions auth_user_user_permi_permission_id_1fbb5f2c_fk_auth_perm; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_user_user_permissions
@@ -3026,7 +3160,7 @@ ALTER TABLE ONLY public.auth_user_user_permissions
 
 
 --
--- Name: auth_user_user_permissions auth_user_user_permissions_user_id_a95ead1b_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_user_user_permissions auth_user_user_permissions_user_id_a95ead1b_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_user_user_permissions
@@ -3034,7 +3168,7 @@ ALTER TABLE ONLY public.auth_user_user_permissions
 
 
 --
--- Name: django_admin_log django_admin_log_content_type_id_c4bce8eb_fk_django_co; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: django_admin_log django_admin_log_content_type_id_c4bce8eb_fk_django_co; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.django_admin_log
@@ -3042,7 +3176,7 @@ ALTER TABLE ONLY public.django_admin_log
 
 
 --
--- Name: django_admin_log django_admin_log_user_id_c564eba6_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: django_admin_log django_admin_log_user_id_c564eba6_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.django_admin_log
@@ -3050,7 +3184,7 @@ ALTER TABLE ONLY public.django_admin_log
 
 
 --
--- Name: event_docs event_docs_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: event_docs event_docs_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.event_docs
@@ -3058,7 +3192,7 @@ ALTER TABLE ONLY public.event_docs
 
 
 --
--- Name: event_docs event_docs_uploaded_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: event_docs event_docs_uploaded_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.event_docs
@@ -3066,7 +3200,7 @@ ALTER TABLE ONLY public.event_docs
 
 
 --
--- Name: events events_created_by_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: events events_created_by_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.events
@@ -3074,7 +3208,7 @@ ALTER TABLE ONLY public.events
 
 
 --
--- Name: events events_dept_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: events events_dept_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.events
@@ -3082,7 +3216,7 @@ ALTER TABLE ONLY public.events
 
 
 --
--- Name: events events_faculty_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: events events_faculty_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.events
@@ -3090,7 +3224,7 @@ ALTER TABLE ONLY public.events
 
 
 --
--- Name: events events_plan_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: events events_plan_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.events
@@ -3098,7 +3232,7 @@ ALTER TABLE ONLY public.events
 
 
 --
--- Name: families families_approved_by_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: families families_approved_by_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.families
@@ -3106,7 +3240,7 @@ ALTER TABLE ONLY public.families
 
 
 --
--- Name: families families_created_by_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: families families_created_by_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.families
@@ -3114,7 +3248,7 @@ ALTER TABLE ONLY public.families
 
 
 --
--- Name: families families_faculty_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: families families_faculty_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.families
@@ -3122,7 +3256,7 @@ ALTER TABLE ONLY public.families
 
 
 --
--- Name: family_members family_members_family_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: family_members family_members_family_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.family_members
@@ -3130,7 +3264,7 @@ ALTER TABLE ONLY public.family_members
 
 
 --
--- Name: family_members family_members_student_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: family_members family_members_student_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.family_members
@@ -3138,7 +3272,7 @@ ALTER TABLE ONLY public.family_members
 
 
 --
--- Name: family_admins fk_admin_family; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: family_admins fk_admin_family; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.family_admins
@@ -3146,7 +3280,7 @@ ALTER TABLE ONLY public.family_admins
 
 
 --
--- Name: events fk_events_family; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: events fk_events_family; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.events
@@ -3154,7 +3288,7 @@ ALTER TABLE ONLY public.events
 
 
 --
--- Name: family_members fk_family_members_dept; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: family_members fk_family_members_dept; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.family_members
@@ -3162,7 +3296,7 @@ ALTER TABLE ONLY public.family_members
 
 
 --
--- Name: posts fk_posts_faculty; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: posts fk_posts_faculty; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.posts
@@ -3170,7 +3304,7 @@ ALTER TABLE ONLY public.posts
 
 
 --
--- Name: posts fk_posts_family; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: posts fk_posts_family; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.posts
@@ -3178,7 +3312,7 @@ ALTER TABLE ONLY public.posts
 
 
 --
--- Name: logs logs_actor_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: logs logs_actor_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.logs
@@ -3186,7 +3320,7 @@ ALTER TABLE ONLY public.logs
 
 
 --
--- Name: logs logs_event_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: logs logs_event_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.logs
@@ -3194,7 +3328,7 @@ ALTER TABLE ONLY public.logs
 
 
 --
--- Name: logs logs_family_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: logs logs_family_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.logs
@@ -3202,7 +3336,7 @@ ALTER TABLE ONLY public.logs
 
 
 --
--- Name: logs logs_solidarity_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: logs logs_solidarity_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.logs
@@ -3210,7 +3344,7 @@ ALTER TABLE ONLY public.logs
 
 
 --
--- Name: logs logs_student_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: logs logs_student_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.logs
@@ -3218,7 +3352,7 @@ ALTER TABLE ONLY public.logs
 
 
 --
--- Name: plans plans_faculty_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: plans plans_faculty_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.plans
@@ -3226,7 +3360,7 @@ ALTER TABLE ONLY public.plans
 
 
 --
--- Name: prtcps prtcps_event_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: prtcps prtcps_event_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.prtcps
@@ -3234,7 +3368,7 @@ ALTER TABLE ONLY public.prtcps
 
 
 --
--- Name: prtcps prtcps_student_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: prtcps prtcps_student_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.prtcps
@@ -3242,7 +3376,7 @@ ALTER TABLE ONLY public.prtcps
 
 
 --
--- Name: solidarities solidarities_approved_by_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: solidarities solidarities_approved_by_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.solidarities
@@ -3250,7 +3384,7 @@ ALTER TABLE ONLY public.solidarities
 
 
 --
--- Name: solidarities solidarities_faculty_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: solidarities solidarities_faculty_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.solidarities
@@ -3258,7 +3392,7 @@ ALTER TABLE ONLY public.solidarities
 
 
 --
--- Name: solidarities solidarities_student_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: solidarities solidarities_student_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.solidarities
@@ -3266,7 +3400,7 @@ ALTER TABLE ONLY public.solidarities
 
 
 --
--- Name: solidarity_docs solidarity_docs_solidarity_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: solidarity_docs solidarity_docs_solidarity_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.solidarity_docs
@@ -3274,7 +3408,7 @@ ALTER TABLE ONLY public.solidarity_docs
 
 
 --
--- Name: students students_faculty_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: students students_faculty_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.students
@@ -3285,5 +3419,5 @@ ALTER TABLE ONLY public.students
 -- PostgreSQL database dump complete
 --
 
-\unrestrict Hcop7CUbwNSQjhcDJt2N3PDcYTP9rXEz8VivpXQBnWgXCVrAgNEcyig6xPtOdRM
+\unrestrict MFMySPXL1bz0dpq2x4g8P78Ey1MG2A6NWOceF5Jqzmw4COxqpPLcIosovnACEKT
 

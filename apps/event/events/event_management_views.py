@@ -2,10 +2,18 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.decorators import action
+from rest_framework.parsers import MultiPartParser, FormParser
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 from django.db import transaction
-from apps.event.models import Events, Prtcps
-from .serializers import EventCreateUpdateSerializer, EventListSerializer, EventDetailSerializer
+from django.utils import timezone
+from apps.event.models import Events, Prtcps, EventDocs
+from .serializers import (
+    EventCreateUpdateSerializer, 
+    EventListSerializer, 
+    EventDetailSerializer,
+    EventImageUploadSerializer,
+    EventDocsSerializer
+)
 from apps.accounts.models import AdminsUser
 from apps.accounts.permissions import require_permission, IsRole
 from apps.accounts.utils import (
@@ -66,7 +74,7 @@ class EventGetterViewSet(viewsets.GenericViewSet):
         ).prefetch_related(
             Prefetch(
                 'prtcps_set',
-                queryset=Prtcps.objects.select_related('student').filter(status='مقبول'),  
+                queryset=Prtcps.objects.select_related('student'),  
                 to_attr='participants'  
             )
         )
@@ -165,12 +173,17 @@ class EventGetterViewSet(viewsets.GenericViewSet):
 class EventManagementViewSet(viewsets.GenericViewSet):
     permission_classes = [IsRole]
     allowed_roles = ['مسؤول كلية', 'مدير ادارة']
+    parser_classes = [MultiPartParser, FormParser]
 
     def get_serializer_class(self):
         if self.action == 'create' or self.action == 'partial_update':
             return EventCreateUpdateSerializer
         elif self.action == 'retrieve':
             return EventDetailSerializer
+        elif self.action == 'upload_images':
+            return EventImageUploadSerializer
+        elif self.action in ['get_images', 'delete_image']:
+            return EventDocsSerializer
         return EventListSerializer
 
     def get_serializer_context(self):
@@ -310,6 +323,168 @@ class EventManagementViewSet(viewsets.GenericViewSet):
         
         detail_serializer = EventDetailSerializer(updated_event)
         return Response(detail_serializer.data)
+
+    @extend_schema(
+        description="Upload images for an event (only event creator)",
+        request=EventImageUploadSerializer,
+        responses={
+            201: EventDocsSerializer(many=True),
+            400: OpenApiResponse(description="Validation error"),
+            403: OpenApiResponse(description="Permission denied - only event creator can upload"),
+        }
+    )
+    @action(detail=True, methods=['post'], url_path='upload-images')
+    @require_permission('create')
+    def upload_images(self, request, pk=None):
+        """
+        Upload one or multiple images for an event
+        Only the event creator can upload images
+        """
+        admin = get_current_admin(request)
+        ip = get_client_ip(request)
+        
+        # Get event and verify permissions
+        event = self.get_object()
+        
+        # Check if current admin is the event creator
+        if event.created_by_id != admin.admin_id:
+            raise PermissionDenied("Only the event creator can upload images for this event")
+        
+        # Validate uploaded files
+        serializer = EventImageUploadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        images = serializer.validated_data['images']
+        doc_type = serializer.validated_data.get('doc_type', 'event_image')
+        
+        uploaded_docs = []
+        
+        with transaction.atomic():
+            for image_file in images:
+                # Generate file path
+                import os
+                from django.core.files.storage import default_storage
+                
+                # Create directory path
+                upload_dir = f"uploads/events/{event.event_id}"
+                file_path = os.path.join(upload_dir, image_file.name)
+                
+                # Save file using Django's storage system
+                saved_path = default_storage.save(file_path, image_file)
+                
+                # Create database record
+                doc = EventDocs.objects.create(
+                    event=event,
+                    doc_type=doc_type,
+                    file_name=image_file.name,
+                    file_path=saved_path,
+                    mime_type=image_file.content_type,
+                    file_size=image_file.size,
+                    uploaded_at=timezone.now(),
+                    uploaded_by=admin
+                )
+                uploaded_docs.append(doc)
+            
+            log_data_access(
+                actor_id=admin.admin_id,
+                actor_type=admin.role,
+                action=f"Uploaded {len(images)} image(s) for event: {event.title}",
+                target_type='نشاط',
+                event_id=event.event_id,
+                ip_address=ip
+            )
+        
+        response_serializer = EventDocsSerializer(
+            uploaded_docs, 
+            many=True, 
+            context={'request': request}
+        )
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+    @extend_schema(
+        description="Get all images for an event",
+        responses={200: EventDocsSerializer(many=True)}
+    )
+    @action(detail=True, methods=['get'], url_path='images')
+    @require_permission('read')
+    def get_images(self, request, pk=None):
+        """
+        Retrieve all uploaded images for a specific event
+        """
+        admin = get_current_admin(request)
+        ip = get_client_ip(request)
+        
+        event = self.get_object()
+        docs = event.event_docs.all()
+        
+        log_data_access(
+            actor_id=admin.admin_id,
+            actor_type=admin.role,
+            action=f"Viewed images for event: {event.title}",
+            target_type='نشاط',
+            event_id=event.event_id,
+            ip_address=ip
+        )
+        
+        serializer = EventDocsSerializer(docs, many=True, context={'request': request})
+        return Response(serializer.data)
+
+    @extend_schema(
+        description="Delete a specific image from an event (only event creator)",
+        responses={
+            204: OpenApiResponse(description="Image deleted successfully"),
+            403: OpenApiResponse(description="Permission denied - only event creator can delete"),
+            404: OpenApiResponse(description="Image not found"),
+        }
+    )
+    @action(detail=True, methods=['delete'], url_path='images/(?P<doc_id>[^/.]+)')
+    @require_permission('delete')
+    def delete_image(self, request, pk=None, doc_id=None):
+        """
+        Delete a specific image from an event
+        Only the event creator can delete images
+        """
+        admin = get_current_admin(request)
+        ip = get_client_ip(request)
+        
+        event = self.get_object()
+        
+        # Check if current admin is the event creator
+        if event.created_by_id != admin.admin_id:
+            raise PermissionDenied("Only the event creator can delete images for this event")
+        
+        try:
+            doc = EventDocs.objects.get(doc_id=doc_id, event=event)
+        except EventDocs.DoesNotExist:
+            return Response(
+                {"detail": "Image not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        with transaction.atomic():
+            # Delete the file from storage
+            from django.core.files.storage import default_storage
+            if doc.file_path:
+                try:
+                    default_storage.delete(doc.file_path)
+                except Exception as e:
+                    # Log but don't fail if file doesn't exist
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.warning(f"Could not delete file {doc.file_path}: {str(e)}")
+            
+            doc.delete()
+            
+            log_data_access(
+                actor_id=admin.admin_id,
+                actor_type=admin.role,
+                action=f"Deleted image {doc_id} from event: {event.title}",
+                target_type='نشاط',
+                event_id=event.event_id,
+                ip_address=ip
+            )
+        
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 # faculty head & general admin
 @extend_schema(tags=["Event Management APIs"])

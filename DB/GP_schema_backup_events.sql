@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict do5soA5GFEmXQAfxMCbZ9Wk8Y2IaqoV9Lt2re4OzD5956RgBxIe7nVFm9eWfVS3
+\restrict AQeTKSQ3EfS37GtewIsP5Rbarn0P6F8S5nZDPpkEhHQLSbLcD0WIPlctBRrsI9u
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.6
@@ -19,8 +19,196 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
+ALTER TABLE IF EXISTS ONLY public.students DROP CONSTRAINT IF EXISTS students_faculty_fk;
+ALTER TABLE IF EXISTS ONLY public.solidarity_docs DROP CONSTRAINT IF EXISTS solidarity_docs_solidarity_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.solidarities DROP CONSTRAINT IF EXISTS solidarities_student_fk;
+ALTER TABLE IF EXISTS ONLY public.solidarities DROP CONSTRAINT IF EXISTS solidarities_faculty_fk;
+ALTER TABLE IF EXISTS ONLY public.solidarities DROP CONSTRAINT IF EXISTS solidarities_approved_by_fk;
+ALTER TABLE IF EXISTS ONLY public.prtcps DROP CONSTRAINT IF EXISTS prtcps_student_fk;
+ALTER TABLE IF EXISTS ONLY public.prtcps DROP CONSTRAINT IF EXISTS prtcps_event_fk;
+ALTER TABLE IF EXISTS ONLY public.plans DROP CONSTRAINT IF EXISTS plans_faculty_fk;
+ALTER TABLE IF EXISTS ONLY public.logs DROP CONSTRAINT IF EXISTS logs_student_fk;
+ALTER TABLE IF EXISTS ONLY public.logs DROP CONSTRAINT IF EXISTS logs_solidarity_fk;
+ALTER TABLE IF EXISTS ONLY public.logs DROP CONSTRAINT IF EXISTS logs_family_fk;
+ALTER TABLE IF EXISTS ONLY public.logs DROP CONSTRAINT IF EXISTS logs_event_fk;
+ALTER TABLE IF EXISTS ONLY public.logs DROP CONSTRAINT IF EXISTS logs_actor_fk;
+ALTER TABLE IF EXISTS ONLY public.posts DROP CONSTRAINT IF EXISTS fk_posts_family;
+ALTER TABLE IF EXISTS ONLY public.posts DROP CONSTRAINT IF EXISTS fk_posts_faculty;
+ALTER TABLE IF EXISTS ONLY public.family_members DROP CONSTRAINT IF EXISTS fk_family_members_dept;
+ALTER TABLE IF EXISTS ONLY public.events DROP CONSTRAINT IF EXISTS fk_events_family;
+ALTER TABLE IF EXISTS ONLY public.family_admins DROP CONSTRAINT IF EXISTS fk_admin_family;
+ALTER TABLE IF EXISTS ONLY public.family_members DROP CONSTRAINT IF EXISTS family_members_student_fk;
+ALTER TABLE IF EXISTS ONLY public.family_members DROP CONSTRAINT IF EXISTS family_members_family_fk;
+ALTER TABLE IF EXISTS ONLY public.families DROP CONSTRAINT IF EXISTS families_faculty_fk;
+ALTER TABLE IF EXISTS ONLY public.families DROP CONSTRAINT IF EXISTS families_created_by_fk;
+ALTER TABLE IF EXISTS ONLY public.families DROP CONSTRAINT IF EXISTS families_approved_by_fk;
+ALTER TABLE IF EXISTS ONLY public.events DROP CONSTRAINT IF EXISTS events_plan_fk;
+ALTER TABLE IF EXISTS ONLY public.events DROP CONSTRAINT IF EXISTS events_faculty_fk;
+ALTER TABLE IF EXISTS ONLY public.events DROP CONSTRAINT IF EXISTS events_dept_fk;
+ALTER TABLE IF EXISTS ONLY public.events DROP CONSTRAINT IF EXISTS events_created_by_fk;
+ALTER TABLE IF EXISTS ONLY public.event_docs DROP CONSTRAINT IF EXISTS event_docs_uploaded_by_fkey;
+ALTER TABLE IF EXISTS ONLY public.event_docs DROP CONSTRAINT IF EXISTS event_docs_event_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.django_admin_log DROP CONSTRAINT IF EXISTS django_admin_log_user_id_c564eba6_fk_auth_user_id;
+ALTER TABLE IF EXISTS ONLY public.django_admin_log DROP CONSTRAINT IF EXISTS django_admin_log_content_type_id_c4bce8eb_fk_django_co;
+ALTER TABLE IF EXISTS ONLY public.auth_user_user_permissions DROP CONSTRAINT IF EXISTS auth_user_user_permissions_user_id_a95ead1b_fk_auth_user_id;
+ALTER TABLE IF EXISTS ONLY public.auth_user_user_permissions DROP CONSTRAINT IF EXISTS auth_user_user_permi_permission_id_1fbb5f2c_fk_auth_perm;
+ALTER TABLE IF EXISTS ONLY public.auth_user_groups DROP CONSTRAINT IF EXISTS auth_user_groups_user_id_6a12ed8b_fk_auth_user_id;
+ALTER TABLE IF EXISTS ONLY public.auth_user_groups DROP CONSTRAINT IF EXISTS auth_user_groups_group_id_97559544_fk_auth_group_id;
+ALTER TABLE IF EXISTS ONLY public.auth_permission DROP CONSTRAINT IF EXISTS auth_permission_content_type_id_2f476e4b_fk_django_co;
+ALTER TABLE IF EXISTS ONLY public.auth_group_permissions DROP CONSTRAINT IF EXISTS auth_group_permissions_group_id_b120cbf9_fk_auth_group_id;
+ALTER TABLE IF EXISTS ONLY public.auth_group_permissions DROP CONSTRAINT IF EXISTS auth_group_permissio_permission_id_84c5c92e_fk_auth_perm;
+ALTER TABLE IF EXISTS ONLY public.admins DROP CONSTRAINT IF EXISTS admins_faculty_fk;
+ALTER TABLE IF EXISTS ONLY public.admins DROP CONSTRAINT IF EXISTS admins_dept_fk;
+DROP TRIGGER IF EXISTS trg_solidarities_touch ON public.solidarities;
+DROP TRIGGER IF EXISTS trg_log_solidarity_rejection ON public.solidarities;
+DROP TRIGGER IF EXISTS trg_log_solidarity_pre_approval ON public.solidarities;
+DROP TRIGGER IF EXISTS trg_log_solidarity_approval ON public.solidarities;
+DROP TRIGGER IF EXISTS trg_log_family_insert ON public.families;
+DROP TRIGGER IF EXISTS trg_log_event_insert ON public.events;
+DROP TRIGGER IF EXISTS trg_families_touch ON public.families;
+DROP TRIGGER IF EXISTS trg_events_touch ON public.events;
+DROP INDEX IF EXISTS public.idx_students_faculty_id;
+DROP INDEX IF EXISTS public.idx_solidarities_student;
+DROP INDEX IF EXISTS public.idx_solidarities_faculty;
+DROP INDEX IF EXISTS public.idx_prtcps_student;
+DROP INDEX IF EXISTS public.idx_prtcps_event;
+DROP INDEX IF EXISTS public.idx_posts_family_id;
+DROP INDEX IF EXISTS public.idx_posts_faculty_id;
+DROP INDEX IF EXISTS public.idx_posts_created_at;
+DROP INDEX IF EXISTS public.idx_plans_name;
+DROP INDEX IF EXISTS public.idx_plans_faculty_id;
+DROP INDEX IF EXISTS public.idx_logs_target;
+DROP INDEX IF EXISTS public.idx_logs_student_id;
+DROP INDEX IF EXISTS public.idx_logs_logged_at;
+DROP INDEX IF EXISTS public.idx_logs_actor_id;
+DROP INDEX IF EXISTS public.idx_logs_action;
+DROP INDEX IF EXISTS public.idx_family_members_student;
+DROP INDEX IF EXISTS public.idx_family_admins_family_id;
+DROP INDEX IF EXISTS public.idx_families_faculty_id;
+DROP INDEX IF EXISTS public.idx_families_created_by;
+DROP INDEX IF EXISTS public.idx_events_selected_facs;
+DROP INDEX IF EXISTS public.idx_events_plan_id;
+DROP INDEX IF EXISTS public.idx_events_faculty_id;
+DROP INDEX IF EXISTS public.idx_events_dept_id;
+DROP INDEX IF EXISTS public.idx_events_created_by;
+DROP INDEX IF EXISTS public.idx_event_docs_uploaded_by;
+DROP INDEX IF EXISTS public.idx_event_docs_uploaded_at;
+DROP INDEX IF EXISTS public.idx_event_docs_event_id;
+DROP INDEX IF EXISTS public.idx_event_docs_event;
+DROP INDEX IF EXISTS public.idx_admins_faculty_id;
+DROP INDEX IF EXISTS public.idx_admins_dept_id;
+DROP INDEX IF EXISTS public.django_session_session_key_c0390e0f_like;
+DROP INDEX IF EXISTS public.django_session_expire_date_a5c62663;
+DROP INDEX IF EXISTS public.django_admin_log_user_id_c564eba6;
+DROP INDEX IF EXISTS public.django_admin_log_content_type_id_c4bce8eb;
+DROP INDEX IF EXISTS public.auth_user_username_6821ab7c_like;
+DROP INDEX IF EXISTS public.auth_user_user_permissions_user_id_a95ead1b;
+DROP INDEX IF EXISTS public.auth_user_user_permissions_permission_id_1fbb5f2c;
+DROP INDEX IF EXISTS public.auth_user_groups_user_id_6a12ed8b;
+DROP INDEX IF EXISTS public.auth_user_groups_group_id_97559544;
+DROP INDEX IF EXISTS public.auth_permission_content_type_id_2f476e4b;
+DROP INDEX IF EXISTS public.auth_group_permissions_permission_id_84c5c92e;
+DROP INDEX IF EXISTS public.auth_group_permissions_group_id_b120cbf9;
+DROP INDEX IF EXISTS public.auth_group_name_a6ea08ec_like;
+ALTER TABLE IF EXISTS ONLY public.students DROP CONSTRAINT IF EXISTS students_uid_key;
+ALTER TABLE IF EXISTS ONLY public.students DROP CONSTRAINT IF EXISTS students_pkey;
+ALTER TABLE IF EXISTS ONLY public.students DROP CONSTRAINT IF EXISTS students_phone_number_key;
+ALTER TABLE IF EXISTS ONLY public.students DROP CONSTRAINT IF EXISTS students_nid_key;
+ALTER TABLE IF EXISTS ONLY public.students DROP CONSTRAINT IF EXISTS students_google_id_key;
+ALTER TABLE IF EXISTS ONLY public.students DROP CONSTRAINT IF EXISTS students_email_key;
+ALTER TABLE IF EXISTS ONLY public.solidarity_docs DROP CONSTRAINT IF EXISTS solidarity_docs_solidarity_id_doc_type_key;
+ALTER TABLE IF EXISTS ONLY public.solidarity_docs DROP CONSTRAINT IF EXISTS solidarity_docs_pkey;
+ALTER TABLE IF EXISTS ONLY public.solidarities DROP CONSTRAINT IF EXISTS solidarities_pkey;
+ALTER TABLE IF EXISTS ONLY public.prtcps DROP CONSTRAINT IF EXISTS prtcps_id_pkey;
+ALTER TABLE IF EXISTS ONLY public.prtcps DROP CONSTRAINT IF EXISTS prtcps_event_student_unique;
+ALTER TABLE IF EXISTS ONLY public.posts DROP CONSTRAINT IF EXISTS posts_pkey;
+ALTER TABLE IF EXISTS ONLY public.plans DROP CONSTRAINT IF EXISTS plans_pkey;
+ALTER TABLE IF EXISTS ONLY public.logs DROP CONSTRAINT IF EXISTS logs_pkey;
+ALTER TABLE IF EXISTS ONLY public.family_members DROP CONSTRAINT IF EXISTS family_members_pkey;
+ALTER TABLE IF EXISTS ONLY public.family_admins DROP CONSTRAINT IF EXISTS family_admins_pkey;
+ALTER TABLE IF EXISTS ONLY public.families DROP CONSTRAINT IF EXISTS families_pkey;
+ALTER TABLE IF EXISTS ONLY public.faculties DROP CONSTRAINT IF EXISTS faculties_pkey;
+ALTER TABLE IF EXISTS ONLY public.events DROP CONSTRAINT IF EXISTS events_pkey;
+ALTER TABLE IF EXISTS ONLY public.event_docs DROP CONSTRAINT IF EXISTS event_docs_pkey;
+ALTER TABLE IF EXISTS ONLY public.documents DROP CONSTRAINT IF EXISTS documents_pkey;
+ALTER TABLE IF EXISTS ONLY public.django_session DROP CONSTRAINT IF EXISTS django_session_pkey;
+ALTER TABLE IF EXISTS ONLY public.django_migrations DROP CONSTRAINT IF EXISTS django_migrations_pkey;
+ALTER TABLE IF EXISTS ONLY public.django_content_type DROP CONSTRAINT IF EXISTS django_content_type_pkey;
+ALTER TABLE IF EXISTS ONLY public.django_content_type DROP CONSTRAINT IF EXISTS django_content_type_app_label_model_76bd3d3b_uniq;
+ALTER TABLE IF EXISTS ONLY public.django_admin_log DROP CONSTRAINT IF EXISTS django_admin_log_pkey;
+ALTER TABLE IF EXISTS ONLY public.departments DROP CONSTRAINT IF EXISTS departments_pkey;
+ALTER TABLE IF EXISTS ONLY public.auth_user DROP CONSTRAINT IF EXISTS auth_user_username_key;
+ALTER TABLE IF EXISTS ONLY public.auth_user_user_permissions DROP CONSTRAINT IF EXISTS auth_user_user_permissions_user_id_permission_id_14a6b632_uniq;
+ALTER TABLE IF EXISTS ONLY public.auth_user_user_permissions DROP CONSTRAINT IF EXISTS auth_user_user_permissions_pkey;
+ALTER TABLE IF EXISTS ONLY public.auth_user DROP CONSTRAINT IF EXISTS auth_user_pkey;
+ALTER TABLE IF EXISTS ONLY public.auth_user_groups DROP CONSTRAINT IF EXISTS auth_user_groups_user_id_group_id_94350c0c_uniq;
+ALTER TABLE IF EXISTS ONLY public.auth_user_groups DROP CONSTRAINT IF EXISTS auth_user_groups_pkey;
+ALTER TABLE IF EXISTS ONLY public.auth_permission DROP CONSTRAINT IF EXISTS auth_permission_pkey;
+ALTER TABLE IF EXISTS ONLY public.auth_permission DROP CONSTRAINT IF EXISTS auth_permission_content_type_id_codename_01ab375a_uniq;
+ALTER TABLE IF EXISTS ONLY public.auth_group DROP CONSTRAINT IF EXISTS auth_group_pkey;
+ALTER TABLE IF EXISTS ONLY public.auth_group_permissions DROP CONSTRAINT IF EXISTS auth_group_permissions_pkey;
+ALTER TABLE IF EXISTS ONLY public.auth_group_permissions DROP CONSTRAINT IF EXISTS auth_group_permissions_group_id_permission_id_0cd325b0_uniq;
+ALTER TABLE IF EXISTS ONLY public.auth_group DROP CONSTRAINT IF EXISTS auth_group_name_key;
+ALTER TABLE IF EXISTS ONLY public.admins DROP CONSTRAINT IF EXISTS admins_pkey;
+ALTER TABLE IF EXISTS ONLY public.admins DROP CONSTRAINT IF EXISTS admins_phone_number_unique;
+ALTER TABLE IF EXISTS ONLY public.admins DROP CONSTRAINT IF EXISTS admins_national_id_unique;
+ALTER TABLE IF EXISTS ONLY public.admins DROP CONSTRAINT IF EXISTS admins_email_key;
+ALTER TABLE IF EXISTS public.solidarity_docs ALTER COLUMN doc_id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.prtcps ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.posts ALTER COLUMN post_id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.family_admins ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.event_docs ALTER COLUMN doc_id DROP DEFAULT;
+DROP TABLE IF EXISTS public.students;
+DROP SEQUENCE IF EXISTS public.solidarity_docs_doc_id_seq;
+DROP TABLE IF EXISTS public.solidarity_docs;
+DROP TABLE IF EXISTS public.solidarities;
+DROP SEQUENCE IF EXISTS public.prtcps_id_seq;
+DROP TABLE IF EXISTS public.prtcps;
+DROP SEQUENCE IF EXISTS public.posts_post_id_seq;
+DROP TABLE IF EXISTS public.posts;
+DROP TABLE IF EXISTS public.plans;
+DROP TABLE IF EXISTS public.logs;
+DROP TABLE IF EXISTS public.family_members;
+DROP SEQUENCE IF EXISTS public.family_admins_id_seq;
+DROP TABLE IF EXISTS public.family_admins;
+DROP TABLE IF EXISTS public.families;
+DROP TABLE IF EXISTS public.faculties;
+DROP TABLE IF EXISTS public.events;
+DROP SEQUENCE IF EXISTS public.event_docs_doc_id_seq;
+DROP TABLE IF EXISTS public.event_docs;
+DROP TABLE IF EXISTS public.documents;
+DROP TABLE IF EXISTS public.django_session;
+DROP TABLE IF EXISTS public.django_migrations;
+DROP TABLE IF EXISTS public.django_content_type;
+DROP TABLE IF EXISTS public.django_admin_log;
+DROP TABLE IF EXISTS public.departments;
+DROP TABLE IF EXISTS public.auth_user_user_permissions;
+DROP TABLE IF EXISTS public.auth_user_groups;
+DROP TABLE IF EXISTS public.auth_user;
+DROP TABLE IF EXISTS public.auth_permission;
+DROP TABLE IF EXISTS public.auth_group_permissions;
+DROP TABLE IF EXISTS public.auth_group;
+DROP TABLE IF EXISTS public.admins;
+DROP FUNCTION IF EXISTS public.set_updated_at();
+DROP FUNCTION IF EXISTS public.log_solidarity_rejection();
+DROP FUNCTION IF EXISTS public.log_solidarity_pre_approval();
+DROP FUNCTION IF EXISTS public.log_solidarity_approval();
+DROP FUNCTION IF EXISTS public.log_family_insert();
+DROP FUNCTION IF EXISTS public.log_event_insert();
+DROP FUNCTION IF EXISTS public.client_ip();
+DROP TYPE IF EXISTS public.target_type;
+DROP TYPE IF EXISTS public.sol_doc_type;
+DROP TYPE IF EXISTS public.req_type_enum;
+DROP TYPE IF EXISTS public.owner_type;
+DROP TYPE IF EXISTS public.housing_status;
+DROP TYPE IF EXISTS public.general_status;
+DROP TYPE IF EXISTS public.family_type;
+DROP TYPE IF EXISTS public.family_members_roles;
+DROP TYPE IF EXISTS public.event_type;
+DROP TYPE IF EXISTS public.admin_role;
+DROP TYPE IF EXISTS public.actor_type;
 --
--- Name: actor_type; Type: TYPE; Schema: public; Owner: postgres
+-- Name: actor_type; Type: TYPE; Schema: public; Owner: -
 --
 
 CREATE TYPE public.actor_type AS ENUM (
@@ -34,10 +222,8 @@ CREATE TYPE public.actor_type AS ENUM (
 );
 
 
-ALTER TYPE public.actor_type OWNER TO postgres;
-
 --
--- Name: admin_role; Type: TYPE; Schema: public; Owner: postgres
+-- Name: admin_role; Type: TYPE; Schema: public; Owner: -
 --
 
 CREATE TYPE public.admin_role AS ENUM (
@@ -49,10 +235,8 @@ CREATE TYPE public.admin_role AS ENUM (
 );
 
 
-ALTER TYPE public.admin_role OWNER TO postgres;
-
 --
--- Name: event_type; Type: TYPE; Schema: public; Owner: postgres
+-- Name: event_type; Type: TYPE; Schema: public; Owner: -
 --
 
 CREATE TYPE public.event_type AS ENUM (
@@ -71,10 +255,8 @@ CREATE TYPE public.event_type AS ENUM (
 );
 
 
-ALTER TYPE public.event_type OWNER TO postgres;
-
 --
--- Name: family_members_roles; Type: TYPE; Schema: public; Owner: postgres
+-- Name: family_members_roles; Type: TYPE; Schema: public; Owner: -
 --
 
 CREATE TYPE public.family_members_roles AS ENUM (
@@ -92,10 +274,8 @@ CREATE TYPE public.family_members_roles AS ENUM (
 );
 
 
-ALTER TYPE public.family_members_roles OWNER TO postgres;
-
 --
--- Name: family_type; Type: TYPE; Schema: public; Owner: postgres
+-- Name: family_type; Type: TYPE; Schema: public; Owner: -
 --
 
 CREATE TYPE public.family_type AS ENUM (
@@ -105,10 +285,8 @@ CREATE TYPE public.family_type AS ENUM (
 );
 
 
-ALTER TYPE public.family_type OWNER TO postgres;
-
 --
--- Name: general_status; Type: TYPE; Schema: public; Owner: postgres
+-- Name: general_status; Type: TYPE; Schema: public; Owner: -
 --
 
 CREATE TYPE public.general_status AS ENUM (
@@ -120,10 +298,8 @@ CREATE TYPE public.general_status AS ENUM (
 );
 
 
-ALTER TYPE public.general_status OWNER TO postgres;
-
 --
--- Name: housing_status; Type: TYPE; Schema: public; Owner: postgres
+-- Name: housing_status; Type: TYPE; Schema: public; Owner: -
 --
 
 CREATE TYPE public.housing_status AS ENUM (
@@ -132,10 +308,8 @@ CREATE TYPE public.housing_status AS ENUM (
 );
 
 
-ALTER TYPE public.housing_status OWNER TO postgres;
-
 --
--- Name: owner_type; Type: TYPE; Schema: public; Owner: postgres
+-- Name: owner_type; Type: TYPE; Schema: public; Owner: -
 --
 
 CREATE TYPE public.owner_type AS ENUM (
@@ -146,10 +320,8 @@ CREATE TYPE public.owner_type AS ENUM (
 );
 
 
-ALTER TYPE public.owner_type OWNER TO postgres;
-
 --
--- Name: req_type_enum; Type: TYPE; Schema: public; Owner: postgres
+-- Name: req_type_enum; Type: TYPE; Schema: public; Owner: -
 --
 
 CREATE TYPE public.req_type_enum AS ENUM (
@@ -161,10 +333,8 @@ CREATE TYPE public.req_type_enum AS ENUM (
 );
 
 
-ALTER TYPE public.req_type_enum OWNER TO postgres;
-
 --
--- Name: sol_doc_type; Type: TYPE; Schema: public; Owner: postgres
+-- Name: sol_doc_type; Type: TYPE; Schema: public; Owner: -
 --
 
 CREATE TYPE public.sol_doc_type AS ENUM (
@@ -177,10 +347,8 @@ CREATE TYPE public.sol_doc_type AS ENUM (
 );
 
 
-ALTER TYPE public.sol_doc_type OWNER TO postgres;
-
 --
--- Name: target_type; Type: TYPE; Schema: public; Owner: postgres
+-- Name: target_type; Type: TYPE; Schema: public; Owner: -
 --
 
 CREATE TYPE public.target_type AS ENUM (
@@ -192,10 +360,8 @@ CREATE TYPE public.target_type AS ENUM (
 );
 
 
-ALTER TYPE public.target_type OWNER TO postgres;
-
 --
--- Name: client_ip(); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: client_ip(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.client_ip() RETURNS inet
@@ -203,10 +369,8 @@ CREATE FUNCTION public.client_ip() RETURNS inet
     AS $$ SELECT COALESCE(inet_client_addr(), '0.0.0.0') $$;
 
 
-ALTER FUNCTION public.client_ip() OWNER TO postgres;
-
 --
--- Name: log_event_insert(); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: log_event_insert(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.log_event_insert() RETURNS trigger
@@ -228,10 +392,8 @@ END;
 $$;
 
 
-ALTER FUNCTION public.log_event_insert() OWNER TO postgres;
-
 --
--- Name: log_family_insert(); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: log_family_insert(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.log_family_insert() RETURNS trigger
@@ -246,10 +408,8 @@ BEGIN
 END;$$;
 
 
-ALTER FUNCTION public.log_family_insert() OWNER TO postgres;
-
 --
--- Name: log_solidarity_approval(); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: log_solidarity_approval(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.log_solidarity_approval() RETURNS trigger
@@ -284,10 +444,8 @@ END;
 $$;
 
 
-ALTER FUNCTION public.log_solidarity_approval() OWNER TO postgres;
-
 --
--- Name: log_solidarity_pre_approval(); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: log_solidarity_pre_approval(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.log_solidarity_pre_approval() RETURNS trigger
@@ -322,10 +480,8 @@ END;
 $$;
 
 
-ALTER FUNCTION public.log_solidarity_pre_approval() OWNER TO postgres;
-
 --
--- Name: log_solidarity_rejection(); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: log_solidarity_rejection(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.log_solidarity_rejection() RETURNS trigger
@@ -360,10 +516,8 @@ END;
 $$;
 
 
-ALTER FUNCTION public.log_solidarity_rejection() OWNER TO postgres;
-
 --
--- Name: set_updated_at(); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: set_updated_at(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.set_updated_at() RETURNS trigger
@@ -376,14 +530,12 @@ END;
 $$;
 
 
-ALTER FUNCTION public.set_updated_at() OWNER TO postgres;
-
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
 
 --
--- Name: admins; Type: TABLE; Schema: public; Owner: postgres
+-- Name: admins; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.admins (
@@ -408,10 +560,8 @@ CREATE TABLE public.admins (
 );
 
 
-ALTER TABLE public.admins OWNER TO postgres;
-
 --
--- Name: admins_admin_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: admins_admin_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.admins ALTER COLUMN admin_id ADD GENERATED ALWAYS AS IDENTITY (
@@ -425,7 +575,7 @@ ALTER TABLE public.admins ALTER COLUMN admin_id ADD GENERATED ALWAYS AS IDENTITY
 
 
 --
--- Name: auth_group; Type: TABLE; Schema: public; Owner: postgres
+-- Name: auth_group; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.auth_group (
@@ -434,10 +584,8 @@ CREATE TABLE public.auth_group (
 );
 
 
-ALTER TABLE public.auth_group OWNER TO postgres;
-
 --
--- Name: auth_group_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: auth_group_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.auth_group ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -451,7 +599,7 @@ ALTER TABLE public.auth_group ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTI
 
 
 --
--- Name: auth_group_permissions; Type: TABLE; Schema: public; Owner: postgres
+-- Name: auth_group_permissions; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.auth_group_permissions (
@@ -461,10 +609,8 @@ CREATE TABLE public.auth_group_permissions (
 );
 
 
-ALTER TABLE public.auth_group_permissions OWNER TO postgres;
-
 --
--- Name: auth_group_permissions_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: auth_group_permissions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.auth_group_permissions ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -478,7 +624,7 @@ ALTER TABLE public.auth_group_permissions ALTER COLUMN id ADD GENERATED BY DEFAU
 
 
 --
--- Name: auth_permission; Type: TABLE; Schema: public; Owner: postgres
+-- Name: auth_permission; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.auth_permission (
@@ -489,10 +635,8 @@ CREATE TABLE public.auth_permission (
 );
 
 
-ALTER TABLE public.auth_permission OWNER TO postgres;
-
 --
--- Name: auth_permission_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: auth_permission_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.auth_permission ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -506,7 +650,7 @@ ALTER TABLE public.auth_permission ALTER COLUMN id ADD GENERATED BY DEFAULT AS I
 
 
 --
--- Name: auth_user; Type: TABLE; Schema: public; Owner: postgres
+-- Name: auth_user; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.auth_user (
@@ -524,10 +668,8 @@ CREATE TABLE public.auth_user (
 );
 
 
-ALTER TABLE public.auth_user OWNER TO postgres;
-
 --
--- Name: auth_user_groups; Type: TABLE; Schema: public; Owner: postgres
+-- Name: auth_user_groups; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.auth_user_groups (
@@ -537,10 +679,8 @@ CREATE TABLE public.auth_user_groups (
 );
 
 
-ALTER TABLE public.auth_user_groups OWNER TO postgres;
-
 --
--- Name: auth_user_groups_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: auth_user_groups_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.auth_user_groups ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -554,7 +694,7 @@ ALTER TABLE public.auth_user_groups ALTER COLUMN id ADD GENERATED BY DEFAULT AS 
 
 
 --
--- Name: auth_user_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: auth_user_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.auth_user ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -568,7 +708,7 @@ ALTER TABLE public.auth_user ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTIT
 
 
 --
--- Name: auth_user_user_permissions; Type: TABLE; Schema: public; Owner: postgres
+-- Name: auth_user_user_permissions; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.auth_user_user_permissions (
@@ -578,10 +718,8 @@ CREATE TABLE public.auth_user_user_permissions (
 );
 
 
-ALTER TABLE public.auth_user_user_permissions OWNER TO postgres;
-
 --
--- Name: auth_user_user_permissions_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: auth_user_user_permissions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.auth_user_user_permissions ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -595,7 +733,7 @@ ALTER TABLE public.auth_user_user_permissions ALTER COLUMN id ADD GENERATED BY D
 
 
 --
--- Name: departments; Type: TABLE; Schema: public; Owner: postgres
+-- Name: departments; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.departments (
@@ -607,10 +745,8 @@ CREATE TABLE public.departments (
 );
 
 
-ALTER TABLE public.departments OWNER TO postgres;
-
 --
--- Name: departments_dept_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: departments_dept_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.departments ALTER COLUMN dept_id ADD GENERATED ALWAYS AS IDENTITY (
@@ -624,7 +760,7 @@ ALTER TABLE public.departments ALTER COLUMN dept_id ADD GENERATED ALWAYS AS IDEN
 
 
 --
--- Name: django_admin_log; Type: TABLE; Schema: public; Owner: postgres
+-- Name: django_admin_log; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.django_admin_log (
@@ -640,10 +776,8 @@ CREATE TABLE public.django_admin_log (
 );
 
 
-ALTER TABLE public.django_admin_log OWNER TO postgres;
-
 --
--- Name: django_admin_log_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: django_admin_log_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.django_admin_log ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -657,7 +791,7 @@ ALTER TABLE public.django_admin_log ALTER COLUMN id ADD GENERATED BY DEFAULT AS 
 
 
 --
--- Name: django_content_type; Type: TABLE; Schema: public; Owner: postgres
+-- Name: django_content_type; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.django_content_type (
@@ -667,10 +801,8 @@ CREATE TABLE public.django_content_type (
 );
 
 
-ALTER TABLE public.django_content_type OWNER TO postgres;
-
 --
--- Name: django_content_type_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: django_content_type_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.django_content_type ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -684,7 +816,7 @@ ALTER TABLE public.django_content_type ALTER COLUMN id ADD GENERATED BY DEFAULT 
 
 
 --
--- Name: django_migrations; Type: TABLE; Schema: public; Owner: postgres
+-- Name: django_migrations; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.django_migrations (
@@ -695,10 +827,8 @@ CREATE TABLE public.django_migrations (
 );
 
 
-ALTER TABLE public.django_migrations OWNER TO postgres;
-
 --
--- Name: django_migrations_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: django_migrations_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.django_migrations ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -712,7 +842,7 @@ ALTER TABLE public.django_migrations ALTER COLUMN id ADD GENERATED BY DEFAULT AS
 
 
 --
--- Name: django_session; Type: TABLE; Schema: public; Owner: postgres
+-- Name: django_session; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.django_session (
@@ -722,10 +852,8 @@ CREATE TABLE public.django_session (
 );
 
 
-ALTER TABLE public.django_session OWNER TO postgres;
-
 --
--- Name: documents; Type: TABLE; Schema: public; Owner: postgres
+-- Name: documents; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.documents (
@@ -739,10 +867,8 @@ CREATE TABLE public.documents (
 );
 
 
-ALTER TABLE public.documents OWNER TO postgres;
-
 --
--- Name: documents_doc_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: documents_doc_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.documents ALTER COLUMN doc_id ADD GENERATED ALWAYS AS IDENTITY (
@@ -756,7 +882,7 @@ ALTER TABLE public.documents ALTER COLUMN doc_id ADD GENERATED ALWAYS AS IDENTIT
 
 
 --
--- Name: event_docs; Type: TABLE; Schema: public; Owner: postgres
+-- Name: event_docs; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.event_docs (
@@ -772,10 +898,8 @@ CREATE TABLE public.event_docs (
 );
 
 
-ALTER TABLE public.event_docs OWNER TO postgres;
-
 --
--- Name: event_docs_doc_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: event_docs_doc_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.event_docs_doc_id_seq
@@ -787,17 +911,15 @@ CREATE SEQUENCE public.event_docs_doc_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.event_docs_doc_id_seq OWNER TO postgres;
-
 --
--- Name: event_docs_doc_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: event_docs_doc_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.event_docs_doc_id_seq OWNED BY public.event_docs.doc_id;
 
 
 --
--- Name: events; Type: TABLE; Schema: public; Owner: postgres
+-- Name: events; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.events (
@@ -813,7 +935,6 @@ CREATE TABLE public.events (
     restrictions text,
     reward text,
     status public.general_status DEFAULT 'منتظر'::public.general_status,
-    imgs character varying(255),
     st_date date NOT NULL,
     end_date date NOT NULL,
     s_limit integer,
@@ -823,15 +944,13 @@ CREATE TABLE public.events (
     resource character varying(100),
     selected_facs integer[],
     plan_id integer,
-    active boolean DEFAULT true,
+    active boolean DEFAULT false,
     CONSTRAINT events_check CHECK ((end_date >= st_date))
 );
 
 
-ALTER TABLE public.events OWNER TO postgres;
-
 --
--- Name: events_event_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: events_event_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.events ALTER COLUMN event_id ADD GENERATED ALWAYS AS IDENTITY (
@@ -845,7 +964,7 @@ ALTER TABLE public.events ALTER COLUMN event_id ADD GENERATED ALWAYS AS IDENTITY
 
 
 --
--- Name: faculties; Type: TABLE; Schema: public; Owner: postgres
+-- Name: faculties; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.faculties (
@@ -860,10 +979,8 @@ CREATE TABLE public.faculties (
 );
 
 
-ALTER TABLE public.faculties OWNER TO postgres;
-
 --
--- Name: faculties_faculty_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: faculties_faculty_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.faculties ALTER COLUMN faculty_id ADD GENERATED ALWAYS AS IDENTITY (
@@ -877,7 +994,7 @@ ALTER TABLE public.faculties ALTER COLUMN faculty_id ADD GENERATED ALWAYS AS IDE
 
 
 --
--- Name: families; Type: TABLE; Schema: public; Owner: postgres
+-- Name: families; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.families (
@@ -896,10 +1013,8 @@ CREATE TABLE public.families (
 );
 
 
-ALTER TABLE public.families OWNER TO postgres;
-
 --
--- Name: families_family_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: families_family_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.families ALTER COLUMN family_id ADD GENERATED ALWAYS AS IDENTITY (
@@ -913,7 +1028,7 @@ ALTER TABLE public.families ALTER COLUMN family_id ADD GENERATED ALWAYS AS IDENT
 
 
 --
--- Name: family_admins; Type: TABLE; Schema: public; Owner: postgres
+-- Name: family_admins; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.family_admins (
@@ -927,10 +1042,8 @@ CREATE TABLE public.family_admins (
 );
 
 
-ALTER TABLE public.family_admins OWNER TO postgres;
-
 --
--- Name: family_admins_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: family_admins_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.family_admins_id_seq
@@ -941,17 +1054,15 @@ CREATE SEQUENCE public.family_admins_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.family_admins_id_seq OWNER TO postgres;
-
 --
--- Name: family_admins_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: family_admins_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.family_admins_id_seq OWNED BY public.family_admins.id;
 
 
 --
--- Name: family_members; Type: TABLE; Schema: public; Owner: postgres
+-- Name: family_members; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.family_members (
@@ -964,10 +1075,8 @@ CREATE TABLE public.family_members (
 );
 
 
-ALTER TABLE public.family_members OWNER TO postgres;
-
 --
--- Name: logs; Type: TABLE; Schema: public; Owner: postgres
+-- Name: logs; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.logs (
@@ -986,10 +1095,8 @@ CREATE TABLE public.logs (
 );
 
 
-ALTER TABLE public.logs OWNER TO postgres;
-
 --
--- Name: logs_log_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: logs_log_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.logs ALTER COLUMN log_id ADD GENERATED ALWAYS AS IDENTITY (
@@ -1003,7 +1110,7 @@ ALTER TABLE public.logs ALTER COLUMN log_id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
--- Name: plans; Type: TABLE; Schema: public; Owner: postgres
+-- Name: plans; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.plans (
@@ -1016,10 +1123,8 @@ CREATE TABLE public.plans (
 );
 
 
-ALTER TABLE public.plans OWNER TO postgres;
-
 --
--- Name: plans_plan_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: plans_plan_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.plans ALTER COLUMN plan_id ADD GENERATED ALWAYS AS IDENTITY (
@@ -1033,7 +1138,7 @@ ALTER TABLE public.plans ALTER COLUMN plan_id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
--- Name: posts; Type: TABLE; Schema: public; Owner: postgres
+-- Name: posts; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.posts (
@@ -1047,10 +1152,8 @@ CREATE TABLE public.posts (
 );
 
 
-ALTER TABLE public.posts OWNER TO postgres;
-
 --
--- Name: posts_post_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: posts_post_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.posts_post_id_seq
@@ -1062,17 +1165,15 @@ CREATE SEQUENCE public.posts_post_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.posts_post_id_seq OWNER TO postgres;
-
 --
--- Name: posts_post_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: posts_post_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.posts_post_id_seq OWNED BY public.posts.post_id;
 
 
 --
--- Name: prtcps; Type: TABLE; Schema: public; Owner: postgres
+-- Name: prtcps; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.prtcps (
@@ -1085,10 +1186,8 @@ CREATE TABLE public.prtcps (
 );
 
 
-ALTER TABLE public.prtcps OWNER TO postgres;
-
 --
--- Name: prtcps_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: prtcps_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.prtcps_id_seq
@@ -1099,17 +1198,15 @@ CREATE SEQUENCE public.prtcps_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.prtcps_id_seq OWNER TO postgres;
-
 --
--- Name: prtcps_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: prtcps_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.prtcps_id_seq OWNED BY public.prtcps.id;
 
 
 --
--- Name: solidarities; Type: TABLE; Schema: public; Owner: postgres
+-- Name: solidarities; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.solidarities (
@@ -1145,10 +1242,8 @@ CREATE TABLE public.solidarities (
 );
 
 
-ALTER TABLE public.solidarities OWNER TO postgres;
-
 --
--- Name: solidarities_solidarity_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: solidarities_solidarity_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.solidarities ALTER COLUMN solidarity_id ADD GENERATED ALWAYS AS IDENTITY (
@@ -1162,7 +1257,7 @@ ALTER TABLE public.solidarities ALTER COLUMN solidarity_id ADD GENERATED ALWAYS 
 
 
 --
--- Name: solidarity_docs; Type: TABLE; Schema: public; Owner: postgres
+-- Name: solidarity_docs; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.solidarity_docs (
@@ -1176,10 +1271,8 @@ CREATE TABLE public.solidarity_docs (
 );
 
 
-ALTER TABLE public.solidarity_docs OWNER TO postgres;
-
 --
--- Name: solidarity_docs_doc_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: solidarity_docs_doc_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.solidarity_docs_doc_id_seq
@@ -1191,17 +1284,15 @@ CREATE SEQUENCE public.solidarity_docs_doc_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.solidarity_docs_doc_id_seq OWNER TO postgres;
-
 --
--- Name: solidarity_docs_doc_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: solidarity_docs_doc_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.solidarity_docs_doc_id_seq OWNED BY public.solidarity_docs.doc_id;
 
 
 --
--- Name: students; Type: TABLE; Schema: public; Owner: postgres
+-- Name: students; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.students (
@@ -1231,10 +1322,8 @@ CREATE TABLE public.students (
 );
 
 
-ALTER TABLE public.students OWNER TO postgres;
-
 --
--- Name: students_student_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: students_student_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 ALTER TABLE public.students ALTER COLUMN student_id ADD GENERATED ALWAYS AS IDENTITY (
@@ -1248,42 +1337,42 @@ ALTER TABLE public.students ALTER COLUMN student_id ADD GENERATED ALWAYS AS IDEN
 
 
 --
--- Name: event_docs doc_id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: event_docs doc_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.event_docs ALTER COLUMN doc_id SET DEFAULT nextval('public.event_docs_doc_id_seq'::regclass);
 
 
 --
--- Name: family_admins id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: family_admins id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.family_admins ALTER COLUMN id SET DEFAULT nextval('public.family_admins_id_seq'::regclass);
 
 
 --
--- Name: posts post_id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: posts post_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.posts ALTER COLUMN post_id SET DEFAULT nextval('public.posts_post_id_seq'::regclass);
 
 
 --
--- Name: prtcps id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: prtcps id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.prtcps ALTER COLUMN id SET DEFAULT nextval('public.prtcps_id_seq'::regclass);
 
 
 --
--- Name: solidarity_docs doc_id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: solidarity_docs doc_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.solidarity_docs ALTER COLUMN doc_id SET DEFAULT nextval('public.solidarity_docs_doc_id_seq'::regclass);
 
 
 --
--- Name: admins admins_email_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: admins admins_email_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.admins
@@ -1291,7 +1380,7 @@ ALTER TABLE ONLY public.admins
 
 
 --
--- Name: admins admins_national_id_unique; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: admins admins_national_id_unique; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.admins
@@ -1299,7 +1388,7 @@ ALTER TABLE ONLY public.admins
 
 
 --
--- Name: admins admins_phone_number_unique; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: admins admins_phone_number_unique; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.admins
@@ -1307,7 +1396,7 @@ ALTER TABLE ONLY public.admins
 
 
 --
--- Name: admins admins_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: admins admins_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.admins
@@ -1315,7 +1404,7 @@ ALTER TABLE ONLY public.admins
 
 
 --
--- Name: auth_group auth_group_name_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_group auth_group_name_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_group
@@ -1323,7 +1412,7 @@ ALTER TABLE ONLY public.auth_group
 
 
 --
--- Name: auth_group_permissions auth_group_permissions_group_id_permission_id_0cd325b0_uniq; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_group_permissions auth_group_permissions_group_id_permission_id_0cd325b0_uniq; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_group_permissions
@@ -1331,7 +1420,7 @@ ALTER TABLE ONLY public.auth_group_permissions
 
 
 --
--- Name: auth_group_permissions auth_group_permissions_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_group_permissions auth_group_permissions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_group_permissions
@@ -1339,7 +1428,7 @@ ALTER TABLE ONLY public.auth_group_permissions
 
 
 --
--- Name: auth_group auth_group_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_group auth_group_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_group
@@ -1347,7 +1436,7 @@ ALTER TABLE ONLY public.auth_group
 
 
 --
--- Name: auth_permission auth_permission_content_type_id_codename_01ab375a_uniq; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_permission auth_permission_content_type_id_codename_01ab375a_uniq; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_permission
@@ -1355,7 +1444,7 @@ ALTER TABLE ONLY public.auth_permission
 
 
 --
--- Name: auth_permission auth_permission_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_permission auth_permission_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_permission
@@ -1363,7 +1452,7 @@ ALTER TABLE ONLY public.auth_permission
 
 
 --
--- Name: auth_user_groups auth_user_groups_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_user_groups auth_user_groups_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_user_groups
@@ -1371,7 +1460,7 @@ ALTER TABLE ONLY public.auth_user_groups
 
 
 --
--- Name: auth_user_groups auth_user_groups_user_id_group_id_94350c0c_uniq; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_user_groups auth_user_groups_user_id_group_id_94350c0c_uniq; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_user_groups
@@ -1379,7 +1468,7 @@ ALTER TABLE ONLY public.auth_user_groups
 
 
 --
--- Name: auth_user auth_user_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_user auth_user_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_user
@@ -1387,7 +1476,7 @@ ALTER TABLE ONLY public.auth_user
 
 
 --
--- Name: auth_user_user_permissions auth_user_user_permissions_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_user_user_permissions auth_user_user_permissions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_user_user_permissions
@@ -1395,7 +1484,7 @@ ALTER TABLE ONLY public.auth_user_user_permissions
 
 
 --
--- Name: auth_user_user_permissions auth_user_user_permissions_user_id_permission_id_14a6b632_uniq; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_user_user_permissions auth_user_user_permissions_user_id_permission_id_14a6b632_uniq; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_user_user_permissions
@@ -1403,7 +1492,7 @@ ALTER TABLE ONLY public.auth_user_user_permissions
 
 
 --
--- Name: auth_user auth_user_username_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_user auth_user_username_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_user
@@ -1411,7 +1500,7 @@ ALTER TABLE ONLY public.auth_user
 
 
 --
--- Name: departments departments_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: departments departments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.departments
@@ -1419,7 +1508,7 @@ ALTER TABLE ONLY public.departments
 
 
 --
--- Name: django_admin_log django_admin_log_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: django_admin_log django_admin_log_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.django_admin_log
@@ -1427,7 +1516,7 @@ ALTER TABLE ONLY public.django_admin_log
 
 
 --
--- Name: django_content_type django_content_type_app_label_model_76bd3d3b_uniq; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: django_content_type django_content_type_app_label_model_76bd3d3b_uniq; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.django_content_type
@@ -1435,7 +1524,7 @@ ALTER TABLE ONLY public.django_content_type
 
 
 --
--- Name: django_content_type django_content_type_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: django_content_type django_content_type_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.django_content_type
@@ -1443,7 +1532,7 @@ ALTER TABLE ONLY public.django_content_type
 
 
 --
--- Name: django_migrations django_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: django_migrations django_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.django_migrations
@@ -1451,7 +1540,7 @@ ALTER TABLE ONLY public.django_migrations
 
 
 --
--- Name: django_session django_session_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: django_session django_session_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.django_session
@@ -1459,7 +1548,7 @@ ALTER TABLE ONLY public.django_session
 
 
 --
--- Name: documents documents_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: documents documents_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.documents
@@ -1467,7 +1556,7 @@ ALTER TABLE ONLY public.documents
 
 
 --
--- Name: event_docs event_docs_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: event_docs event_docs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.event_docs
@@ -1475,7 +1564,7 @@ ALTER TABLE ONLY public.event_docs
 
 
 --
--- Name: events events_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: events events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.events
@@ -1483,7 +1572,7 @@ ALTER TABLE ONLY public.events
 
 
 --
--- Name: faculties faculties_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: faculties faculties_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.faculties
@@ -1491,7 +1580,7 @@ ALTER TABLE ONLY public.faculties
 
 
 --
--- Name: families families_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: families families_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.families
@@ -1499,7 +1588,7 @@ ALTER TABLE ONLY public.families
 
 
 --
--- Name: family_admins family_admins_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: family_admins family_admins_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.family_admins
@@ -1507,7 +1596,7 @@ ALTER TABLE ONLY public.family_admins
 
 
 --
--- Name: family_members family_members_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: family_members family_members_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.family_members
@@ -1515,7 +1604,7 @@ ALTER TABLE ONLY public.family_members
 
 
 --
--- Name: logs logs_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: logs logs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.logs
@@ -1523,7 +1612,7 @@ ALTER TABLE ONLY public.logs
 
 
 --
--- Name: plans plans_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: plans plans_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.plans
@@ -1531,7 +1620,7 @@ ALTER TABLE ONLY public.plans
 
 
 --
--- Name: posts posts_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: posts posts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.posts
@@ -1539,7 +1628,7 @@ ALTER TABLE ONLY public.posts
 
 
 --
--- Name: prtcps prtcps_event_student_unique; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: prtcps prtcps_event_student_unique; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.prtcps
@@ -1547,7 +1636,7 @@ ALTER TABLE ONLY public.prtcps
 
 
 --
--- Name: prtcps prtcps_id_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: prtcps prtcps_id_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.prtcps
@@ -1555,7 +1644,7 @@ ALTER TABLE ONLY public.prtcps
 
 
 --
--- Name: solidarities solidarities_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: solidarities solidarities_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.solidarities
@@ -1563,7 +1652,7 @@ ALTER TABLE ONLY public.solidarities
 
 
 --
--- Name: solidarity_docs solidarity_docs_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: solidarity_docs solidarity_docs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.solidarity_docs
@@ -1571,7 +1660,7 @@ ALTER TABLE ONLY public.solidarity_docs
 
 
 --
--- Name: solidarity_docs solidarity_docs_solidarity_id_doc_type_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: solidarity_docs solidarity_docs_solidarity_id_doc_type_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.solidarity_docs
@@ -1579,7 +1668,7 @@ ALTER TABLE ONLY public.solidarity_docs
 
 
 --
--- Name: students students_email_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: students students_email_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.students
@@ -1587,7 +1676,7 @@ ALTER TABLE ONLY public.students
 
 
 --
--- Name: students students_google_id_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: students students_google_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.students
@@ -1595,7 +1684,7 @@ ALTER TABLE ONLY public.students
 
 
 --
--- Name: students students_nid_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: students students_nid_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.students
@@ -1603,7 +1692,7 @@ ALTER TABLE ONLY public.students
 
 
 --
--- Name: students students_phone_number_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: students students_phone_number_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.students
@@ -1611,7 +1700,7 @@ ALTER TABLE ONLY public.students
 
 
 --
--- Name: students students_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: students students_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.students
@@ -1619,7 +1708,7 @@ ALTER TABLE ONLY public.students
 
 
 --
--- Name: students students_uid_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: students students_uid_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.students
@@ -1627,343 +1716,364 @@ ALTER TABLE ONLY public.students
 
 
 --
--- Name: auth_group_name_a6ea08ec_like; Type: INDEX; Schema: public; Owner: postgres
+-- Name: auth_group_name_a6ea08ec_like; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX auth_group_name_a6ea08ec_like ON public.auth_group USING btree (name varchar_pattern_ops);
 
 
 --
--- Name: auth_group_permissions_group_id_b120cbf9; Type: INDEX; Schema: public; Owner: postgres
+-- Name: auth_group_permissions_group_id_b120cbf9; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX auth_group_permissions_group_id_b120cbf9 ON public.auth_group_permissions USING btree (group_id);
 
 
 --
--- Name: auth_group_permissions_permission_id_84c5c92e; Type: INDEX; Schema: public; Owner: postgres
+-- Name: auth_group_permissions_permission_id_84c5c92e; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX auth_group_permissions_permission_id_84c5c92e ON public.auth_group_permissions USING btree (permission_id);
 
 
 --
--- Name: auth_permission_content_type_id_2f476e4b; Type: INDEX; Schema: public; Owner: postgres
+-- Name: auth_permission_content_type_id_2f476e4b; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX auth_permission_content_type_id_2f476e4b ON public.auth_permission USING btree (content_type_id);
 
 
 --
--- Name: auth_user_groups_group_id_97559544; Type: INDEX; Schema: public; Owner: postgres
+-- Name: auth_user_groups_group_id_97559544; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX auth_user_groups_group_id_97559544 ON public.auth_user_groups USING btree (group_id);
 
 
 --
--- Name: auth_user_groups_user_id_6a12ed8b; Type: INDEX; Schema: public; Owner: postgres
+-- Name: auth_user_groups_user_id_6a12ed8b; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX auth_user_groups_user_id_6a12ed8b ON public.auth_user_groups USING btree (user_id);
 
 
 --
--- Name: auth_user_user_permissions_permission_id_1fbb5f2c; Type: INDEX; Schema: public; Owner: postgres
+-- Name: auth_user_user_permissions_permission_id_1fbb5f2c; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX auth_user_user_permissions_permission_id_1fbb5f2c ON public.auth_user_user_permissions USING btree (permission_id);
 
 
 --
--- Name: auth_user_user_permissions_user_id_a95ead1b; Type: INDEX; Schema: public; Owner: postgres
+-- Name: auth_user_user_permissions_user_id_a95ead1b; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX auth_user_user_permissions_user_id_a95ead1b ON public.auth_user_user_permissions USING btree (user_id);
 
 
 --
--- Name: auth_user_username_6821ab7c_like; Type: INDEX; Schema: public; Owner: postgres
+-- Name: auth_user_username_6821ab7c_like; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX auth_user_username_6821ab7c_like ON public.auth_user USING btree (username varchar_pattern_ops);
 
 
 --
--- Name: django_admin_log_content_type_id_c4bce8eb; Type: INDEX; Schema: public; Owner: postgres
+-- Name: django_admin_log_content_type_id_c4bce8eb; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX django_admin_log_content_type_id_c4bce8eb ON public.django_admin_log USING btree (content_type_id);
 
 
 --
--- Name: django_admin_log_user_id_c564eba6; Type: INDEX; Schema: public; Owner: postgres
+-- Name: django_admin_log_user_id_c564eba6; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX django_admin_log_user_id_c564eba6 ON public.django_admin_log USING btree (user_id);
 
 
 --
--- Name: django_session_expire_date_a5c62663; Type: INDEX; Schema: public; Owner: postgres
+-- Name: django_session_expire_date_a5c62663; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX django_session_expire_date_a5c62663 ON public.django_session USING btree (expire_date);
 
 
 --
--- Name: django_session_session_key_c0390e0f_like; Type: INDEX; Schema: public; Owner: postgres
+-- Name: django_session_session_key_c0390e0f_like; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX django_session_session_key_c0390e0f_like ON public.django_session USING btree (session_key varchar_pattern_ops);
 
 
 --
--- Name: idx_admins_dept_id; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_admins_dept_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_admins_dept_id ON public.admins USING btree (dept_id);
 
 
 --
--- Name: idx_admins_faculty_id; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_admins_faculty_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_admins_faculty_id ON public.admins USING btree (faculty_id);
 
 
 --
--- Name: idx_event_docs_event_id; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_event_docs_event; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_event_docs_event ON public.event_docs USING btree (event_id);
+
+
+--
+-- Name: idx_event_docs_event_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_event_docs_event_id ON public.event_docs USING btree (event_id);
 
 
 --
--- Name: idx_events_created_by; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_event_docs_uploaded_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_event_docs_uploaded_at ON public.event_docs USING btree (uploaded_at DESC);
+
+
+--
+-- Name: idx_event_docs_uploaded_by; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_event_docs_uploaded_by ON public.event_docs USING btree (uploaded_by);
+
+
+--
+-- Name: idx_events_created_by; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_events_created_by ON public.events USING btree (created_by);
 
 
 --
--- Name: idx_events_dept_id; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_events_dept_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_events_dept_id ON public.events USING btree (dept_id);
 
 
 --
--- Name: idx_events_faculty_id; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_events_faculty_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_events_faculty_id ON public.events USING btree (faculty_id);
 
 
 --
--- Name: idx_events_plan_id; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_events_plan_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_events_plan_id ON public.events USING btree (plan_id) WITH (deduplicate_items='true');
 
 
 --
--- Name: idx_events_selected_facs; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_events_selected_facs; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_events_selected_facs ON public.events USING gin (selected_facs);
 
 
 --
--- Name: idx_families_created_by; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_families_created_by; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_families_created_by ON public.families USING btree (created_by);
 
 
 --
--- Name: idx_families_faculty_id; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_families_faculty_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_families_faculty_id ON public.families USING btree (faculty_id);
 
 
 --
--- Name: idx_family_admins_family_id; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_family_admins_family_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_family_admins_family_id ON public.family_admins USING btree (family_id);
 
 
 --
--- Name: idx_family_members_student; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_family_members_student; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_family_members_student ON public.family_members USING btree (student_id);
 
 
 --
--- Name: idx_logs_action; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_logs_action; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_logs_action ON public.logs USING btree (action);
 
 
 --
--- Name: idx_logs_actor_id; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_logs_actor_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_logs_actor_id ON public.logs USING btree (actor_id);
 
 
 --
--- Name: idx_logs_logged_at; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_logs_logged_at; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_logs_logged_at ON public.logs USING btree (logged_at);
 
 
 --
--- Name: idx_logs_student_id; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_logs_student_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_logs_student_id ON public.logs USING btree (student_id) WITH (fillfactor='100', deduplicate_items='true');
 
 
 --
--- Name: idx_logs_target; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_logs_target; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_logs_target ON public.logs USING btree (target_type, event_id, solidarity_id, family_id);
 
 
 --
--- Name: idx_plans_faculty_id; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_plans_faculty_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_plans_faculty_id ON public.plans USING btree (faculty_id);
 
 
 --
--- Name: idx_plans_name; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_plans_name; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_plans_name ON public.plans USING btree (name) WITH (fillfactor='100', deduplicate_items='true');
 
 
 --
--- Name: idx_posts_created_at; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_posts_created_at; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_posts_created_at ON public.posts USING btree (created_at DESC);
 
 
 --
--- Name: idx_posts_faculty_id; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_posts_faculty_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_posts_faculty_id ON public.posts USING btree (faculty_id);
 
 
 --
--- Name: idx_posts_family_id; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_posts_family_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_posts_family_id ON public.posts USING btree (family_id);
 
 
 --
--- Name: idx_prtcps_event; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_prtcps_event; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_prtcps_event ON public.prtcps USING btree (event_id);
 
 
 --
--- Name: idx_prtcps_student; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_prtcps_student; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_prtcps_student ON public.prtcps USING btree (student_id);
 
 
 --
--- Name: idx_solidarities_faculty; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_solidarities_faculty; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_solidarities_faculty ON public.solidarities USING btree (faculty_id);
 
 
 --
--- Name: idx_solidarities_student; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_solidarities_student; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_solidarities_student ON public.solidarities USING btree (student_id);
 
 
 --
--- Name: idx_students_faculty_id; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_students_faculty_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_students_faculty_id ON public.students USING btree (faculty_id);
 
 
 --
--- Name: events trg_events_touch; Type: TRIGGER; Schema: public; Owner: postgres
+-- Name: events trg_events_touch; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_events_touch BEFORE UPDATE ON public.events FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
--- Name: families trg_families_touch; Type: TRIGGER; Schema: public; Owner: postgres
+-- Name: families trg_families_touch; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_families_touch BEFORE UPDATE ON public.families FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
--- Name: events trg_log_event_insert; Type: TRIGGER; Schema: public; Owner: postgres
+-- Name: events trg_log_event_insert; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_log_event_insert AFTER INSERT ON public.events FOR EACH ROW EXECUTE FUNCTION public.log_event_insert();
 
 
 --
--- Name: families trg_log_family_insert; Type: TRIGGER; Schema: public; Owner: postgres
+-- Name: families trg_log_family_insert; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_log_family_insert AFTER INSERT ON public.families FOR EACH ROW EXECUTE FUNCTION public.log_family_insert();
 
 
 --
--- Name: solidarities trg_log_solidarity_approval; Type: TRIGGER; Schema: public; Owner: postgres
+-- Name: solidarities trg_log_solidarity_approval; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_log_solidarity_approval AFTER UPDATE ON public.solidarities FOR EACH ROW WHEN (((old.req_status IS DISTINCT FROM new.req_status) AND (new.req_status = 'مقبول'::public.general_status))) EXECUTE FUNCTION public.log_solidarity_approval();
 
 
 --
--- Name: solidarities trg_log_solidarity_pre_approval; Type: TRIGGER; Schema: public; Owner: postgres
+-- Name: solidarities trg_log_solidarity_pre_approval; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_log_solidarity_pre_approval AFTER UPDATE ON public.solidarities FOR EACH ROW WHEN (((old.req_status IS DISTINCT FROM new.req_status) AND (new.req_status = 'موافقة مبدئية'::public.general_status))) EXECUTE FUNCTION public.log_solidarity_pre_approval();
 
 
 --
--- Name: solidarities trg_log_solidarity_rejection; Type: TRIGGER; Schema: public; Owner: postgres
+-- Name: solidarities trg_log_solidarity_rejection; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_log_solidarity_rejection AFTER UPDATE ON public.solidarities FOR EACH ROW WHEN (((old.req_status IS DISTINCT FROM new.req_status) AND (new.req_status = 'مرفوض'::public.general_status))) EXECUTE FUNCTION public.log_solidarity_rejection();
 
 
 --
--- Name: solidarities trg_solidarities_touch; Type: TRIGGER; Schema: public; Owner: postgres
+-- Name: solidarities trg_solidarities_touch; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_solidarities_touch BEFORE UPDATE ON public.solidarities FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
--- Name: admins admins_dept_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: admins admins_dept_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.admins
@@ -1971,7 +2081,7 @@ ALTER TABLE ONLY public.admins
 
 
 --
--- Name: admins admins_faculty_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: admins admins_faculty_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.admins
@@ -1979,7 +2089,7 @@ ALTER TABLE ONLY public.admins
 
 
 --
--- Name: auth_group_permissions auth_group_permissio_permission_id_84c5c92e_fk_auth_perm; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_group_permissions auth_group_permissio_permission_id_84c5c92e_fk_auth_perm; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_group_permissions
@@ -1987,7 +2097,7 @@ ALTER TABLE ONLY public.auth_group_permissions
 
 
 --
--- Name: auth_group_permissions auth_group_permissions_group_id_b120cbf9_fk_auth_group_id; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_group_permissions auth_group_permissions_group_id_b120cbf9_fk_auth_group_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_group_permissions
@@ -1995,7 +2105,7 @@ ALTER TABLE ONLY public.auth_group_permissions
 
 
 --
--- Name: auth_permission auth_permission_content_type_id_2f476e4b_fk_django_co; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_permission auth_permission_content_type_id_2f476e4b_fk_django_co; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_permission
@@ -2003,7 +2113,7 @@ ALTER TABLE ONLY public.auth_permission
 
 
 --
--- Name: auth_user_groups auth_user_groups_group_id_97559544_fk_auth_group_id; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_user_groups auth_user_groups_group_id_97559544_fk_auth_group_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_user_groups
@@ -2011,7 +2121,7 @@ ALTER TABLE ONLY public.auth_user_groups
 
 
 --
--- Name: auth_user_groups auth_user_groups_user_id_6a12ed8b_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_user_groups auth_user_groups_user_id_6a12ed8b_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_user_groups
@@ -2019,7 +2129,7 @@ ALTER TABLE ONLY public.auth_user_groups
 
 
 --
--- Name: auth_user_user_permissions auth_user_user_permi_permission_id_1fbb5f2c_fk_auth_perm; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_user_user_permissions auth_user_user_permi_permission_id_1fbb5f2c_fk_auth_perm; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_user_user_permissions
@@ -2027,7 +2137,7 @@ ALTER TABLE ONLY public.auth_user_user_permissions
 
 
 --
--- Name: auth_user_user_permissions auth_user_user_permissions_user_id_a95ead1b_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_user_user_permissions auth_user_user_permissions_user_id_a95ead1b_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_user_user_permissions
@@ -2035,7 +2145,7 @@ ALTER TABLE ONLY public.auth_user_user_permissions
 
 
 --
--- Name: django_admin_log django_admin_log_content_type_id_c4bce8eb_fk_django_co; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: django_admin_log django_admin_log_content_type_id_c4bce8eb_fk_django_co; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.django_admin_log
@@ -2043,7 +2153,7 @@ ALTER TABLE ONLY public.django_admin_log
 
 
 --
--- Name: django_admin_log django_admin_log_user_id_c564eba6_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: django_admin_log django_admin_log_user_id_c564eba6_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.django_admin_log
@@ -2051,7 +2161,7 @@ ALTER TABLE ONLY public.django_admin_log
 
 
 --
--- Name: event_docs event_docs_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: event_docs event_docs_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.event_docs
@@ -2059,7 +2169,7 @@ ALTER TABLE ONLY public.event_docs
 
 
 --
--- Name: event_docs event_docs_uploaded_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: event_docs event_docs_uploaded_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.event_docs
@@ -2067,7 +2177,7 @@ ALTER TABLE ONLY public.event_docs
 
 
 --
--- Name: events events_created_by_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: events events_created_by_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.events
@@ -2075,7 +2185,7 @@ ALTER TABLE ONLY public.events
 
 
 --
--- Name: events events_dept_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: events events_dept_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.events
@@ -2083,7 +2193,7 @@ ALTER TABLE ONLY public.events
 
 
 --
--- Name: events events_faculty_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: events events_faculty_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.events
@@ -2091,7 +2201,7 @@ ALTER TABLE ONLY public.events
 
 
 --
--- Name: events events_plan_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: events events_plan_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.events
@@ -2099,7 +2209,7 @@ ALTER TABLE ONLY public.events
 
 
 --
--- Name: families families_approved_by_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: families families_approved_by_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.families
@@ -2107,7 +2217,7 @@ ALTER TABLE ONLY public.families
 
 
 --
--- Name: families families_created_by_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: families families_created_by_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.families
@@ -2115,7 +2225,7 @@ ALTER TABLE ONLY public.families
 
 
 --
--- Name: families families_faculty_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: families families_faculty_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.families
@@ -2123,7 +2233,7 @@ ALTER TABLE ONLY public.families
 
 
 --
--- Name: family_members family_members_family_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: family_members family_members_family_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.family_members
@@ -2131,7 +2241,7 @@ ALTER TABLE ONLY public.family_members
 
 
 --
--- Name: family_members family_members_student_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: family_members family_members_student_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.family_members
@@ -2139,7 +2249,7 @@ ALTER TABLE ONLY public.family_members
 
 
 --
--- Name: family_admins fk_admin_family; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: family_admins fk_admin_family; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.family_admins
@@ -2147,7 +2257,7 @@ ALTER TABLE ONLY public.family_admins
 
 
 --
--- Name: events fk_events_family; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: events fk_events_family; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.events
@@ -2155,7 +2265,7 @@ ALTER TABLE ONLY public.events
 
 
 --
--- Name: family_members fk_family_members_dept; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: family_members fk_family_members_dept; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.family_members
@@ -2163,7 +2273,7 @@ ALTER TABLE ONLY public.family_members
 
 
 --
--- Name: posts fk_posts_faculty; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: posts fk_posts_faculty; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.posts
@@ -2171,7 +2281,7 @@ ALTER TABLE ONLY public.posts
 
 
 --
--- Name: posts fk_posts_family; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: posts fk_posts_family; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.posts
@@ -2179,7 +2289,7 @@ ALTER TABLE ONLY public.posts
 
 
 --
--- Name: logs logs_actor_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: logs logs_actor_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.logs
@@ -2187,7 +2297,7 @@ ALTER TABLE ONLY public.logs
 
 
 --
--- Name: logs logs_event_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: logs logs_event_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.logs
@@ -2195,7 +2305,7 @@ ALTER TABLE ONLY public.logs
 
 
 --
--- Name: logs logs_family_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: logs logs_family_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.logs
@@ -2203,7 +2313,7 @@ ALTER TABLE ONLY public.logs
 
 
 --
--- Name: logs logs_solidarity_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: logs logs_solidarity_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.logs
@@ -2211,7 +2321,7 @@ ALTER TABLE ONLY public.logs
 
 
 --
--- Name: logs logs_student_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: logs logs_student_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.logs
@@ -2219,7 +2329,7 @@ ALTER TABLE ONLY public.logs
 
 
 --
--- Name: plans plans_faculty_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: plans plans_faculty_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.plans
@@ -2227,7 +2337,7 @@ ALTER TABLE ONLY public.plans
 
 
 --
--- Name: prtcps prtcps_event_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: prtcps prtcps_event_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.prtcps
@@ -2235,7 +2345,7 @@ ALTER TABLE ONLY public.prtcps
 
 
 --
--- Name: prtcps prtcps_student_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: prtcps prtcps_student_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.prtcps
@@ -2243,7 +2353,7 @@ ALTER TABLE ONLY public.prtcps
 
 
 --
--- Name: solidarities solidarities_approved_by_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: solidarities solidarities_approved_by_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.solidarities
@@ -2251,7 +2361,7 @@ ALTER TABLE ONLY public.solidarities
 
 
 --
--- Name: solidarities solidarities_faculty_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: solidarities solidarities_faculty_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.solidarities
@@ -2259,7 +2369,7 @@ ALTER TABLE ONLY public.solidarities
 
 
 --
--- Name: solidarities solidarities_student_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: solidarities solidarities_student_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.solidarities
@@ -2267,7 +2377,7 @@ ALTER TABLE ONLY public.solidarities
 
 
 --
--- Name: solidarity_docs solidarity_docs_solidarity_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: solidarity_docs solidarity_docs_solidarity_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.solidarity_docs
@@ -2275,7 +2385,7 @@ ALTER TABLE ONLY public.solidarity_docs
 
 
 --
--- Name: students students_faculty_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: students students_faculty_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.students
@@ -2286,5 +2396,5 @@ ALTER TABLE ONLY public.students
 -- PostgreSQL database dump complete
 --
 
-\unrestrict do5soA5GFEmXQAfxMCbZ9Wk8Y2IaqoV9Lt2re4OzD5956RgBxIe7nVFm9eWfVS3
+\unrestrict AQeTKSQ3EfS37GtewIsP5Rbarn0P6F8S5nZDPpkEhHQLSbLcD0WIPlctBRrsI9u
 
