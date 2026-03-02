@@ -71,10 +71,7 @@ class EventSummaryReportViewSet(viewsets.GenericViewSet):
             else:
                 duration_days = 0
             
-            event_images = EventDocs.objects.filter(
-                event=event,
-                doc_type='image'
-            )[:2]
+            event_images = event.event_docs.filter(doc_type__icontains='image')[:2]
             
             images_base64 = []
             for img in event_images[:2]:

@@ -147,7 +147,7 @@ class EventCreateUpdateSerializer(serializers.ModelSerializer):
         return data
     
     def create(self, validated_data):
-        validated_data['active'] = True 
+        validated_data['active'] = False 
         validated_data['status'] = 'منتظر' 
         return super().create(validated_data)
     
