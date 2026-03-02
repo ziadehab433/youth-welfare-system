@@ -2,7 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.decorators import action
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 from django.db import transaction
 from django.utils import timezone
@@ -173,7 +173,7 @@ class EventGetterViewSet(viewsets.GenericViewSet):
 class EventManagementViewSet(viewsets.GenericViewSet):
     permission_classes = [IsRole]
     allowed_roles = ['مسؤول كلية', 'مدير ادارة']
-    parser_classes = [MultiPartParser, FormParser]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def get_serializer_class(self):
         if self.action == 'create' or self.action == 'partial_update':
@@ -226,7 +226,7 @@ class EventManagementViewSet(viewsets.GenericViewSet):
         admin = get_current_admin(request)
         ip = get_client_ip(request)
         
-        if admin.role == 'مسؤول كلية' and 'selected_facs' in request.data:
+        if admin.role == 'مسؤول كلية' and 'selected_facs' in request.data and request.data.get('selected_facs'):
             raise PermissionDenied("Faculty admins cannot use the selected_facs field")
         
         if admin.role == 'مدير ادارة' and 'dept' in request.data:
@@ -276,7 +276,7 @@ class EventManagementViewSet(viewsets.GenericViewSet):
         
         event = self.get_object()
         
-        if admin.role == 'مسؤول كلية' and 'selected_facs' in request.data:
+        if admin.role == 'مسؤول كلية' and 'selected_facs' in request.data and request.data.get('selected_facs'):
             raise PermissionDenied("Faculty admins cannot modify the selected_facs field")
         
         if 'faculty' in request.data:
