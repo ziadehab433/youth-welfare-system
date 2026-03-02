@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict AQeTKSQ3EfS37GtewIsP5Rbarn0P6F8S5nZDPpkEhHQLSbLcD0WIPlctBRrsI9u
+\restrict eItDGhgddpla2DMUYWgD2AQcYjs6ERhrCq7wfQnKIUOgLAgFCaWTXSpJDsSv0Gk
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.6
@@ -294,7 +294,9 @@ CREATE TYPE public.general_status AS ENUM (
     'مقبول',
     'منتظر',
     'مرفوض',
-    'قادم'
+    'قادم',
+    'ملغي',
+    'مكتمل'
 );
 
 
@@ -2396,5 +2398,5 @@ ALTER TABLE ONLY public.students
 -- PostgreSQL database dump complete
 --
 
-\unrestrict AQeTKSQ3EfS37GtewIsP5Rbarn0P6F8S5nZDPpkEhHQLSbLcD0WIPlctBRrsI9u
+\unrestrict eItDGhgddpla2DMUYWgD2AQcYjs6ERhrCq7wfQnKIUOgLAgFCaWTXSpJDsSv0Gk
 

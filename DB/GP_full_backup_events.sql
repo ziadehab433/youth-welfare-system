@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict MFMySPXL1bz0dpq2x4g8P78Ey1MG2A6NWOceF5Jqzmw4COxqpPLcIosovnACEKT
+\restrict aTuOPU9sRh6M2ER5vmeFpaz5YxfRIbJXczhFyLUp0yrWIg6IFIWGg7JVxEypjZu
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.6
@@ -294,7 +294,9 @@ CREATE TYPE public.general_status AS ENUM (
     'مقبول',
     'منتظر',
     'مرفوض',
-    'قادم'
+    'قادم',
+    'ملغي',
+    'مكتمل'
 );
 
 
@@ -2220,8 +2222,8 @@ COPY public.students (student_id, name, email, password, faculty_id, profile_pho
 15	std2	std2@gmail.com	$2b$12$SngL6dkYpJ4WEPMQ2URgqOS4i4yBR1QGgHgWzJzqsmX9NawEBZhru	1	uploads/students/15/image.jpg	M	2021254587	2021245	+201254578	eg	4	2025-11-14	\N	ممتاز	sw	\N	\N	f	email	\N	\N	t
 11	A	AA@gmail.com	$2b$12$/yfBp5mpBNUt4EZp1IWEJu22QNUjejzEuBB/0JiUNeZ.32HPn7SOq	1	\N	F	50248798655487	55857	20125455485	Eg	2025	2025-09-01	\N	\N	hg	\N	\N	f	email	\N	\N	f
 36	علي	ali5@gmail.com	$2b$12$lVLBcoy0XpkOnR2BEHF.hOZ2i69cCOXas.dtibIA5ed30n1kZgLf6	3	\N	M	201212548789666	20121210	20124545255	egypt	1	2025-12-04	\N	\N	sw	\N	\N	f	email	\N	\N	f
-39	test2	test2@gmail.com	$2b$12$uAzWg3XMnY4cH3UsJwscSuzSjIoGdlhyKB9Q2M1rzZU2aiEIvoM4u	1	\N	m	20255555555557	34235	2012222277	string	string	2026-01-17	\N	string	string	\N	\N	f	email	\N	\N	f
 37	ssh	ssh493147@gmail.com	$2b$12$wyBkhAzvgNLV7SXZ15kKEuFX3Fv8JkfyxDDC8XoLYP/vv.TACot.O	3	\N	M	201215458747845	20121545	20124504850	egypt	one	2025-12-09	\N	\N	sdfs	108654151463126841079	https://lh3.googleusercontent.com/a/ACg8ocJOdPnMOecixsR8HSe3rh1b64btth_Gn1n3zcDYWxRxa71-BQ=s96-c	t	google	google	2026-01-19 15:18:50.189769	f
+39	test2	omarsomaa1na@gmail.com	$2b$12$ZHnIEwjU0DPI.RItAqdxwuqpuNwsK/vLEBut6i9Xpdu5RXBG4jXmO	1	\N	m	20255555555557	34235	2012222277	string	string	2026-01-17	\N	string	string	\N	\N	f	email	\N	\N	f
 38	test	test@gmail.com	$2b$12$BmXBa75oYnvp938Ak2mTwe//1uqRabCui3RNL7mz7af75f70Qdioe	1	\N	m	gAAAAABpa46bTpr2_6EudLrpOGB-3l0EHSPsC7k5_M9i2tPDnMqTfwYhyhQpz4bpLEoGaTXTGu68Vui9sQX5Ivgfb9ILtN40Sg==	gAAAAABpa46bKy9cA6u63ZCKnzWim5dwcbAjeWFltHGqW6P2xnvX0cN2qknajz3QY72DHaAt-6Wqlut6zK6I3LMWb7CngZOecA==	gAAAAABpa46bHBXFLnrKkRsAfB3rtoFXD_9RwT1hqdu1PH5Oblo9JCpB-lU0m9SB9Awi-AmD-5yil78W85gTP5Tn0cpWXwdAjg==	gAAAAABpa46b4ShYUDqT9bO914NaCmsQ7LevnDse6JGULVKiryPs-MgUAkJKi_YnN0pJZzAeo4sO8EZIBT98sq7YaFNA6uV18Q==	string	2026-01-17	\N	string	string	\N	\N	f	email	\N	\N	f
 \.
 
@@ -3419,5 +3421,5 @@ ALTER TABLE ONLY public.students
 -- PostgreSQL database dump complete
 --
 
-\unrestrict MFMySPXL1bz0dpq2x4g8P78Ey1MG2A6NWOceF5Jqzmw4COxqpPLcIosovnACEKT
+\unrestrict aTuOPU9sRh6M2ER5vmeFpaz5YxfRIbJXczhFyLUp0yrWIg6IFIWGg7JVxEypjZu
 
