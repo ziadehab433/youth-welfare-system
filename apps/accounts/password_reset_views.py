@@ -72,13 +72,10 @@ class PasswordResetRequestView(APIView):
                 uid = urlsafe_base64_encode(force_bytes(f"{user_type}:{user_id}"))
                 token = password_reset_token.make_token(user)
                 
-
-                # in production we must use a real dmain URL, for now we will use the API endpoint directly
-
-                # Build reset URL
-                reset_url = request.build_absolute_uri(
-                    f'/api/auth/password-reset/confirm/?uid={uid}&token={token}'
-                )
+                # ✅ Build reset URL pointing to FRONTEND (not API)
+                # Use FRONTEND_URL from settings, fallback to localhost:3000 for dev
+                frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+                reset_url = f"{frontend_url}/reset-password/confirm?uid={uid}&token={token}"
                 
                 # Prepare email context
                 context = {
