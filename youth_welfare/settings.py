@@ -485,6 +485,34 @@ if DEBUG:
     print(f"\n✓ Google OAuth Configuration Loaded:")
     print(f"  - Client ID: {GOOGLE_CLIENT_ID[:30] if GOOGLE_CLIENT_ID else 'NOT SET'}...")
     print(f"  - Redirect URI: {GOOGLE_REDIRECT_URI}\n")
+
+# ============ EMAIL CONFIGURATION ============
+# Email backend for password reset functionality
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = config('EMAIL_HOST')
+EMAIL_PORT = config('EMAIL_PORT', cast=int)
+EMAIL_USE_TLS = config('EMAIL_USE_TLS', cast=bool)
+EMAIL_HOST_USER = config('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
+
+# will be changed in production 
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL')
+
+# Password Reset Token Expiration (20 minutes = 1200 seconds)
+PASSWORD_RESET_TIMEOUT = 1200
+
+# Validate email credentials in production
+if not DEBUG and (not EMAIL_HOST_USER or not EMAIL_HOST_PASSWORD):
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.warning("⚠️ Email credentials not configured - password reset emails will fail")
+
+if DEBUG:
+    print(f"\n✓ Email Configuration Loaded:")
+    print(f"  - Host: {EMAIL_HOST}:{EMAIL_PORT}")
+    print(f"  - User: {EMAIL_HOST_USER if EMAIL_HOST_USER else 'NOT SET'}")
+    print(f"  - From: {DEFAULT_FROM_EMAIL}")
+    print(f"  - Password Reset Timeout: {PASSWORD_RESET_TIMEOUT // 60} minutes\n")
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
