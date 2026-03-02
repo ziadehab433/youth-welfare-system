@@ -90,7 +90,8 @@ class EventCreateUpdateSerializer(serializers.ModelSerializer):
             'resource', 'selected_facs', 'plan' 
         ]
         extra_kwargs = {
-            'plan': {'required': False, 'allow_null': True}
+            'plan': {'required': False, 'allow_null': True},
+            'selected_facs': {'required': False, 'allow_null': True, 'allow_empty': True}
         }
 
     def __init__(self, *args, **kwargs):
