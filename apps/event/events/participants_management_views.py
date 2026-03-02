@@ -22,7 +22,7 @@ class EventParticipantViewSet(viewsets.GenericViewSet):
             return queryset
         if admin.role == 'مدير ادارة':
             return queryset.filter(dept_id=admin.dept_id)
-        return queryset.filter(faculty_id=admin.faculty_id, dept_id=admin.dept_id)
+        return queryset.filter(faculty_id=admin.faculty_id)
     def _validate_event_editable(self, event):
         if event.status != 'مقبول':
             raise serializers.ValidationError(
@@ -280,10 +280,6 @@ class EventParticipantViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=['get'], url_path=r'student-details/(?P<student_id>\d+)')
     @require_permission('read')
     def get_student_info(self, request, student_id=None):
-        admin = get_current_admin(request)
         student = get_object_or_404(Students, pk=student_id)
-        if admin.role == 'مسؤول كلية' and student.faculty_id != admin.faculty_id:
-            return Response({"error": "You cannot view details of a student from another faculty"}, 
-                            status=status.HTTP_403_FORBIDDEN)
         serializer = StudentDetailSerializer(student, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)

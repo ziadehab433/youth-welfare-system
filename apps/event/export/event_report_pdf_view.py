@@ -13,8 +13,6 @@ from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 from apps.event.models import Events, Prtcps
 from apps.accounts.utils import get_current_admin
-from youth_welfare.models import Faculties
-from apps.accounts.models import AdminsUser 
 from .utils import generate_pdf_from_html, PDFRenderer, get_report_assets
 from .serializers import EventReportSerializer
 
@@ -48,17 +46,9 @@ class EventReportViewSet(viewsets.GenericViewSet):
             event = get_object_or_404(Events.objects.select_related('faculty', 'dept'), pk=pk)
             admin = get_current_admin(request)
             
-            if admin.role == 'مسؤول كلية':
-                if event.faculty_id != admin.faculty_id:
-                    return HttpResponse("You do not have permission to view this report", status=403)
-                
-                if event.dept_id != admin.dept_id:
-                    return HttpResponse("You are not responsible for this department", status=403)
+            if admin.role == 'مسؤول كلية' and event.faculty_id != admin.faculty_id:
+                return HttpResponse("You do not have permission to view this report", status=403)
             
-            if admin.role == 'مدير ادارة':
-                if event.dept_id != admin.dept_id:
-                    return HttpResponse("You do not have permission to view reports outside your department", status=403)
-
             serializer = EventReportSerializer(data=request.data)
             if not serializer.is_valid():
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

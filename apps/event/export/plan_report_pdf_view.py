@@ -9,7 +9,6 @@ from urllib.parse import quote
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 from rest_framework.decorators import api_view, permission_classes, renderer_classes
 from rest_framework.permissions import IsAuthenticated
-from apps.accounts.utils import get_current_admin
 from apps.event.models import Plans, Events
 from .utils import generate_pdf_sync, PDFRenderer, get_report_assets
 
@@ -36,30 +35,23 @@ def export_plan_pdf(request, plan_id):
             Plans.objects.select_related('faculty'), 
             pk=plan_id
         )
-        admin_user = get_current_admin(request) 
-        if admin_user.role == 'مسؤول كلية' and plan.faculty_id != admin_user.faculty_id:
-            return HttpResponse("You do not have permission to view this faculty's plan", status=403)
-        events_filter = Q(plan=plan)
-        
-        if admin_user.role in ['مدير ادارة', 'مسؤول كلية']:
-            events_filter &= Q(dept_id=admin_user.dept_id)
-
-        events = Events.objects.filter(events_filter).annotate(
+        events = Events.objects.filter(
+            plan=plan
+        ).annotate(
             males=Count('prtcps_set', filter=Q(prtcps_set__student__gender='M', prtcps_set__status='مقبول')),
             females=Count('prtcps_set', filter=Q(prtcps_set__student__gender='F', prtcps_set__status='مقبول')),
             total_p=Count('prtcps_set', filter=Q(prtcps_set__status='مقبول'))
         ).order_by('type', 'st_date')
-
-        if admin_user.role in ['مدير ادارة', 'مسؤول كلية'] and not events.exists():
-            return HttpResponse("This plan does not contain any activities for your department", status=403)
-
+        
         events_list = list(events)
+        
         totals = events.aggregate(
             total_cost=Sum('cost'),
             total_males=Sum('males'),
             total_females=Sum('females'),
             total_participants=Sum('total_p')
         )
+        
         grouped_data = {}
         for event in events_list:
             etype = event.type or "أنشطة متنوعة"
@@ -75,7 +67,7 @@ def export_plan_pdf(request, plan_id):
             'plan_name': plan.name,
             'plan_term': plan.term,
             'university_name': "جامعة العاصمة",
-            'faculty_name': faculty.name if faculty else f"الإدارة العامة لـ {admin_user.dept.name if admin_user.dept else 'النشاط'}",
+            'faculty_name': faculty.name if faculty else "كلية الحاسبات والذكاء الاصطناعي",
             'office_name': "إدارة رعاية الشباب",
             'events': events_list,
             'grouped_data': grouped_data,

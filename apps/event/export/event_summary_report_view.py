@@ -46,16 +46,10 @@ class EventSummaryReportViewSet(viewsets.GenericViewSet):
                 pk=pk
             )
             admin = get_current_admin(request)
-            if admin.role == 'مسؤول كلية':
-                if event.faculty_id != admin.faculty_id:
-                    return HttpResponse("You do not have permission to view this report", status=403)
-                
-                if event.dept_id != admin.dept_id:
-                    return HttpResponse("You are not responsible for this department in this faculty", status=403)
-
-            if admin.role == 'مدير ادارة':
-                if event.dept_id != admin.dept_id:
-                    return HttpResponse("You do not have permission to view reports outside your department's scope", status=403)
+            
+            if admin.role == 'مسؤول كلية' and event.faculty_id != admin.faculty_id:
+                return HttpResponse("ليس لديك صلاحية لعرض هذا التقرير", status=403)
+            
             faculty = event.faculty
             university_name = "جامعة العاصمة"  
             faculty_name = faculty.name if faculty else "كلية الحاسبات والذكاء الاصطناعي"
