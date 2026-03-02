@@ -140,7 +140,7 @@ class EventCreateUpdateSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if request:
             admin = get_current_admin(request)
-            if admin.role == 'مسؤول كلية' and 'selected_facs' in data:
+            if admin.role == 'مسؤول كلية' and data.get('selected_facs'):
                 raise serializers.ValidationError({
                     "selected_facs": "Faculty admins cannot use the selected_facs field"
                 })

@@ -226,7 +226,7 @@ class EventManagementViewSet(viewsets.GenericViewSet):
         admin = get_current_admin(request)
         ip = get_client_ip(request)
         
-        if admin.role == 'مسؤول كلية' and 'selected_facs' in request.data:
+        if admin.role == 'مسؤول كلية' and 'selected_facs' in request.data and request.data.get('selected_facs'):
             raise PermissionDenied("Faculty admins cannot use the selected_facs field")
         
         if admin.role == 'مدير ادارة' and 'dept' in request.data:
@@ -276,7 +276,7 @@ class EventManagementViewSet(viewsets.GenericViewSet):
         
         event = self.get_object()
         
-        if admin.role == 'مسؤول كلية' and 'selected_facs' in request.data:
+        if admin.role == 'مسؤول كلية' and 'selected_facs' in request.data and request.data.get('selected_facs'):
             raise PermissionDenied("Faculty admins cannot modify the selected_facs field")
         
         if 'faculty' in request.data:
