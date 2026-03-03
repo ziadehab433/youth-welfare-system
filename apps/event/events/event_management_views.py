@@ -6,7 +6,7 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 from django.db import transaction
 from django.utils import timezone
-from apps.event.models import Events, Prtcps, EventDocs
+from apps.event.models import Events, Prtcps, EventDocs, Plans
 from .serializers import (
     EventCreateUpdateSerializer, 
     EventListSerializer, 
@@ -236,7 +236,29 @@ class EventManagementViewSet(viewsets.GenericViewSet):
                     f"You can only create events in your own department (ID: {admin.dept_id}). "
                     f"Requested department ID: {requested_dept_id}"
                 )
-        
+
+        requested_plan_id = request.data.get('plan')
+        if requested_plan_id:
+            try: 
+                plan = Plans.objects.get(plan_id=requested_plan_id)
+                if admin.role == 'مدير ادارة' and plan.faculty is not None:
+                    return Response(
+                        {"detail": "you can only edit global plans"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                elif admin.role == 'مسؤول كلية':
+                    if plan.faculty is None or plan.faculty.faculty_id != admin.faculty_id:
+                        return Response(
+                            {"detail": "you can only edit plans from your faculty"},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+            except Plans.DoesNotExist:
+                return Response(
+                    {"detail": "Plan you selected doesnt exist"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
@@ -295,6 +317,43 @@ class EventManagementViewSet(viewsets.GenericViewSet):
                 raise PermissionDenied(
                     f"You can only update events in your own department. "
                     f"This event belongs to department ID: {event.dept_id}"
+                )
+        
+        if event.plan:
+            if admin.role == 'مسؤول كلية':
+                if event.plan.faculty is None or event.plan.faculty.faculty_id != admin.faculty_id:
+                    return Response(
+                        {"detail": "You can only update events with plans from your faculty"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            
+            elif admin.role == 'مدير ادارة':
+                if event.plan.faculty is not None:
+                    return Response(
+                        {"detail": "You can only update events with global plans"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+        
+        requested_plan_id = request.data.get('plan')
+        if requested_plan_id:
+            try: 
+                plan = Plans.objects.get(plan_id=requested_plan_id)
+                if admin.role == 'مدير ادارة' and plan.faculty is not None:
+                    return Response(
+                        {"detail": "you can only edit global plans"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                elif admin.role == 'مسؤول كلية':
+                    if plan.faculty is None or plan.faculty.faculty_id != admin.faculty_id:
+                        return Response(
+                            {"detail": "you can only edit plans from your faculty"},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+            except Plans.DoesNotExist:
+                return Response(
+                    {"detail": "Plan you selected doesnt exist"},
+                    status=status.HTTP_400_BAD_REQUEST
                 )
         
         serializer = self.get_serializer(event, data=request.data, partial=True)
