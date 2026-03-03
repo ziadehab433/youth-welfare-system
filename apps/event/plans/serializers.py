@@ -33,7 +33,6 @@ class PlanEventSerializer(serializers.ModelSerializer):
             'reward',
             'status',
             'type',
-            'imgs',
             'st_date',
             'end_date',
             's_limit',

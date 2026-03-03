@@ -74,7 +74,7 @@ class Events(models.Model):
     restrictions = models.TextField(blank=True, null=True)
     reward = models.TextField(blank=True, null=True)
     status = models.TextField(blank=True, null=True)
-    imgs = models.CharField(max_length=255, blank=True, null=True)
+    # imgs = models.CharField(max_length=255, blank=True, null=True)
     st_date = models.DateField()
     end_date = models.DateField()
     s_limit = models.IntegerField(blank=True, null=True)
@@ -141,6 +141,47 @@ class Prtcps(models.Model):
         managed = False
         db_table = "prtcps"
         unique_together = (("event", "student"),)
+
+
+class EventDocs(models.Model):
+    doc_id = models.AutoField(primary_key=True)
+    event = models.ForeignKey(
+        Events, 
+        on_delete=models.CASCADE,
+        db_column='event_id',
+        related_name='event_docs'
+    )
+    doc_type = models.CharField(max_length=40)
+    file_name = models.CharField(max_length=255)
+    file_path = models.CharField(max_length=255)
+    mime_type = models.CharField(max_length=80, blank=True, null=True)
+    file_size = models.IntegerField(blank=True, null=True)
+    uploaded_at = models.DateTimeField(blank=True, null=True)
+    uploaded_by = models.ForeignKey(
+        AdminsUser,
+        on_delete=models.SET_NULL,
+        db_column='uploaded_by',
+        null=True,
+        blank=True
+    )
+    
+    @property
+    def file_url(self):
+        """Generate full file URL"""
+        from django.conf import settings
+        if self.file_path:
+            return f"{settings.MEDIA_URL}{self.file_path}"
+        return None
+
+    class Meta:
+        managed = True
+        db_table = 'event_docs'
+        indexes = [
+            models.Index(fields=['event'], name='idx_event_docs_event'),
+        ]
+
+    def __str__(self):
+        return f"{self.doc_type} - Event {self.event.event_id}"
 
 
 
