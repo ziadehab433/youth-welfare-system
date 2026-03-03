@@ -146,15 +146,24 @@ class EventCreateUpdateSerializer(serializers.ModelSerializer):
                 })
         
         return data
+
     
     def create(self, validated_data):
         validated_data['active'] = False 
-        validated_data['status'] = 'منتظر' 
+        if 'plan' in validated_data and validated_data.get('plan') is not None:
+            validated_data['status'] = 'منتظر'
+        else:
+            validated_data['status'] = 'موافقة مبدئية'
+        
         return super().create(validated_data)
     
     def update(self, instance, validated_data):
-        validated_data['active'] = True 
-        validated_data['status'] = 'منتظر' 
+        validated_data['active'] = False
+        if 'plan' in validated_data and validated_data.get('plan') is not None:
+            validated_data['status'] = 'منتظر'
+        else:
+            validated_data['status'] = 'موافقة مبدئية'
+
         return super().update(instance, validated_data)
     
     def to_representation(self, instance):
