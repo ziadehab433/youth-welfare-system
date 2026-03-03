@@ -660,6 +660,12 @@ class EventActivationViewSet(viewsets.GenericViewSet):
         
         event = self.get_object()
         
+        if event.status != 'مقبول':
+            return Response(
+                {"detail": "Event can only be activated when it is accepted"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         with transaction.atomic():
             event.active = not event.active
             event.save(update_fields=['active'])
