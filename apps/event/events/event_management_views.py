@@ -48,7 +48,7 @@ class EventGetterViewSet(viewsets.GenericViewSet):
         if queryset is None: 
             queryset = Events.objects.select_related(
                 'created_by', 'faculty', 'dept', 'family'
-            ).filter(family__isnull=True) 
+            ).filter(family__isnull=True).exclude(status='ملغي')
         
         if admin.role == 'مسؤول كلية':
             return queryset.filter(
@@ -70,8 +70,8 @@ class EventGetterViewSet(viewsets.GenericViewSet):
         queryset = Events.objects.select_related(
             'created_by', 'faculty', 'dept', 'family'
         ).filter(
-            family__isnull=True
-        ).prefetch_related(
+            family__isnull=True, 
+        ).exclude(status='ملغي').prefetch_related(
             Prefetch(
                 'prtcps_set',
                 queryset=Prtcps.objects.select_related('student'),  
