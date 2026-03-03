@@ -71,13 +71,26 @@ def get_current_admin(request):
         admin_id = token.payload.get('admin_id') or token.payload.get('user_id')
         if not admin_id:
             raise AuthenticationFailed("لا يحتوي  على admin_id.")
-        
+
         return get_object_or_404(AdminsUser, pk=admin_id)
 
     except Exception as e:
         raise AuthenticationFailed(f"خطأ في التوكن: {str(e)}")
     
+def get_current_user_token_payload(request):
+    """
+    Get the payload of the current authenticated admin's JWT token.
+    """
+    jwt_auth = JWTAuthentication()
+    try:
+        user, token = jwt_auth.authenticate(request)
+        if not user:
+            raise AuthenticationFailed("لم يتم العثور على مستخدم مرتبط .")
+        
+        return token.payload
 
+    except Exception as e:
+        raise AuthenticationFailed(f"خطأ في التوكن: {str(e)}")
 
 
 

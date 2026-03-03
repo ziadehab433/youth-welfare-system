@@ -20,7 +20,8 @@ from apps.accounts.utils import (
     get_current_admin,
     get_client_ip,
     get_current_student,
-    log_data_access
+    log_data_access,
+    get_current_user_token_payload
 )
 from django.db.models import Q, Prefetch
 
@@ -44,6 +45,7 @@ class EventGetterViewSet(viewsets.GenericViewSet):
 
     def get_queryset(self, queryset=None):
         admin = get_current_admin(self.request)
+        admin_payload = get_current_user_token_payload(self.request)
         
         if queryset is None: 
             queryset = Events.objects.select_related(
@@ -60,7 +62,7 @@ class EventGetterViewSet(viewsets.GenericViewSet):
             return queryset.filter(faculty_id__isnull=True)
         elif admin.role == 'مشرف النظام': 
             return queryset
-        else: 
+        elif admin.role == 'مدير ادارة': 
             return queryset.filter(dept_id=admin.dept_id)
         
         return queryset.none() 
@@ -224,12 +226,26 @@ class EventManagementViewSet(viewsets.GenericViewSet):
     )
     def create(self, request):
         admin = get_current_admin(request)
+        admin_payload = get_current_user_token_payload(request)
         ip = get_client_ip(request)
         
-        if admin.role == 'مسؤول كلية' and 'selected_facs' in request.data and request.data.get('selected_facs'):
-            raise PermissionDenied("Faculty admins cannot use the selected_facs field")
+        if admin.role == 'مسؤول كلية':
+            if 'selected_facs' in request.data and request.data.get('selected_facs'):
+                raise PermissionDenied("Faculty admins cannot use the selected_facs field")
+            
+            requested_dept_id = request.data.get('dept')
+            if not requested_dept_id:
+                raise PermissionDenied("Faculty admins must specify a department (dept field)")
+            
+            dept_ids = admin_payload.get('dept_ids', [])
+            
+            if requested_dept_id not in dept_ids:
+                raise PermissionDenied(
+                    f"You can only create events in departments you manage. "
+                    f"Your managed departments: {dept_ids}. "
+                )
         
-        if admin.role == 'مدير ادارة' and 'dept' in request.data:
+        elif admin.role == 'مدير ادارة':
             requested_dept_id = request.data.get('dept')
             if requested_dept_id != admin.dept_id:
                 raise PermissionDenied(
@@ -272,6 +288,7 @@ class EventManagementViewSet(viewsets.GenericViewSet):
                 create_kwargs['dept_id'] = admin.dept_id
             else:
                 create_kwargs['faculty_id'] = admin.faculty_id
+                create_kwargs['dept_id'] = request.data.get('dept')
             
             event = serializer.save(**create_kwargs)
             
@@ -294,12 +311,26 @@ class EventManagementViewSet(viewsets.GenericViewSet):
     )
     def partial_update(self, request, pk=None):
         admin = get_current_admin(request)
+        admin_payload = get_current_user_token_payload(request)
         ip = get_client_ip(request)
         
         event = self.get_object()
         
-        if admin.role == 'مسؤول كلية' and 'selected_facs' in request.data and request.data.get('selected_facs'):
-            raise PermissionDenied("Faculty admins cannot modify the selected_facs field")
+        if admin.role == 'مسؤول كلية':
+            if 'selected_facs' in request.data and request.data.get('selected_facs'):
+                raise PermissionDenied("Faculty admins cannot use the selected_facs field")
+            
+            requested_dept_id = request.data.get('dept')
+            if not requested_dept_id:
+                raise PermissionDenied("Faculty admins must specify a department (dept field)")
+            
+            dept_ids = admin_payload.get('dept_ids', [])
+            
+            if requested_dept_id not in dept_ids or event.dept_id not in dept_ids:
+                raise PermissionDenied(
+                    f"You can only update events in departments you manage. "
+                    f"Your managed departments: {dept_ids}. "
+                )
         
         if 'faculty' in request.data:
             request.data.pop('faculty')
