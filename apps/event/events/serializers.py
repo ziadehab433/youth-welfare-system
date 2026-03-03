@@ -159,11 +159,10 @@ class EventCreateUpdateSerializer(serializers.ModelSerializer):
     
     def update(self, instance, validated_data):
         validated_data['active'] = False
-        if 'plan' in validated_data:
-            if validated_data.get('plan') is not None:
-                validated_data['status'] = 'منتظر'
-            else:
-                validated_data['status'] = 'موافقة مبدئية'
+        if 'plan' in validated_data and validated_data.get('plan') is not None:
+            validated_data['status'] = 'منتظر'
+        else:
+            validated_data['status'] = 'موافقة مبدئية'
 
         return super().update(instance, validated_data)
     

@@ -628,10 +628,16 @@ class EventARViewSet(viewsets.GenericViewSet):
         ip = get_client_ip(request)
         
         event = self.get_object()
-        
+
         if event.status == 'مقبول':
             return Response(
                 {"detail": "Event is already approved"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if event.status != 'موافقة مبدئية': 
+            return Response( 
+                {"detail": "Event is not in 'موافقة مبدئية' status"},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -670,10 +676,16 @@ class EventARViewSet(viewsets.GenericViewSet):
         ip = get_client_ip(request)
         
         event = self.get_object() 
-        
+
         if event.status == 'مرفوض':
             return Response(
                 {"detail": "Event is already rejected"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if event.status != 'موافقة مبدئية': 
+            return Response( 
+                {"detail": "Event is not in 'موافقة مبدئية' status"},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
