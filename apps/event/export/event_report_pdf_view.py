@@ -103,9 +103,20 @@ class EventReportViewSet(viewsets.GenericViewSet):
                 'evaluation_stage': data.get('evaluation_stage', ''),
                 'achieved_goals': data.get('achieved_goals', ''),
                 'issue_date_ar': timezone.now().strftime('%Y/%m/%d'), 
-                'issue_date_en': timezone.now().strftime('%Y-%m-%d'),  
+                'issue_date_en': timezone.now().strftime('%Y-%m-%d'),
+                'committees': {
+                    'preparation': data.get('committee_preparation', ''),
+                    'organizing': data.get('committee_organizing', ''),
+                    'execution': data.get('committee_execution', ''),
+                    'purchases': data.get('committee_purchases', ''),
+                    'supervision': data.get('committee_supervision', ''),
+                    'other': data.get('committee_other', ''),
+                },
+                'evaluation': data.get('evaluation', ''),
+                'suggestions': data.get('suggestions', []),
+                'current_page': 1,
+                'total_pages': 2,
             }
-            
             filename = f"event_report_{event.event_id}.pdf"
             folder_path = os.path.join(settings.MEDIA_ROOT, 'event_reports')
             
@@ -113,14 +124,40 @@ class EventReportViewSet(viewsets.GenericViewSet):
                 os.makedirs(folder_path)
             
             full_path = os.path.join(folder_path, filename)
-            html_string = render_to_string('event/event_report.html', report_data)
+            html_string = render_to_string('event/event_evaluation_report1.html', report_data)
             success = generate_pdf_from_html(html_string, full_path)
             
             if not success:
-                return HttpResponse("Error generating PDF", status=500)
+                return HttpResponse("Error generating PDF page 1", status=500)
             
-            with open(full_path, 'rb') as pdf_file:
-                pdf_buffer = pdf_file.read()
+            full_path_2 = os.path.join(folder_path, f"temp_page2_{event.event_id}.pdf")
+            html_string_2 = render_to_string('event/event_evaluation_report2.html', report_data)
+            success_2 = generate_pdf_from_html(html_string_2, full_path_2)
+            
+            if not success_2:
+                return HttpResponse("Error generating PDF page 2", status=500)
+            
+            try:
+                from PyPDF2 import PdfMerger
+                
+                merger = PdfMerger()
+                merger.append(full_path)
+                merger.append(full_path_2)
+                output_path = os.path.join(folder_path, f"event_report_full_{event.event_id}.pdf")
+                merger.write(output_path)
+                merger.close()
+                
+                with open(output_path, 'rb') as pdf_file:
+                    pdf_buffer = pdf_file.read()
+            
+                os.remove(full_path)
+                os.remove(full_path_2)
+                os.remove(output_path)
+                
+            except ImportError:
+                logger.warning("PyPDF2 not installed, returning only first page")
+                with open(full_path, 'rb') as pdf_file:
+                    pdf_buffer = pdf_file.read()
             
             response = HttpResponse(pdf_buffer, content_type='application/pdf')
             filename_encoded = quote(filename)
