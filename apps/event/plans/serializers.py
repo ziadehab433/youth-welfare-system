@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from apps.event.models import Plans, Events
 from apps.family.models import Faculties
+from apps.solidarity.models import Departments
 
 
 # ───────────────────── nested event serializer (full detail) ─────────────────────
@@ -49,6 +50,8 @@ class PlanEventSerializer(serializers.ModelSerializer):
 
 class PlanListSerializer(serializers.ModelSerializer):
     faculty_name = serializers.CharField(source='faculty.name', read_only=True, default=None)
+    dept_name = serializers.CharField(source='dept.name', read_only=True, default=None)
+    created_by_name = serializers.CharField(source='created_by.name', read_only=True, default=None)
     events_count = serializers.IntegerField(source='events.count', read_only=True)
 
     class Meta:
@@ -59,6 +62,10 @@ class PlanListSerializer(serializers.ModelSerializer):
             'term',
             'faculty',
             'faculty_name',
+            'dept',
+            'dept_name',
+            'created_by',
+            'created_by_name',
             'events_count',
             'created_at',
             'updated_at',
@@ -70,6 +77,8 @@ class PlanListSerializer(serializers.ModelSerializer):
 
 class PlanDetailSerializer(serializers.ModelSerializer):
     faculty_name = serializers.CharField(source='faculty.name', read_only=True, default=None)
+    dept_name = serializers.CharField(source='dept.name', read_only=True, default=None)
+    created_by_name = serializers.CharField(source='created_by.name', read_only=True, default=None)
     events = PlanEventSerializer(many=True, read_only=True)
 
     class Meta:
@@ -80,11 +89,16 @@ class PlanDetailSerializer(serializers.ModelSerializer):
             'term',
             'faculty',
             'faculty_name',
+            'dept',
+            'dept_name',
+            'created_by',
+            'created_by_name',
             'events',
             'created_at',
             'updated_at',
         ]
         read_only_fields = fields
+
 
 
 # ───────────────────── plan create serializer ─────────────────────
@@ -93,6 +107,7 @@ class PlanCreateSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=150)
     term = serializers.IntegerField()
     faculty_id = serializers.IntegerField(required=False, allow_null=True)
+    dept_id = serializers.IntegerField(required=False, allow_null=True)
 
     def validate_term(self, value):
         if value not in (1, 2):
@@ -105,15 +120,29 @@ class PlanCreateSerializer(serializers.Serializer):
                 raise serializers.ValidationError("الكلية المحددة غير موجودة")
         return value
 
+    def validate_dept_id(self, value):
+        if value is not None:
+            if not Departments.objects.filter(pk=value).exists():
+                raise serializers.ValidationError("القسم المحدد غير موجود")
+        return value
+
     def to_internal_value(self, data):
-        """Convert faculty_id to faculty FK instance for service layer."""
         ret = super().to_internal_value(data)
+
         faculty_id = ret.pop('faculty_id', None)
         if faculty_id is not None:
             ret['faculty'] = Faculties.objects.get(pk=faculty_id)
         else:
             ret['faculty'] = None
+
+        dept_id = ret.pop('dept_id', None)
+        if dept_id is not None:
+            ret['dept'] = Departments.objects.get(pk=dept_id)
+        else:
+            ret['dept'] = None
+
         return ret
+
 
 
 # ───────────────────── plan update serializer ─────────────────────
@@ -121,12 +150,30 @@ class PlanCreateSerializer(serializers.Serializer):
 class PlanUpdateSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=150, required=False)
     term = serializers.IntegerField(required=False)
+    dept_id = serializers.IntegerField(required=False, allow_null=True)
 
     def validate_term(self, value):
         if value not in (1, 2):
             raise serializers.ValidationError("الفصل الدراسي يجب أن يكون 1 أو 2")
         return value
 
+    def validate_dept_id(self, value):
+        if value is not None:
+            if not Departments.objects.filter(pk=value).exists():
+                raise serializers.ValidationError("القسم المحدد غير موجود")
+        return value
+
+    def to_internal_value(self, data):
+        ret = super().to_internal_value(data)
+
+        if 'dept_id' in ret:
+            dept_id = ret.pop('dept_id')
+            if dept_id is not None:
+                ret['dept'] = Departments.objects.get(pk=dept_id)
+            else:
+                ret['dept'] = None
+
+        return ret
 
 # ───────────────────── add event serializer ─────────────────────
 

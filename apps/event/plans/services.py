@@ -1,6 +1,9 @@
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from apps.event.models import Plans, Events
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class PlanService:
@@ -17,11 +20,6 @@ class PlanService:
 
     @staticmethod
     def _can_manage_plan(admin, plan):
-        """
-        Check if the admin is allowed to manage (update / add-event / remove-event) this plan.
-        - مسؤول كلية  → only plans that belong to their faculty
-        - مدير ادارة   → only global plans (faculty IS NULL)
-        """
         if PlanService._is_faculty_admin(admin):
             if not admin.faculty:
                 raise ValidationError("المسؤول غير مرتبط بأي كلية")
@@ -39,15 +37,64 @@ class PlanService:
     # ─────────────────────── list / detail ───────────────────────
 
     @staticmethod
-    def get_all_plans():
-        """Any admin can see all plans."""
-        return Plans.objects.select_related('faculty').all().order_by('-created_at')
+    def get_all_plans(admin):
+        """
+        Get plans filtered by admin role:
+        - مسؤول كلية: only plans created by them
+        - مدير ادارة: only plans created by them
+        - مدير كلية: all plans in their faculty
+        - مدير عام: only global plans (faculty_id is null)
+        - مشرف النظام: all plans
+        """
+        queryset = Plans.objects.select_related('faculty', 'dept', 'created_by')
+        
+        role = admin.role
+        
+        if role == 'مسؤول كلية':
+            # Faculty admin: only their own plans
+            queryset = queryset.filter(created_by=admin)
+            logger.info(f"Faculty admin {admin.admin_id} accessing their own plans")
+        
+        elif role == 'مدير ادارة':
+            # Department manager: only their own plans
+            queryset = queryset.filter(created_by=admin)
+            logger.info(f"Department manager {admin.admin_id} accessing their own plans")
+        
+        elif role == 'مدير كلية':
+            # Faculty head: all plans in their faculty
+            if not admin.faculty:
+                logger.warning(f"Faculty head {admin.admin_id} has no faculty assigned")
+                raise ValidationError("مدير الكلية غير مرتبط بأي كلية")
+            queryset = queryset.filter(faculty=admin.faculty)
+            logger.info(f"Faculty head {admin.admin_id} accessing plans for faculty {admin.faculty_id}")
+        
+        elif role == 'مدير عام':
+            # General manager: only global plans (no faculty)
+            queryset = queryset.filter(faculty__isnull=True)
+            logger.info(f"General manager {admin.admin_id} accessing global plans")
+        
+        elif role == 'مشرف النظام':
+            # System admin: all plans (no filter)
+            logger.info(f"System admin {admin.admin_id} accessing all plans")
+            pass
+        
+        else:
+            # Unknown role: no access
+            logger.warning(f"Admin {admin.admin_id} with unknown role '{role}' attempted to access plans")
+            raise ValidationError("ليس لديك صلاحية عرض الخطط")
+        
+        return queryset.order_by('-created_at')
 
     @staticmethod
-    def get_plan_detail(plan_id):
-        """Return a single plan with its related events."""
+    def get_plan_detail(admin, plan_id):
+        """
+        Get plan detail with role-based access control.
+        Same filtering rules as get_all_plans.
+        """
         plan = get_object_or_404(
-            Plans.objects.select_related('faculty').prefetch_related(
+            Plans.objects
+            .select_related('faculty', 'dept', 'created_by')
+            .prefetch_related(
                 'events',
                 'events__dept',
                 'events__faculty',
@@ -56,26 +103,61 @@ class PlanService:
             ),
             pk=plan_id,
         )
+        
+        role = admin.role
+        
+        # Apply same access rules as list
+        if role == 'مسؤول كلية':
+            if plan.created_by_id != admin.admin_id:
+                logger.warning(f"Faculty admin {admin.admin_id} denied access to plan {plan_id} (not creator)")
+                raise ValidationError("ليس لديك صلاحية عرض هذه الخطة - يمكنك فقط عرض الخطط التي أنشأتها")
+        
+        elif role == 'مدير ادارة':
+            if plan.created_by_id != admin.admin_id:
+                logger.warning(f"Department manager {admin.admin_id} denied access to plan {plan_id} (not creator)")
+                raise ValidationError("ليس لديك صلاحية عرض هذه الخطة - يمكنك فقط عرض الخطط التي أنشأتها")
+        
+        elif role == 'مدير كلية':
+            if not admin.faculty:
+                logger.warning(f"Faculty head {admin.admin_id} has no faculty assigned")
+                raise ValidationError("مدير الكلية غير مرتبط بأي كلية")
+            if plan.faculty_id != admin.faculty_id:
+                logger.warning(f"Faculty head {admin.admin_id} denied access to plan {plan_id} (different faculty)")
+                raise ValidationError("ليس لديك صلاحية عرض هذه الخطة - هذه الخطة تابعة لكلية أخرى")
+        
+        elif role == 'مدير عام':
+            if plan.faculty_id is not None:
+                logger.warning(f"General manager {admin.admin_id} denied access to plan {plan_id} (not global)")
+                raise ValidationError("ليس لديك صلاحية عرض هذه الخطة - يمكنك فقط عرض الخطط العامة")
+        
+        elif role == 'مشرف النظام':
+            # System admin: full access
+            logger.info(f"System admin {admin.admin_id} accessing plan {plan_id}")
+            pass
+        
+        else:
+            logger.warning(f"Admin {admin.admin_id} with unknown role '{role}' attempted to access plan {plan_id}")
+            raise ValidationError("ليس لديك صلاحية عرض هذه الخطة")
+        
+        logger.info(f"Admin {admin.admin_id} ({role}) successfully accessed plan {plan_id}")
         return plan
 
     # ─────────────────────── create ───────────────────────
 
     @staticmethod
     def create_plan(admin, validated_data):
-        """
-        - مسؤول كلية  → faculty is auto-set to their own faculty.
-        - مدير ادارة   → faculty is taken from payload (or NULL for global).
-        """
         if PlanService._is_faculty_admin(admin):
             if not admin.faculty:
                 raise ValidationError("المسؤول غير مرتبط بأي كلية")
             validated_data['faculty'] = admin.faculty
 
         elif PlanService._is_dept_manager(admin):
-            # faculty may or may not be provided — both are valid
             pass
         else:
             raise ValidationError("ليس لديك صلاحية إنشاء خطة")
+
+        # ✅ Auto-set created_by from the logged-in admin
+        validated_data['created_by'] = admin
 
         plan = Plans.objects.create(**validated_data)
         return plan
@@ -99,38 +181,41 @@ class PlanService:
         plan = get_object_or_404(Plans, pk=plan_id)
         PlanService._can_manage_plan(admin, plan)
 
+        # Check that only the plan creator can add events
+        if plan.created_by_id != admin.admin_id:
+            logger.warning(f"Admin {admin.admin_id} denied adding event to plan {plan_id} (not creator)")
+            raise ValidationError("يمكن فقط لمنشئ الخطة إضافة أنشطة إليها")
+
         event_id = validated_data.pop('event_id')
         event = get_object_or_404(Events, pk=event_id)
 
-        # event already in another plan?
         if event.plan_id is not None and event.plan_id != plan.plan_id:
             raise ValidationError("هذا النشاط مُضاف بالفعل إلى خطة أخرى")
 
-        # # already in this plan?
-        # if event.plan_id == plan.plan_id:
-        #     raise ValidationError("هذا النشاط مُضاف بالفعل إلى هذه الخطة")
-
-        # faculty-level plan → event must belong to same faculty
         if plan.faculty_id is not None:
             if event.faculty_id != plan.faculty_id:
                 raise ValidationError(
                     "لا يمكن إضافة نشاط من كلية مختلفة إلى خطة خاصة بكلية محددة"
                 )
 
-        # Handle dept_id separately (FK field)
         dept_id = validated_data.pop('dept_id', None)
         if dept_id is not None:
             from apps.solidarity.models import Departments
             event.dept = get_object_or_404(Departments, pk=dept_id)
 
-        # Update any other provided fields on the event
         for attr, value in validated_data.items():
             setattr(event, attr, value)
 
-        # Link to plan and activate
         event.plan = plan
         event.active = True
+
+        # Update event status from "منتظر" to "موافقة مبدئية"
+        if event.status == "منتظر":
+            event.status = "موافقة مبدئية"
+            logger.info(f"Event {event.event_id} status updated from 'منتظر' to 'موافقة مبدئية' when added to plan {plan_id} by admin {admin.admin_id}")
+
         event.save()
+        logger.info(f"Admin {admin.admin_id} successfully added event {event.event_id} to plan {plan_id}")
         return event
 
     # ─────────────────────── remove event ───────────────────────

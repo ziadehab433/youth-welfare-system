@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict eItDGhgddpla2DMUYWgD2AQcYjs6ERhrCq7wfQnKIUOgLAgFCaWTXSpJDsSv0Gk
+\restrict 5VyBkNVnXrRgKjMTPNWft5g2aup4Z58qeaE3XtM6oebtrlPyc9WfTPDE3j7ivrq
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.6
@@ -27,6 +27,8 @@ ALTER TABLE IF EXISTS ONLY public.solidarities DROP CONSTRAINT IF EXISTS solidar
 ALTER TABLE IF EXISTS ONLY public.prtcps DROP CONSTRAINT IF EXISTS prtcps_student_fk;
 ALTER TABLE IF EXISTS ONLY public.prtcps DROP CONSTRAINT IF EXISTS prtcps_event_fk;
 ALTER TABLE IF EXISTS ONLY public.plans DROP CONSTRAINT IF EXISTS plans_faculty_fk;
+ALTER TABLE IF EXISTS ONLY public.plans DROP CONSTRAINT IF EXISTS plans_dept_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.plans DROP CONSTRAINT IF EXISTS plans_created_by_fkey;
 ALTER TABLE IF EXISTS ONLY public.logs DROP CONSTRAINT IF EXISTS logs_student_fk;
 ALTER TABLE IF EXISTS ONLY public.logs DROP CONSTRAINT IF EXISTS logs_solidarity_fk;
 ALTER TABLE IF EXISTS ONLY public.logs DROP CONSTRAINT IF EXISTS logs_family_fk;
@@ -77,6 +79,8 @@ DROP INDEX IF EXISTS public.idx_posts_faculty_id;
 DROP INDEX IF EXISTS public.idx_posts_created_at;
 DROP INDEX IF EXISTS public.idx_plans_name;
 DROP INDEX IF EXISTS public.idx_plans_faculty_id;
+DROP INDEX IF EXISTS public.idx_plans_dept_id;
+DROP INDEX IF EXISTS public.idx_plans_created_by;
 DROP INDEX IF EXISTS public.idx_logs_target;
 DROP INDEX IF EXISTS public.idx_logs_student_id;
 DROP INDEX IF EXISTS public.idx_logs_logged_at;
@@ -1121,7 +1125,9 @@ CREATE TABLE public.plans (
     term integer NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
-    faculty_id integer
+    faculty_id integer,
+    dept_id integer,
+    created_by integer
 );
 
 
@@ -1949,6 +1955,20 @@ CREATE INDEX idx_logs_target ON public.logs USING btree (target_type, event_id, 
 
 
 --
+-- Name: idx_plans_created_by; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_plans_created_by ON public.plans USING btree (created_by);
+
+
+--
+-- Name: idx_plans_dept_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_plans_dept_id ON public.plans USING btree (dept_id);
+
+
+--
 -- Name: idx_plans_faculty_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2331,6 +2351,22 @@ ALTER TABLE ONLY public.logs
 
 
 --
+-- Name: plans plans_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.plans
+    ADD CONSTRAINT plans_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.admins(admin_id) ON DELETE SET NULL;
+
+
+--
+-- Name: plans plans_dept_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.plans
+    ADD CONSTRAINT plans_dept_id_fkey FOREIGN KEY (dept_id) REFERENCES public.departments(dept_id) ON DELETE SET NULL;
+
+
+--
 -- Name: plans plans_faculty_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2398,5 +2434,5 @@ ALTER TABLE ONLY public.students
 -- PostgreSQL database dump complete
 --
 
-\unrestrict eItDGhgddpla2DMUYWgD2AQcYjs6ERhrCq7wfQnKIUOgLAgFCaWTXSpJDsSv0Gk
+\unrestrict 5VyBkNVnXrRgKjMTPNWft5g2aup4Z58qeaE3XtM6oebtrlPyc9WfTPDE3j7ivrq
 
