@@ -90,14 +90,14 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
         admin = get_current_admin(request)
         solidarity = SolidarityService.get_app_dtl(pk, admin)
 
-        log_data_access(
-        actor_id=admin.admin_id,
-        actor_type=admin.role,
-        action='عرض بيانات الطلب',
-        target_type='تكافل',
-        solidarity_id=pk,
-        ip_address=client_ip
-    )
+    #     log_data_access(
+    #     actor_id=admin.admin_id,
+    #     actor_type=admin.role,
+    #     action='عرض بيانات الطلب',
+    #     target_type='تكافل',
+    #     solidarity_id=pk,
+    #     ip_address=client_ip
+    # )
         return Response(SolidarityDetailSerializer(solidarity).data)
 
 

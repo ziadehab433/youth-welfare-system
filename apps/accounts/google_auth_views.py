@@ -322,6 +322,17 @@ class GoogleOAuthLoginView(APIView):
                 student.last_google_login = timezone.now()
                 student.save()
                 
+                # Log the Google account linking
+                from apps.accounts.utils import log_data_access
+                log_data_access(
+                    actor_id=student.student_id,
+                    actor_type='طالب',
+                    action=f'ربط حساب Google بحساب الطالب: {student.name}',
+                    target_type='طالب',
+                    student_id=student.student_id,
+                    ip_address=client_ip
+                )
+                
                 logger.info(f"✓ Google account linked to existing student")
                 
             except Students.DoesNotExist:

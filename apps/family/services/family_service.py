@@ -211,6 +211,19 @@ class FamilyService:
                     joined_at=timezone.now(),
                     dept=None  # Can be updated later by admin
                 )
+                
+                # Log the join operation
+                from apps.accounts.utils import log_data_access
+                log_data_access(
+                    actor_id=student.student_id,
+                    actor_type='طالب',
+                    action=f'انضمام الطالب {student.name} إلى أسرة: {family.name}',
+                    target_type='اسر',
+                    family_id=family.family_id,
+                    student_id=student.student_id,
+                    ip_address=None
+                )
+                
                 return member
         except Exception as e:
             raise ValidationError(f"Error joining family: {str(e)}")
@@ -740,6 +753,19 @@ class FamilyService:
                 family=family,
                 faculty=family.faculty
             )
+            
+            # Log the post creation
+            from apps.accounts.utils import log_data_access
+            log_data_access(
+                actor_id=student.student_id,
+                actor_type='طالب',
+                action=f'إنشاء منشور في أسرة: {family.name}',
+                target_type='اسر',
+                family_id=family.family_id,
+                student_id=student.student_id,
+                ip_address=None
+            )
+            
             return post
         except Exception as e:
             raise ValidationError(f"Error creating post: {str(e)}")
@@ -1339,6 +1365,20 @@ class FamilyService:
                     rank=None,       # Will be assigned later
                     reward=None      # Will be assigned after event
                 )
+                
+                # Log the join operation
+                from apps.accounts.utils import log_data_access
+                log_data_access(
+                    actor_id=student.student_id,
+                    actor_type='طالب',
+                    action=f'انضمام الطالب {student.name} إلى نشاط الأسرة: {event.title}',
+                    target_type='نشاط',
+                    event_id=event.event_id,
+                    family_id=family_id,
+                    student_id=student.student_id,
+                    ip_address=None
+                )
+                
                 return participation
         except Exception as e:
             raise ValidationError(f"Error registering for event: {str(e)}")

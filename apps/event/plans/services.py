@@ -160,6 +160,18 @@ class PlanService:
         validated_data['created_by'] = admin
 
         plan = Plans.objects.create(**validated_data)
+        
+        # Log the plan creation
+        logger.info(f"Admin {admin.admin_id} created plan {plan.plan_id}")
+        from apps.accounts.utils import log_data_access
+        log_data_access(
+            actor_id=admin.admin_id,
+            actor_type=admin.role,
+            action=f'إنشاء خطة جديدة: {plan.name}',
+            target_type='اخر',
+            ip_address=None
+        )
+        
         return plan
 
     # ─────────────────────── update ───────────────────────
@@ -172,6 +184,18 @@ class PlanService:
         for attr, value in validated_data.items():
             setattr(plan, attr, value)
         plan.save()
+        
+        # Log the plan update
+        logger.info(f"Admin {admin.admin_id} updated plan {plan.plan_id}")
+        from apps.accounts.utils import log_data_access
+        log_data_access(
+            actor_id=admin.admin_id,
+            actor_type=admin.role,
+            action=f'تحديث خطة: {plan.name}',
+            target_type='اخر',
+            ip_address=None
+        )
+        
         return plan
 
     # ─────────────────────── add event ───────────────────────
@@ -216,6 +240,18 @@ class PlanService:
 
         event.save()
         logger.info(f"Admin {admin.admin_id} successfully added event {event.event_id} to plan {plan_id}")
+        
+        # Log adding event to plan
+        from apps.accounts.utils import log_data_access
+        log_data_access(
+            actor_id=admin.admin_id,
+            actor_type=admin.role,
+            action=f'إضافة نشاط "{event.title}" إلى الخطة "{plan.name}"',
+            target_type='نشاط',
+            event_id=event.event_id,
+            ip_address=None
+        )
+        
         return event
 
     # ─────────────────────── remove event ───────────────────────
@@ -233,4 +269,17 @@ class PlanService:
         event.plan = None
         event.active = False
         event.save(update_fields=['plan_id', 'active'])
+        
+        # Log removing event from plan
+        logger.info(f"Admin {admin.admin_id} removed event {event.event_id} from plan {plan_id}")
+        from apps.accounts.utils import log_data_access
+        log_data_access(
+            actor_id=admin.admin_id,
+            actor_type=admin.role,
+            action=f'إزالة نشاط "{event.title}" من الخطة "{plan.name}"',
+            target_type='نشاط',
+            event_id=event.event_id,
+            ip_address=None
+        )
+        
         return event

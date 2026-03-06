@@ -322,6 +322,17 @@ class SolidarityService:
                     f"total_discount={solidarity.total_discount}, "
                     f"discount_type={solidarity.discount_type}")
             
+            # Log the discount assignment
+            from apps.accounts.utils import log_data_access
+            log_data_access(
+                actor_id=admin.admin_id,
+                actor_type=admin.role,
+                action=f'تعيين خصومات للطلب - المبلغ الإجمالي: {total_discount}',
+                target_type='تكافل',
+                solidarity_id=solidarity.solidarity_id,
+                ip_address=None
+            )
+            
             return solidarity
             
         except Exception as e:
@@ -337,6 +348,17 @@ class SolidarityService:
            setattr(faculty, field, value)
     
         faculty.save()
+        
+        # Log the faculty discount update
+        from apps.accounts.utils import log_data_access
+        log_data_access(
+            actor_id=admin.admin_id,
+            actor_type=admin.role,
+            action=f'تحديث خصومات الكلية: {faculty.name}',
+            target_type='اخر',
+            ip_address=None
+        )
+        
         return faculty
 
 
@@ -420,6 +442,18 @@ class SolidarityService:
         solidarity.save()
 
         logger.info(f"Super admin {admin.name} approved application {solidarity_id}.")
+        
+        # Log the super admin approval
+        from apps.accounts.utils import log_data_access
+        log_data_access(
+            actor_id=admin.admin_id,
+            actor_type=admin.role,
+            action=f'موافقة مشرف النظام على طلب تكافل',
+            target_type='تكافل',
+            solidarity_id=solidarity.solidarity_id,
+            ip_address=None
+        )
+        
         return {'message': 'Application approved successfully.'}
 
 
@@ -440,6 +474,18 @@ class SolidarityService:
         solidarity.save()
 
         logger.info(f"Super admin {admin.name} rejected application {solidarity_id}.")
+        
+        # Log the super admin rejection
+        from apps.accounts.utils import log_data_access
+        log_data_access(
+            actor_id=admin.admin_id,
+            actor_type=admin.role,
+            action=f'رفض مشرف النظام لطلب تكافل',
+            target_type='تكافل',
+            solidarity_id=solidarity.solidarity_id,
+            ip_address=None
+        )
+        
         return {'message': 'Application rejected successfully.'}
     
 

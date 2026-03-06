@@ -144,6 +144,18 @@ class SuperDeptFamilyViewSet(viewsets.ReadOnlyModelViewSet):
 
         with transaction.atomic():
             FamilyMembers.objects.filter(family=family, student_id=student_id).update(status='مقبول')
+            
+            # Log the approval
+            from apps.accounts.utils import log_data_access, get_client_ip
+            log_data_access(
+                actor_id=request.user.admin_id,
+                actor_type=request.user.role,
+                action=f'الموافقة على عضو الأسرة (رقم: {student_id})',
+                target_type='اسر',
+                family_id=family.family_id,
+                student_id=student_id,
+                ip_address=get_client_ip(request)
+            )
 
         return Response(
             {
@@ -188,6 +200,18 @@ class SuperDeptFamilyViewSet(viewsets.ReadOnlyModelViewSet):
 
         with transaction.atomic():
             FamilyMembers.objects.filter(family=family, student_id=student_id).update(status='مرفوض')
+            
+            # Log the rejection
+            from apps.accounts.utils import log_data_access, get_client_ip
+            log_data_access(
+                actor_id=request.user.admin_id,
+                actor_type=request.user.role,
+                action=f'رفض عضو الأسرة (رقم: {student_id})',
+                target_type='اسر',
+                family_id=family.family_id,
+                student_id=student_id,
+                ip_address=get_client_ip(request)
+            )
 
         return Response(
             {
@@ -268,6 +292,17 @@ class SuperDeptFamilyViewSet(viewsets.ReadOnlyModelViewSet):
             family.approved_by = get_current_admin(request)
             family.final_approved_at = timezone.now()
             family.save()
+            
+            # Log the final approval
+            from apps.accounts.utils import log_data_access, get_client_ip
+            log_data_access(
+                actor_id=get_current_admin(request).admin_id,
+                actor_type=get_current_admin(request).role,
+                action=f'الموافقة النهائية على الأسرة: {family.name}',
+                target_type='اسر',
+                family_id=family.family_id,
+                ip_address=get_client_ip(request)
+            )
 
         return Response(
             {
