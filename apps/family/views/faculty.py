@@ -477,7 +477,7 @@ class FacultyEventApprovalViewSet(viewsets.GenericViewSet):
             log_data_access(
                 actor_id=admin.admin_id,
                 actor_type=admin.role,
-                action=f"Approved event: {event.title}",
+                action=f"الموافقة على نشاط: {event.title}",
                 target_type='نشاط',
                 event_id=event.event_id,
                 ip_address=ip
@@ -507,7 +507,7 @@ class FacultyEventApprovalViewSet(viewsets.GenericViewSet):
             log_data_access(
                 actor_id=admin.admin_id,
                 actor_type=admin.role,
-                action=f"Rejected event: {event.title}",
+                action=f"رفض نشاط: {event.title}",
                 target_type='نشاط',
                 event_id=event.event_id,
                 ip_address=ip
@@ -581,7 +581,7 @@ class FacultyEventApprovalViewSet(viewsets.GenericViewSet):
             log_data_access(
                 actor_id=admin.admin_id,
                 actor_type=admin.role,
-                action=f"Bulk approved {updated_count} participants for event: {event.title}",
+                action=f"قبول جماعي لـ {updated_count} مشارك في النشاط: {event.title}",
                 target_type='نشاط',
                 event_id=event.event_id,
                 ip_address=ip
@@ -641,7 +641,7 @@ class FacultyEventApprovalViewSet(viewsets.GenericViewSet):
                 log_data_access(
                     actor_id=admin.admin_id,
                     actor_type=admin.role,
-                    action=f"Approved student ID {student_id} for event: {event.title}",
+                    action=f"قبول الطالب رقم {student_id} في النشاط: {event.title}",
                     target_type='نشاط',
                     event_id=event.event_id,
                     ip_address=ip
@@ -697,7 +697,7 @@ class FacultyEventApprovalViewSet(viewsets.GenericViewSet):
                 log_data_access(
                     actor_id=admin.admin_id,
                     actor_type=admin.role,
-                    action=f"Rejected student ID {student_id} from event: {event.title}",
+                    action=f"رفض الطالب رقم {student_id} من النشاط: {event.title}",
                     target_type='نشاط',
                     event_id=event.event_id,
                     ip_address=ip

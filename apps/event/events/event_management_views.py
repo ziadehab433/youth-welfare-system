@@ -153,7 +153,7 @@ class EventGetterViewSet(viewsets.GenericViewSet):
         log_data_access(
             actor_id=admin.admin_id,
             actor_type=admin.role,
-            action=f"Deleted event: {event.title}",
+            action=f"حذف نشاط: {event.title}",
             target_type='نشاط',
             event_id=event.event_id,
             ip_address=ip
@@ -295,7 +295,7 @@ class EventManagementViewSet(viewsets.GenericViewSet):
             log_data_access(
                 actor_id=admin.admin_id,
                 actor_type=admin.role,
-                action=f"Created event: {event.title}",
+                action=f"إنشاء نشاط: {event.title}",
                 target_type='نشاط',
                 event_id=event.event_id,
                 ip_address=ip
@@ -405,7 +405,7 @@ class EventManagementViewSet(viewsets.GenericViewSet):
             log_data_access(
                 actor_id=admin.admin_id,
                 actor_type=admin.role,
-                action=f"Updated event: {event.title}",
+                action=f"تحديث نشاط: {event.title}",
                 target_type='نشاط',
                 event_id=event.event_id,
                 ip_address=ip
@@ -478,7 +478,7 @@ class EventManagementViewSet(viewsets.GenericViewSet):
             log_data_access(
                 actor_id=admin.admin_id,
                 actor_type=admin.role,
-                action=f"Uploaded {len(images)} image(s) for event: {event.title}",
+                action=f"رفع {len(images)} صورة للنشاط: {event.title}",
                 target_type='نشاط',
                 event_id=event.event_id,
                 ip_address=ip
@@ -510,7 +510,7 @@ class EventManagementViewSet(viewsets.GenericViewSet):
         log_data_access(
             actor_id=admin.admin_id,
             actor_type=admin.role,
-            action=f"Viewed images for event: {event.title}",
+            action=f"عرض صور النشاط: {event.title}",
             target_type='نشاط',
             event_id=event.event_id,
             ip_address=ip
@@ -568,7 +568,7 @@ class EventManagementViewSet(viewsets.GenericViewSet):
             log_data_access(
                 actor_id=admin.admin_id,
                 actor_type=admin.role,
-                action=f"Deleted image {doc_id} from event: {event.title}",
+                action=f"حذف صورة رقم {doc_id} من النشاط: {event.title}",
                 target_type='نشاط',
                 event_id=event.event_id,
                 ip_address=ip
@@ -648,7 +648,7 @@ class EventARViewSet(viewsets.GenericViewSet):
             log_data_access(
                 actor_id=admin.admin_id,
                 actor_type=admin.role,
-                action=f"Approved event: {event.title}",
+                action=f"الموافقة على نشاط: {event.title}",
                 target_type='نشاط',
                 event_id=event.event_id,
                 ip_address=ip
@@ -696,7 +696,7 @@ class EventARViewSet(viewsets.GenericViewSet):
             log_data_access(
                 actor_id=admin.admin_id,
                 actor_type=admin.role,
-                action=f"Rejected event: {event.title}",
+                action=f"رفض نشاط: {event.title}",
                 target_type='نشاط',
                 event_id=event.event_id,
                 ip_address=ip
@@ -775,7 +775,7 @@ class EventActivationViewSet(viewsets.GenericViewSet):
             log_data_access(
                 actor_id=admin.admin_id,
                 actor_type=admin.role,
-                action=f"{'Activated' if event.active else 'Deactivated'} event: {event.title}",
+                action=f"{'تفعيل' if event.active else 'إلغاء تفعيل'} نشاط: {event.title}",
                 target_type='نشاط',
                 event_id=event.event_id,
                 ip_address=ip
