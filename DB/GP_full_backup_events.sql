@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict aTuOPU9sRh6M2ER5vmeFpaz5YxfRIbJXczhFyLUp0yrWIg6IFIWGg7JVxEypjZu
+\restrict yohKJjJiJXSE9bQDaAx6cOSRdhDeUU8XTj476kaSDOHRzA4nH7JLP1wA9CU0A84
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.6
@@ -27,6 +27,8 @@ ALTER TABLE IF EXISTS ONLY public.solidarities DROP CONSTRAINT IF EXISTS solidar
 ALTER TABLE IF EXISTS ONLY public.prtcps DROP CONSTRAINT IF EXISTS prtcps_student_fk;
 ALTER TABLE IF EXISTS ONLY public.prtcps DROP CONSTRAINT IF EXISTS prtcps_event_fk;
 ALTER TABLE IF EXISTS ONLY public.plans DROP CONSTRAINT IF EXISTS plans_faculty_fk;
+ALTER TABLE IF EXISTS ONLY public.plans DROP CONSTRAINT IF EXISTS plans_dept_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.plans DROP CONSTRAINT IF EXISTS plans_created_by_fkey;
 ALTER TABLE IF EXISTS ONLY public.logs DROP CONSTRAINT IF EXISTS logs_student_fk;
 ALTER TABLE IF EXISTS ONLY public.logs DROP CONSTRAINT IF EXISTS logs_solidarity_fk;
 ALTER TABLE IF EXISTS ONLY public.logs DROP CONSTRAINT IF EXISTS logs_family_fk;
@@ -77,6 +79,8 @@ DROP INDEX IF EXISTS public.idx_posts_faculty_id;
 DROP INDEX IF EXISTS public.idx_posts_created_at;
 DROP INDEX IF EXISTS public.idx_plans_name;
 DROP INDEX IF EXISTS public.idx_plans_faculty_id;
+DROP INDEX IF EXISTS public.idx_plans_dept_id;
+DROP INDEX IF EXISTS public.idx_plans_created_by;
 DROP INDEX IF EXISTS public.idx_logs_target;
 DROP INDEX IF EXISTS public.idx_logs_student_id;
 DROP INDEX IF EXISTS public.idx_logs_logged_at;
@@ -1121,7 +1125,9 @@ CREATE TABLE public.plans (
     term integer NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
-    faculty_id integer
+    faculty_id integer,
+    dept_id integer,
+    created_by integer
 );
 
 
@@ -1378,9 +1384,7 @@ ALTER TABLE ONLY public.solidarity_docs ALTER COLUMN doc_id SET DEFAULT nextval(
 --
 
 COPY public.admins (admin_id, name, email, password, faculty_id, dept_id, created_at, can_create, can_update, can_read, can_delete, acc_status, role, dept_fac_ls, nid, phone_number) FROM stdin;
-4	سارة محمد	sara.head@example.com	$2b$12$/yfBp5mpBNUt4EZp1IWEJu22QNUjejzEuBB/0JiUNeZ.32HPn7SOq	1	\N	2025-10-20 02:53:23.217139+03	t	t	t	t	active	مدير كلية	{}	\N	\N
 12	string	user@example.com	pbkdf2_sha256$1000000$IrRY86mbOwprrogP9aOI2H$2RgAvUXSAwxSeNHNhdSuu+RXGdAhwr9bghYxx5mvfZY=	1	\N	2025-11-15 03:13:03.29534+02	t	t	t	t	active	مسؤول كلية	{}	\N	\N
-6	منى يوسف	mona.general@example.com	$2b$12$/yfBp5mpBNUt4EZp1IWEJu22QNUjejzEuBB/0JiUNeZ.32HPn7SOq	\N	\N	2025-10-20 02:53:23.217139+03	t	t	t	t	active	مدير عام	{}	\N	\N
 13	string	admin@example.com	pbkdf2_sha256$1000000$QvWcdHW5PZf3birfhgr1K1$ze8CXVUv+iOXUkR+zOGt0dx9HGx9I5Tsl47DoOmL4KY=	\N	\N	2025-11-15 03:30:33.532263+02	t	t	t	t	string	مشرف النظام	{}	\N	\N
 14	a4	ar@gmail.com.com	pbkdf2_sha256$1000000$zBktzHX9eDrOqSc9VSreRz$eFZqgCmqCYdzJ7TUfKZQoUaOXXPxgicfH1cyjNL31dQ=	\N	\N	2025-11-15 03:36:53.711315+02	t	t	t	t	active	مشرف النظام	{}	\N	\N
 17	aa	aa@gmail.com	pbkdf2_sha256$1000000$2dc1qpkT0K2Rvf8jYCZFGr$RYI8fid0TOn0KPMmVGLXDSb+4fCh2gtoN+F/KrCJ0RE=	2	\N	2025-11-18 21:42:50.130782+02	t	t	t	t	active	مسؤول كلية	{"نشاط فمي",تكافل}	\N	\N
@@ -1399,6 +1403,8 @@ COPY public.admins (admin_id, name, email, password, faculty_id, dept_id, create
 5	خالد إبراهيم	khaled.manager@example.com	pbkdf2_sha256$1000000$6rS7AFWRCbRmGf2v87CR0Q$XLigYMDMnB9E0MwVlDgY1YZcxbM3wADe3VuYh1mGxSM=	\N	6	2025-10-20 02:53:23.217139+03	t	t	t	t	active	مدير ادارة	{}	\N	\N
 20	admin34	admin34@example.com	pbkdf2_sha256$1000000$WqUSKaWUHuPX89VGicr9jA$La3PHY+349r/DeTyaXSvAoO3K3S5JvzcI/I7rq2ltVk=	2	\N	2025-11-21 16:34:27.807083+02	t	t	t	t	active	مسؤول كلية	{"الأنشطة الرياضية","الأنشطة البيئية"}	\N	\N
 8	omar	omar@gmail.com	pbkdf2_sha256$1000000$vlZHhPpW9IpNAdiVAlRLoZ$EKZZMi53hEdx/k1aLRSkqXWKnmZgVcXUMN0N8tP7RNQ=	1	7	2025-10-30 01:10:42.356929+03	t	t	t	t	active	مسؤول كلية	{"الأنشطة العلمية","الأنشطة الرياضية"}	\N	\N
+4	سارة محمد	sara.head@example.com	pbkdf2_sha256$1000000$tWpoF8OP4IE1aV50n3VaN1$5MXEKa42Qg5TkOKQ2z5Xt3ApE8rFcnik/P48TdyTWps=	1	\N	2025-10-20 02:53:23.217139+03	t	t	t	t	active	مدير كلية	{}	\N	\N
+6	منى يوسف	mona.general@example.com	pbkdf2_sha256$1000000$zThP8QI7sBlQ2rpPcPBw0T$vq8n7gJqUzzdcC5NVkqRQUNtuVjnLH8AWCM3qWOXuIE=	\N	\N	2025-10-20 02:53:23.217139+03	t	t	t	t	active	مدير عام	{}	\N	\N
 \.
 
 
@@ -1568,6 +1574,8 @@ COPY public.departments (dept_id, name, description, created_at, for_env_fam) FR
 5	الأنشطة البيئية	قسم الأنشطة البيئية والاستدامة	2025-11-29 18:30:35.253433+02	t
 6	الأنشطة الاجتماعية	قسم الأنشطة الاجتماعية والخدمة المجتمعية	2025-11-29 18:30:35.253433+02	f
 7	الأنشطة العلمية	قسم الأنشطة العلمية والبحثية	2025-11-29 18:30:35.253433+02	f
+8	التكافل الإجتماعي	قسم التكافل الإجتماعي	2026-03-06 05:09:14.042962+02	f
+9	الأسر الطلابية	قسم الرعاية بالاسر الطلابية	2026-03-06 05:09:14.042962+02	f
 \.
 
 
@@ -1728,6 +1736,7 @@ COPY public.events (event_id, title, description, dept_id, faculty_id, created_b
 56	string نشاط	string	3	1	1	2026-02-17 00:13:05.788745+02	62.30	string	string	string	منتظر	2026-02-16	2026-02-16	10	2026-02-17 00:13:05.788776+02	نشاط بيئي	6	\N	\N	\N	t
 58	مسابقة الشطرنج السنوية	مسابقة ذكاء	7	1	8	2026-03-01 03:36:13.070132+02	100.00	نادي	string	جايزة مادية	منتظر	2026-02-23	2026-12-23	100	2026-02-23 06:01:32.367746+02	نشاط ثقافي	\N	\N	\N	1	t
 3	ماراثون العدو السنوي	فعالية رياضية سنوية تجمع طلاب الجامعة للمشاركة في ماراثون العدو	7	\N	1	2026-03-01 03:42:16.746992+02	50.00	الملعب الرياضي	يجب أن يكون المشارك طالباً حالياً بالجامعة	جوائز نقدية وشهادات تقدير	مقبول	2024-03-15	2026-03-30	200	2025-11-29 18:47:41.600095+02	نشاط رياضي	\N	\N	\N	\N	t
+59	fds	sdgagas	3	1	8	2026-03-06 05:37:31.365015+02	40.00	sga	gsdga	gsfdgsg	موافقة مبدئية	2026-03-13	2026-03-20	40	2026-03-06 05:37:19.430602+02	نشاط معسكرات	\N		\N	8	t
 \.
 
 
@@ -2049,6 +2058,10 @@ COPY public.logs (log_id, actor_id, action, event_id, solidarity_id, family_id, 
 133	8	Deleted image 6 from event: مسابقة الشطرنج السنوية	58	\N	\N	127.0.0.1	2026-03-01 03:03:11.283594+02	مسؤول كلية	نشاط	\N
 134	8	Uploaded 3 image(s) for event: مسابقة الشطرنج السنوية	58	\N	\N	127.0.0.1	2026-03-01 03:17:20.4348+02	مسؤول كلية	نشاط	\N
 135	8	Deleted image 11 from event: مسابقة الشطرنج السنوية	58	\N	\N	127.0.0.1	2026-03-01 03:17:57.866205+02	مسؤول كلية	نشاط	\N
+136	8	انشاء نشاط	59	\N	\N	::1	2026-03-06 05:37:19.430844+02	\N	نشاط	\N
+137	8	Created event: fds	59	\N	\N	127.0.0.1	2026-03-06 05:37:19.430844+02	مسؤول كلية	نشاط	\N
+138	8	Viewed images for event: fds	59	\N	\N	127.0.0.1	2026-03-06 05:37:37.503408+02	مسؤول كلية	نشاط	\N
+139	8	Viewed images for event: fds	59	\N	\N	127.0.0.1	2026-03-06 05:37:37.587616+02	مسؤول كلية	نشاط	\N
 \.
 
 
@@ -2056,11 +2069,14 @@ COPY public.logs (log_id, actor_id, action, event_id, solidarity_id, family_id, 
 -- Data for Name: plans; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.plans (plan_id, name, term, created_at, updated_at, faculty_id) FROM stdin;
-2	plan2026	1	2026-02-15 16:08:27.490535+02	2026-02-15 16:08:27.490544+02	1
-4	plan2026	1	2026-02-15 16:10:54.641662+02	2026-02-15 16:10:54.641672+02	1
-1	العام الدراسي 2025-2026	2	2026-02-15 16:07:55.641683+02	2026-02-15 16:23:03.518843+02	1
-5	global_plan2026	1	2026-02-15 16:36:57.167863+02	2026-02-15 16:36:57.167871+02	\N
+COPY public.plans (plan_id, name, term, created_at, updated_at, faculty_id, dept_id, created_by) FROM stdin;
+4	plan2026	1	2026-02-15 16:10:54.641662+02	2026-02-15 16:10:54.641672+02	1	\N	\N
+1	العام الدراسي 2025-2026	2	2026-02-15 16:07:55.641683+02	2026-02-15 16:23:03.518843+02	1	\N	\N
+6	test3	2	2026-03-06 02:58:38.741921+02	2026-03-06 02:58:38.741933+02	1	7	\N
+7	test3	2	2026-03-06 02:59:01.863291+02	2026-03-06 02:59:01.863301+02	1	4	\N
+2	plan2026	1	2026-02-15 16:08:27.490535+02	2026-02-15 16:08:27.490544+02	\N	\N	\N
+8	string505050	1	2026-03-06 04:41:50.468994+02	2026-03-06 05:18:02.044961+02	1	8	8
+5	string505050	1	2026-02-15 16:36:57.167863+02	2026-03-06 05:18:28.715085+02	\N	8	16
 \.
 
 
@@ -2281,7 +2297,7 @@ SELECT pg_catalog.setval('public.auth_user_user_permissions_id_seq', 1, false);
 -- Name: departments_dept_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.departments_dept_id_seq', 7, true);
+SELECT pg_catalog.setval('public.departments_dept_id_seq', 9, true);
 
 
 --
@@ -2323,7 +2339,7 @@ SELECT pg_catalog.setval('public.event_docs_doc_id_seq', 11, true);
 -- Name: events_event_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.events_event_id_seq', 58, true);
+SELECT pg_catalog.setval('public.events_event_id_seq', 59, true);
 
 
 --
@@ -2351,14 +2367,14 @@ SELECT pg_catalog.setval('public.family_admins_id_seq', 60, true);
 -- Name: logs_log_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.logs_log_id_seq', 135, true);
+SELECT pg_catalog.setval('public.logs_log_id_seq', 139, true);
 
 
 --
 -- Name: plans_plan_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.plans_plan_id_seq', 5, true);
+SELECT pg_catalog.setval('public.plans_plan_id_seq', 8, true);
 
 
 --
@@ -2972,6 +2988,20 @@ CREATE INDEX idx_logs_target ON public.logs USING btree (target_type, event_id, 
 
 
 --
+-- Name: idx_plans_created_by; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_plans_created_by ON public.plans USING btree (created_by);
+
+
+--
+-- Name: idx_plans_dept_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_plans_dept_id ON public.plans USING btree (dept_id);
+
+
+--
 -- Name: idx_plans_faculty_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3354,6 +3384,22 @@ ALTER TABLE ONLY public.logs
 
 
 --
+-- Name: plans plans_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.plans
+    ADD CONSTRAINT plans_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.admins(admin_id) ON DELETE SET NULL;
+
+
+--
+-- Name: plans plans_dept_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.plans
+    ADD CONSTRAINT plans_dept_id_fkey FOREIGN KEY (dept_id) REFERENCES public.departments(dept_id) ON DELETE SET NULL;
+
+
+--
 -- Name: plans plans_faculty_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3421,5 +3467,5 @@ ALTER TABLE ONLY public.students
 -- PostgreSQL database dump complete
 --
 
-\unrestrict aTuOPU9sRh6M2ER5vmeFpaz5YxfRIbJXczhFyLUp0yrWIg6IFIWGg7JVxEypjZu
+\unrestrict yohKJjJiJXSE9bQDaAx6cOSRdhDeUU8XTj476kaSDOHRzA4nH7JLP1wA9CU0A84
 
