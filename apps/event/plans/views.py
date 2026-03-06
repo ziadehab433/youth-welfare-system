@@ -24,35 +24,49 @@ from .services import PlanService
 @extend_schema(tags=["Plans APIs"])
 class PlansViewSet(viewsets.GenericViewSet):
     permission_classes = [IsRole]
-    allowed_roles = ['مسؤول كلية', 'مدير ادارة']
+    allowed_roles = ['مسؤول كلية', 'مدير ادارة', 'مدير كلية', 'مدير عام', 'مشرف النظام']
     queryset = Plans.objects.all()
     serializer_class = PlanListSerializer
 
     # ───────────────── LIST ─────────────────
 
     @extend_schema(
-        description="List all plans (any admin can view)",
+        description="List plans filtered by admin role",
         responses={200: PlanListSerializer(many=True)},
     )
     @action(detail=False, methods=['get'], url_path='list')
     @require_permission('read')
     def list_plans(self, request):
-        plans = PlanService.get_all_plans()
-        serializer = PlanListSerializer(plans, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        admin = get_current_admin(request)
+        try:
+            plans = PlanService.get_all_plans(admin)
+            serializer = PlanListSerializer(plans, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            return Response(
+                {"error": e.message if hasattr(e, 'message') else str(e)},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
     # ───────────────── DETAIL ─────────────────
 
     @extend_schema(
-        description="Retrieve a plan with full event details",
+        description="Retrieve a plan with full event details (role-based access)",
         responses={200: PlanDetailSerializer},
     )
     @action(detail=True, methods=['get'], url_path='details')
     @require_permission('read')
     def get_plan(self, request, pk=None):
-        plan = PlanService.get_plan_detail(pk)
-        serializer = PlanDetailSerializer(plan)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        admin = get_current_admin(request)
+        try:
+            plan = PlanService.get_plan_detail(admin, pk)
+            serializer = PlanDetailSerializer(plan)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            return Response(
+                {"error": e.message if hasattr(e, 'message') else str(e)},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
     # ───────────────── CREATE ─────────────────
 

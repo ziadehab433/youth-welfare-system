@@ -14,7 +14,6 @@ from django.contrib.postgres.fields import ArrayField
 
 
 
-
 class Plans(models.Model):
     plan_id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=150)
@@ -37,6 +36,14 @@ class Plans(models.Model):
         db_column='dept_id',
         related_name='plans'
     )
+    created_by = models.ForeignKey(
+        AdminsUser,
+        models.SET_NULL,
+        blank=True,
+        null=True,
+        db_column='created_by',
+        related_name='created_plans'
+    )
 
     class Meta:
         managed = False
@@ -45,6 +52,7 @@ class Plans(models.Model):
             models.Index(fields=['name'], name='idx_plans_name'),
             models.Index(fields=['faculty'], name='idx_plans_faculty_id'),
             models.Index(fields=['dept'], name='idx_plans_dept_id'),
+            models.Index(fields=['created_by'], name='idx_plans_created_by'),
         ]
 
     def __str__(self):

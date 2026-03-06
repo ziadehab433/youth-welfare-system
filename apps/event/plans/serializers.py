@@ -51,6 +51,7 @@ class PlanEventSerializer(serializers.ModelSerializer):
 class PlanListSerializer(serializers.ModelSerializer):
     faculty_name = serializers.CharField(source='faculty.name', read_only=True, default=None)
     dept_name = serializers.CharField(source='dept.name', read_only=True, default=None)
+    created_by_name = serializers.CharField(source='created_by.name', read_only=True, default=None)
     events_count = serializers.IntegerField(source='events.count', read_only=True)
 
     class Meta:
@@ -63,6 +64,8 @@ class PlanListSerializer(serializers.ModelSerializer):
             'faculty_name',
             'dept',
             'dept_name',
+            'created_by',
+            'created_by_name',
             'events_count',
             'created_at',
             'updated_at',
@@ -75,6 +78,7 @@ class PlanListSerializer(serializers.ModelSerializer):
 class PlanDetailSerializer(serializers.ModelSerializer):
     faculty_name = serializers.CharField(source='faculty.name', read_only=True, default=None)
     dept_name = serializers.CharField(source='dept.name', read_only=True, default=None)
+    created_by_name = serializers.CharField(source='created_by.name', read_only=True, default=None)
     events = PlanEventSerializer(many=True, read_only=True)
 
     class Meta:
@@ -87,6 +91,8 @@ class PlanDetailSerializer(serializers.ModelSerializer):
             'faculty_name',
             'dept',
             'dept_name',
+            'created_by',
+            'created_by_name',
             'events',
             'created_at',
             'updated_at',
