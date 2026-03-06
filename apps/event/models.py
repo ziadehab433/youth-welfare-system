@@ -22,13 +22,21 @@ class Plans(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     faculty = models.ForeignKey(
-    Faculties,
-    models.SET_NULL,
-    blank=True,
-    null=True,
-    db_column='faculty_id',
-    related_name='plans'
-)
+        Faculties,
+        models.SET_NULL,
+        blank=True,
+        null=True,
+        db_column='faculty_id',
+        related_name='plans'
+    )
+    dept = models.ForeignKey(
+        Departments,
+        models.SET_NULL,
+        blank=True,
+        null=True,
+        db_column='dept_id',
+        related_name='plans'
+    )
 
     class Meta:
         managed = False
@@ -36,11 +44,11 @@ class Plans(models.Model):
         indexes = [
             models.Index(fields=['name'], name='idx_plans_name'),
             models.Index(fields=['faculty'], name='idx_plans_faculty_id'),
+            models.Index(fields=['dept'], name='idx_plans_dept_id'),
         ]
 
     def __str__(self):
         return self.name
-    
 
 
 
@@ -74,7 +82,6 @@ class Events(models.Model):
     restrictions = models.TextField(blank=True, null=True)
     reward = models.TextField(blank=True, null=True)
     status = models.TextField(blank=True, null=True)
-    # imgs = models.CharField(max_length=255, blank=True, null=True)
     st_date = models.DateField()
     end_date = models.DateField()
     s_limit = models.IntegerField(blank=True, null=True)
