@@ -181,6 +181,11 @@ class PlanService:
         plan = get_object_or_404(Plans, pk=plan_id)
         PlanService._can_manage_plan(admin, plan)
 
+        # Check that only the plan creator can add events
+        if plan.created_by_id != admin.admin_id:
+            logger.warning(f"Admin {admin.admin_id} denied adding event to plan {plan_id} (not creator)")
+            raise ValidationError("يمكن فقط لمنشئ الخطة إضافة أنشطة إليها")
+
         event_id = validated_data.pop('event_id')
         event = get_object_or_404(Events, pk=event_id)
 
@@ -203,7 +208,14 @@ class PlanService:
 
         event.plan = plan
         event.active = True
+
+        # Update event status from "منتظر" to "موافقة مبدئية"
+        if event.status == "منتظر":
+            event.status = "موافقة مبدئية"
+            logger.info(f"Event {event.event_id} status updated from 'منتظر' to 'موافقة مبدئية' when added to plan {plan_id} by admin {admin.admin_id}")
+
         event.save()
+        logger.info(f"Admin {admin.admin_id} successfully added event {event.event_id} to plan {plan_id}")
         return event
 
     # ─────────────────────── remove event ───────────────────────
