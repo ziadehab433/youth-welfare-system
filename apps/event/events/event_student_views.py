@@ -42,7 +42,8 @@ class StudentEventViewSet(viewsets.ViewSet):
                 Q(selected_facs__contains=[student.faculty.faculty_id]),
                 active=True,
                 status='مقبول',
-                end_date__gte=today  
+                end_date__gte=today,
+                st_date__gte=today
             ).exclude(
                 prtcps_set__student=student
             ).distinct().order_by('st_date')
