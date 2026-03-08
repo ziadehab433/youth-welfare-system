@@ -135,8 +135,10 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
             return self.handle_exception(e)
 
     @extend_schema(
+        request=None,
         tags=["Solidarity Dept&Super Admin APIs"],
-        description="Change status of request to 'Approved'"
+        description="Change status of request to 'Approved'",
+        responses={200: OpenApiResponse(description="Application approved")}
     )
     @action(detail=True, methods=['post'], url_path='change_to_approve')
     @require_permission('update')
@@ -151,8 +153,10 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
             return self.handle_exception(e)
         
     @extend_schema(
+        request=None,
         tags=["Solidarity Dept&Super Admin APIs"],
-        description="Change status of request to 'Rejected'"
+        description="Change status of request to 'Rejected'",
+        responses={200: OpenApiResponse(description="Application rejected")}
     )
     @action(detail=True, methods=['post'], url_path='change_to_reject')
     @require_permission('update')
