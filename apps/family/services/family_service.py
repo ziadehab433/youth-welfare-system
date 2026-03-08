@@ -212,18 +212,6 @@ class FamilyService:
                     dept=None  # Can be updated later by admin
                 )
                 
-                # Log the join operation
-                from apps.accounts.utils import log_data_access
-                log_data_access(
-                    actor_id=student.student_id,
-                    actor_type='طالب',
-                    action=f'انضمام الطالب {student.name} إلى أسرة: {family.name}',
-                    target_type='اسر',
-                    family_id=family.family_id,
-                    student_id=student.student_id,
-                    ip_address=None
-                )
-                
                 return member
         except Exception as e:
             raise ValidationError(f"Error joining family: {str(e)}")
