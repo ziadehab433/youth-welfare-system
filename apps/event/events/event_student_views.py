@@ -1,7 +1,7 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.db.models import Q
+from django.db.models import OuterRef, Subquery, Q
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from apps.event.models import Events, Prtcps
@@ -166,50 +166,28 @@ class StudentEventViewSet(viewsets.ViewSet):
                 'message': str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=False, methods=['get'], url_path='joined')
-    def joined_events(self, request):
-        """
-        GET /events/joined/
-        Returns events that the student has joined with status 'مقبول'
-        """
-        try:
-            student = get_current_student(request)
-            
-            joined_events = Events.objects.filter(
-                prtcps_set__student=student,
-                prtcps_set__status='مقبول'
-            ).distinct().order_by('-st_date')
-            
-            serializer = EventJoinedSerializer(
-                joined_events, 
-                many=True, 
-                context=self.get_serializer_context()
-            )
-            
-            return Response({
-                'status': 'success',
-                'count': joined_events.count(),
-                'data': serializer.data
-            }, status=status.HTTP_200_OK)
-            
-        except Exception as e:
-            return Response({
-                'status': 'error',
-                'message': str(e)
-            }, status=status.HTTP_400_BAD_REQUEST)
+    from django.db.models import OuterRef, Subquery
 
     @action(detail=False, methods=['get'], url_path='joined')
     def joined_events(self, request):
         """
         GET /events/joined/
-        Returns events that the student has joined with status 'مقبول'
+        Returns events that the student has joined
         """
         try:
             student = get_current_student(request)
             
+            participations = Prtcps.objects.filter(
+                student=student,
+                event=OuterRef('pk')
+            )
+            
             joined_events = Events.objects.filter(
                 prtcps_set__student=student,
-                prtcps_set__status='مقبول'
+            ).annotate(
+                participation_status=Subquery(participations.values('status')[:1]),
+                participation_rank=Subquery(participations.values('rank')[:1]),
+                participation_reward=Subquery(participations.values('reward')[:1]),
             ).distinct().order_by('-st_date')
             
             serializer = EventJoinedSerializer(

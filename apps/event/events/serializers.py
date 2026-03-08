@@ -274,9 +274,9 @@ class EventJoinedSerializer(serializers.ModelSerializer):
     """
     faculty_name = serializers.CharField(source='faculty.name', read_only=True, allow_null=True)
     dept_name = serializers.CharField(source='dept.name', read_only=True, allow_null=True)
-    participation_status = serializers.CharField(source='prtcps_set.first.status', read_only=True)
-    participation_rank = serializers.IntegerField(source='prtcps_set.first.rank', read_only=True)
-    participation_reward = serializers.CharField(source='prtcps_set.first.reward', read_only=True)
+    participation_status = serializers.CharField(read_only=True)
+    participation_rank = serializers.IntegerField(read_only=True)
+    participation_reward = serializers.CharField(read_only=True)
 
     class Meta:
         model = Events
@@ -284,7 +284,7 @@ class EventJoinedSerializer(serializers.ModelSerializer):
             'event_id', 'title', 'description', 'st_date', 'end_date',
             'location', 'type', 'cost', 'faculty_name', 'dept_name',
             'participation_status', 'participation_rank', 'participation_reward',
-         'reward'
+            'reward'
         ]
         
 class ParticipantResultSerializer(serializers.Serializer):
