@@ -6,7 +6,9 @@ from django.template.loader import render_to_string
 from django.http import FileResponse, HttpResponse
 from django.utils import timezone 
 from apps.solidarity.models import Solidarities
-
+from collections import defaultdict
+from apps.event.export.utils import get_report_assets
+from django.db.models import Q
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -16,7 +18,6 @@ from rest_framework.exceptions import ValidationError , PermissionDenied
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse, OpenApiTypes
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.exceptions import ValidationError, PermissionDenied, NotFound 
-
 from apps.accounts.permissions import IsRole , require_permission
 from apps.solidarity.models import Solidarities
 from apps.solidarity.serializers import (
@@ -287,35 +288,95 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
 
     @extend_schema(
         tags=["Solidarity Fac Admin APIs"],
-        description="pdf",
+        description="Export aid distribution report as PDF file with optional academic year filter",
+        parameters=[
+            OpenApiParameter(
+                name='acd_year',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description='Select academic year',
+                enum=['الفرقة الأولى', 'الفرقة الثانية', 'الفرقة الثالثة', 'الفرقة الرابعة', 'الفرقة الخامسة'],
+                required=False
+            ),
+        ],
         responses={
-            200: OpenApiResponse(
-                description="PDF file download",
-            )
+            200: OpenApiResponse(description="PDF file download"),
+            422: OpenApiResponse(description="No data available"),
+            500: OpenApiResponse(description="Internal server error")
         }
     )
     @action(detail=False, methods=['get'], url_path='export')
     @require_permission('read')
     def export(self, request):
         admin = get_current_admin(request)
+        selected_year = request.query_params.get('acd_year')
         try: 
-            data = Solidarities.objects.filter(faculty=admin.faculty, req_status="مقبول")
-        except DatabaseError:
-            return Response({'detail': 'database error while fetching data'}, status=500)
-        if not data.exists():
-            return Response({'detail': 'Cant generate a report (no data)'}, status=422)
+            query_filter = Q(faculty=admin.faculty) & Q(req_status="مقبول")
+            
+            if selected_year:
+                query_filter &= Q(student__acd_year=selected_year)
 
-        html_content = render_to_string("api/solidarity-report.html", handle_report_data(data))
-        html_pages = []
-        html_pages.append(html_content)
+            data = Solidarities.objects.filter(query_filter).select_related('student').order_by('student__acd_year', 'student__name')
+            
+            if not data.exists():
+                return Response({'detail': 'No data available for report'}, status=422)     
+        except DatabaseError:
+            return Response({'detail': 'Database error occurred'}, status=500)
+        
+        assets = get_report_assets()
+        total_amount = sum(item.total_discount or 0 for item in data)
+        data_list = list(data)
+        processed_data = []
+        for item in data_list:
+            item_dict = {
+                'student': item.student,
+                'father_status': item.father_status,
+                'mother_status': item.mother_status,
+                'father_income': item.father_income,
+                'family_numbers': item.family_numbers,
+                'total_discount': item.total_discount,
+                'discount_type': item.discount_type,
+                'reason': item.reason,
+            }
+            
+            if item.father_income and item.family_numbers and item.family_numbers > 0:
+                item_dict['average_income'] = item.father_income // item.family_numbers
+            else:
+                item_dict['average_income'] = None
+                
+            processed_data.append(item_dict)
+        pages = []
+        for i in range(0, len(processed_data), 15):
+            pages.append({
+                'items': processed_data[i:i + 15],
+                'start_index': i + 1
+            })
+        
+        report_context = {
+            'pages': pages, 
+            'selected_year': selected_year,
+            'faculty_name': admin.faculty.name if admin.faculty else "الكلية",
+            'logo_base64': assets.get('logo'),
+            'total_amount_spent': total_amount,  
+            'issue_date_ar': timezone.now().strftime('%Y/%m/%d'),
+        }
+        
+        html_content = render_to_string("api/solidarity-report.html", report_context)
+        
         try:
-            buffer = asyncio.new_event_loop().run_until_complete(
-                html_to_pdf_buffer(html_pages)
-            )        
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                buffer = loop.run_until_complete(html_to_pdf_buffer([html_content]))
+            finally:
+                loop.close()
         except Exception as e:
-            print("error: ", e)
-            return Response({'detail': 'could not generate pdf'}, status=500)
-        filename = f"solidarity_report_{admin.faculty.faculty_id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            logger.exception(f"PDF generation error: {e}")
+            return Response({'detail': 'Failed to generate PDF'}, status=500)
+            
+        year_suffix = f"_{selected_year}" if selected_year else "_all"
+        filename = f"solidarity_report{year_suffix}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        
         response = FileResponse(
             buffer,
             as_attachment=True,
@@ -326,5 +387,5 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         response['Access-Control-Expose-Headers'] = 'Content-Disposition'
         response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         response['Pragma'] = 'no-cache'
-        response['Expires'] = '0'
+        response['Expires'] = '0'   
         return response
