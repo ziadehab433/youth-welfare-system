@@ -16,6 +16,7 @@ class PlaywrightPDFService:
         self._playwright = None
         self._browser = None
         self._lock = asyncio.Lock()
+        self._semaphore = asyncio.Semaphore(6)
 
     async def _launch_browser(self):
         logger.info("Launching Playwright browser")
@@ -37,6 +38,8 @@ class PlaywrightPDFService:
                 "--disable-renderer-backgrounding",
                 "--metrics-recording-only",
                 "--mute-audio",
+                "--single-process",
+                "--no-zygote",
             ],
         )
         logger.info("Playwright browser ready")
@@ -68,76 +71,90 @@ class PlaywrightPDFService:
         if len(html_content) > 10_000_000:
             raise ValueError("HTML too large")
 
-        browser = await self.get_browser()
-        for attempt in range(2):
-            context = None
-            page = None
-            try:
-                async with asyncio.timeout(60):
-                    context = await browser.new_context(
-                        viewport={"width": 794, "height": 1123},
-                        java_script_enabled=False,
-                    )
-                    page = await context.new_page()
-                    async def block_media(route):
-                        if route.request.resource_type == "media":
-                            await route.abort()
-                        else:
-                            await route.continue_()
+        async with self._semaphore:
 
-                    await page.route("**/*", block_media)
+            browser = await self.get_browser()
 
-                    await page.emulate_media(media="print")
+            for attempt in range(2):
 
-                    await page.set_content(
-                        html_content,
-                        wait_until="domcontentloaded",
-                        timeout=20000,
-                    )
-
-                    pdf_margins = margins or {
-                        "top": "0px",
-                        "right": "0px",
-                        "bottom": "0px",
-                        "left": "0px",
-                    }
-
-                    pdf = await page.pdf(
-                        format="A4",
-                        print_background=True,
-                        margin=pdf_margins,
-                        display_header_footer=False,
-                    )
-
-                    return pdf
-
-            except asyncio.TimeoutError:
-                logger.error("PDF generation timeout")
-
-                if attempt == 1:
-                    raise
-            except Exception as e:
-                logger.exception(f"PDF generation error: {e}")
-                if attempt == 1:
-                    raise
-
-                await self.restart_browser()
-
-                browser = await self.get_browser()
-
-            finally:
+                context = None
+                page = None
 
                 try:
-                    if page:
-                        await page.close()
-                except Exception:
-                    pass
 
-                try:
-                    if context:
-                        await context.close()
-                except Exception:
-                    pass
+                    async with asyncio.timeout(60):
+
+                        context = await browser.new_context(
+                            java_script_enabled=False
+                        )
+
+                        page = await context.new_page()
+
+                        async def block_heavy(route):
+
+                            resource = route.request.resource_type
+
+                            if resource in ["media"]:
+                                await route.abort()
+                            else:
+                                await route.continue_()
+
+                        await page.route("**/*", block_heavy)
+
+                        await page.emulate_media(media="print")
+
+                        await page.set_content(
+                            html_content,
+                            wait_until="domcontentloaded",
+                            timeout=20000,
+                        )
+
+                        pdf_margins = margins or {
+                            "top": "0px",
+                            "right": "0px",
+                            "bottom": "0px",
+                            "left": "0px",
+                        }
+
+                        pdf = await page.pdf(
+                            format="A4",
+                            print_background=True,
+                            margin=pdf_margins,
+                            display_header_footer=False,
+                        )
+
+                        return pdf
+
+                except asyncio.TimeoutError:
+
+                    logger.error("PDF generation timeout")
+
+                    if attempt == 1:
+                        raise
+
+                except Exception as e:
+
+                    logger.exception(f"PDF generation error: {e}")
+
+                    if attempt == 1:
+                        raise
+
+                    await self.restart_browser()
+
+                    browser = await self.get_browser()
+
+                finally:
+                    try:
+                        if page:
+                            await page.close()
+                    except Exception:
+                        pass
+
+                    try:
+                        if context:
+                            await context.close()
+                    except Exception:
+                        pass
 
         raise RuntimeError("PDF generation failed")
 
