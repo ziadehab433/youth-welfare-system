@@ -2,7 +2,7 @@ import os
 import base64
 import asyncio
 import logging
-import concurrent.futures
+import atexit
 from django.conf import settings
 from django.core.cache import cache
 from rest_framework.renderers import BaseRenderer
@@ -11,55 +11,162 @@ from asgiref.sync import async_to_sync
 
 logger = logging.getLogger(__name__)
 
-_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
-    max_workers=os.cpu_count() or 4
-)
+class PlaywrightPDFService:
+    def __init__(self):
+        self._playwright = None
+        self._browser = None
+        self._lock = asyncio.Lock()
 
-_playwright = None
-_browser = None
-_browser_lock = asyncio.Lock()
+    async def _launch_browser(self):
+        logger.info("Launching Playwright browser")
 
-async def get_browser():
-    global _playwright, _browser
+        self._playwright = await async_playwright().start()
+        self._browser = await self._playwright.chromium.launch(
+            headless=True,
+            args=[
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+                "--disable-extensions",
+                "--disable-background-networking",
+                "--disable-sync",
+                "--disable-default-apps",
+                "--disable-translate",
+                "--disable-background-timer-throttling",
+                "--disable-renderer-backgrounding",
+                "--metrics-recording-only",
+                "--mute-audio",
+            ],
+        )
+        logger.info("Playwright browser ready")
 
-    async with _browser_lock:
-        try:
-            if _browser and not _browser.is_connected():
-                logger.warning("Browser disconnected, creating new one")
-                _browser = None
-        except Exception:
-            _browser = None
-
-        if _browser is None:
-            logger.info("Launching persistent Playwright browser...")
-
-            if _playwright:
+    async def get_browser(self):
+        async with self._lock:
+            if self._browser:
                 try:
-                    await _playwright.stop()
+                    if self._browser.is_connected():
+                        return self._browser
+                except Exception:
+                    pass
+            if self._browser:
+                try:
+                    await self._browser.close()
+                except Exception:
+                    pass
+            if self._playwright:
+                try:
+                    await self._playwright.stop()
+                except Exception:
+                    pass
+            await self._launch_browser()
+            return self._browser
+
+    async def generate_pdf(self, html_content, margins=None):
+        if not html_content:
+            raise ValueError("Empty HTML")
+        if len(html_content) > 10_000_000:
+            raise ValueError("HTML too large")
+
+        browser = await self.get_browser()
+        for attempt in range(2):
+            context = None
+            page = None
+            try:
+                async with asyncio.timeout(60):
+                    context = await browser.new_context(
+                        viewport={"width": 794, "height": 1123},
+                        java_script_enabled=False,
+                    )
+                    page = await context.new_page()
+                    async def block_media(route):
+                        if route.request.resource_type == "media":
+                            await route.abort()
+                        else:
+                            await route.continue_()
+
+                    await page.route("**/*", block_media)
+
+                    await page.emulate_media(media="print")
+
+                    await page.set_content(
+                        html_content,
+                        wait_until="domcontentloaded",
+                        timeout=20000,
+                    )
+
+                    pdf_margins = margins or {
+                        "top": "0px",
+                        "right": "0px",
+                        "bottom": "0px",
+                        "left": "0px",
+                    }
+
+                    pdf = await page.pdf(
+                        format="A4",
+                        print_background=True,
+                        margin=pdf_margins,
+                        display_header_footer=False,
+                    )
+
+                    return pdf
+
+            except asyncio.TimeoutError:
+                logger.error("PDF generation timeout")
+
+                if attempt == 1:
+                    raise
+            except Exception as e:
+                logger.exception(f"PDF generation error: {e}")
+                if attempt == 1:
+                    raise
+
+                await self.restart_browser()
+
+                browser = await self.get_browser()
+
+            finally:
+
+                try:
+                    if page:
+                        await page.close()
                 except Exception:
                     pass
 
-            _playwright = await async_playwright().start()
+                try:
+                    if context:
+                        await context.close()
+                except Exception:
+                    pass
 
-            _browser = await _playwright.chromium.launch(
-                headless=True,
-                args=[
-                    "--no-sandbox",
-                    "--disable-setuid-sandbox",
-                    "--disable-dev-shm-usage",
-                    "--disable-gpu",
-                    "--disable-extensions",
-                    "--disable-background-networking",
-                    "--disable-sync",
-                    "--metrics-recording-only",
-                    "--mute-audio",
-                ],
-            )
+        raise RuntimeError("PDF generation failed")
 
-            logger.info("Persistent browser launched")
+    async def restart_browser(self):
+        logger.warning("Restarting browser")
+        try:
+            if self._browser:
+                await self._browser.close()
+        except Exception:
+            pass
+        self._browser = None
 
-        return _browser
+    async def shutdown(self):
+        logger.info("Shutting down Playwright")
+        try:
+            if self._browser:
+                await self._browser.close()
+        except Exception:
+            pass
+        try:
+            if self._playwright:
+                await self._playwright.stop()
+        except Exception:
+            pass
 
+pdf_service = PlaywrightPDFService()
+
+def generate_pdf_sync(html, margins=None):
+    return async_to_sync(pdf_service.generate_pdf)(html, margins)
 
 class PDFRenderer(BaseRenderer):
     media_type = "application/pdf"
@@ -72,131 +179,35 @@ class PDFRenderer(BaseRenderer):
 
 def get_report_assets():
     CACHE_KEY = "report_assets_v1"
-
     assets = cache.get(CACHE_KEY)
-
     if assets:
-        logger.debug("Assets loaded from cache")
         return assets
 
     assets = {"logo": "", "font": ""}
 
-    logo_path = os.path.join(settings.BASE_DIR, "static", "logo", "logo.png")
-    font_path = os.path.join(settings.BASE_DIR, "static", "fonts", "Amiri-Regular.ttf")
+    logo_path = os.path.join(settings.BASE_DIR, "static/logo/logo.png")
+    font_path = os.path.join(settings.BASE_DIR, "static/fonts/Amiri-Regular.ttf")
 
-    if os.path.exists(logo_path):
-        try:
+    try:
+        if os.path.exists(logo_path):
             with open(logo_path, "rb") as f:
-                assets["logo"] = base64.b64encode(f.read()).decode("ascii")
-        except Exception as e:
-            logger.warning(f"Logo loading error: {e}")
+                assets["logo"] = base64.b64encode(f.read()).decode()
 
-    if os.path.exists(font_path):
-        try:
+        if os.path.exists(font_path):
             with open(font_path, "rb") as f:
-                assets["font"] = base64.b64encode(f.read()).decode("ascii")
-        except Exception as e:
-            logger.warning(f"Font loading error: {e}")
+                assets["font"] = base64.b64encode(f.read()).decode()
 
-    cache.set(CACHE_KEY, assets, timeout=60 * 60 * 24)
+    except Exception as e:
+        logger.warning(f"Asset loading error: {e}")
+
+    cache.set(CACHE_KEY, assets, 60 * 60 * 24)
 
     return assets
 
-async def _run_playwright_core(html_content, output_path=None, margins=None):
-
-    if len(html_content) > 10_000_000:
-        raise ValueError("HTML content too large")
-
-    for attempt in range(2):
-        page = None
-        context = None
-
-        try:
-            async with asyncio.timeout(60):
-
-                browser = await get_browser()
-
-                context = await browser.new_context(
-                    viewport={"width": 794, "height": 1123}
-                )
-
-                page = await context.new_page()
-
-                await page.emulate_media(media="print")
-
-                await page.set_content(
-                    html_content,
-                    wait_until="networkidle",
-                    timeout=45000,
-                )
-
-                pdf_margins = margins or {
-                    "top": "0px",
-                    "right": "0px",
-                    "bottom": "0px",
-                    "left": "0px",
-                }
-
-                pdf_params = {
-                    "format": "A4",
-                    "print_background": True,
-                    "margin": pdf_margins,
-                    "display_header_footer": False,
-                }
-
-                if output_path:
-                    pdf_params["path"] = output_path
-
-                pdf_bytes = await page.pdf(**pdf_params)
-
-                return pdf_bytes
-
-        except asyncio.TimeoutError:
-            logger.error("PDF generation timed out")
-
-            if attempt == 1:
-                raise
-
-        except Exception as e:
-            logger.exception(
-                f"Playwright error attempt {attempt + 1}: {str(e)}"
-            )
-
-            if attempt == 1:
-                raise
-
-            global _browser
-            _browser = None
-
-            await asyncio.sleep(1)
-
-        finally:
-            if page:
-                await page.close()
-
-            if context:
-                await context.close()
-
-    raise Exception("Failed to generate PDF after retries")
-
-def generate_pdf_from_html(html_content, output_path, margins=None):
+def shutdown_playwright():
     try:
-        async_to_sync(_run_playwright_core)(
-            html_content,
-            output_path=output_path,
-            margins=margins,
-        )
-        return True
+        async_to_sync(pdf_service.shutdown)()
     except Exception:
-        return False
+        pass
 
-def generate_pdf_sync(html_content, margins=None):
-    future = _EXECUTOR.submit(_run_playwright_sync, html_content, margins)
-    return future.result()
-
-
-def _run_playwright_sync(html_content, margins=None):
-    return async_to_sync(_run_playwright_core)(
-        html_content,
-        margins=margins,
-    )
+atexit.register(shutdown_playwright)
