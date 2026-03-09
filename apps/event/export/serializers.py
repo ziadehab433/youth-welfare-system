@@ -37,28 +37,28 @@ class EventReportSerializer(serializers.Serializer):
     )
     
     def validate_project_stages(self, value):
-        if len(value) > 290:
-            raise serializers.ValidationError("Project stages must not exceed 290 characters.")
+        if len(value) > 250:
+            raise serializers.ValidationError("Project stages must not exceed 250 characters.")
         return value
     
     def validate_preparation_stage(self, value):
-        if len(value) > 290:
-            raise serializers.ValidationError("Preparation stage must not exceed 290 characters.")
+        if len(value) > 250:
+            raise serializers.ValidationError("Preparation stage must not exceed 250 characters.")
         return value
     
     def validate_execution_stage(self, value):
-        if len(value) > 290:
-            raise serializers.ValidationError("Execution stage must not exceed 290 characters.")
+        if len(value) > 250:
+            raise serializers.ValidationError("Execution stage must not exceed 250 characters.")
         return value
     
     def validate_evaluation_stage(self, value):
-        if len(value) > 290:
-            raise serializers.ValidationError("Evaluation stage must not exceed 290 characters.")
+        if len(value) > 250:
+            raise serializers.ValidationError("Evaluation stage must not exceed 250 characters.")
         return value
     
     def validate_achieved_goals(self, value):
-        if len(value) > 290:
-            raise serializers.ValidationError("Achieved goals must not exceed 290 characters.")
+        if len(value) > 250:
+            raise serializers.ValidationError("Achieved goals must not exceed 250 characters.")
         return value
     def validate_committee_preparation(self, value):
         if len(value) > 50:
@@ -94,6 +94,6 @@ class EventReportSerializer(serializers.Serializer):
         if len(value) > 3:
             raise serializers.ValidationError("Maximum 3 suggestions are allowed")
         for i, suggestion in enumerate(value):
-            if len(suggestion) > 290:
-                raise serializers.ValidationError(f"Suggestion {i+1} must not exceed 290 characters")
+            if len(suggestion) > 250:
+                raise serializers.ValidationError(f"Suggestion {i+1} must not exceed 250 characters")
         return value
