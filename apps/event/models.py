@@ -182,9 +182,10 @@ class EventDocs(models.Model):
     
     @property
     def file_url(self):
-        """Generate full file URL"""
+        """Generate full file URL for PUBLIC event images"""
         from django.conf import settings
         if self.file_path:
+            # Event images are public, so use regular MEDIA_URL
             return f"{settings.MEDIA_URL}{self.file_path}"
         return None
 

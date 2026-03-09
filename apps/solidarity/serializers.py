@@ -236,11 +236,20 @@ class SolidarityDocsSerializer(serializers.ModelSerializer):
     class Meta:
         model = SolidarityDocs
         fields = ['doc_id', 'solidarity', 'doc_type', 'file_url', 'mime_type', 'file_size', 'uploaded_at']
+    
     @extend_schema_field(serializers.URLField)
     def get_file_url(self, obj):
+        """
+        Return secure file URL that requires authentication
+        Instead of direct media URL, return API endpoint
+        """
         request = self.context.get('request')
-        url = obj.file.url if obj.file else None
-        return request.build_absolute_uri(url) if request and url else url
+        if request:
+            # Return secure API endpoint instead of direct file URL
+            return request.build_absolute_uri(
+                f'/api/files/solidarity/{obj.doc_id}/download/'
+            )
+        return None
 
 from rest_framework import serializers
 

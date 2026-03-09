@@ -312,8 +312,27 @@ for media with front & back
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
+# ============ SECURE FILE STORAGE CONFIGURATION ============
+
+# Public media files (accessible directly via Nginx)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# Private media files (protected by Django views)
+PRIVATE_MEDIA_ROOT = os.path.join(BASE_DIR, 'media', 'private')
+PRIVATE_MEDIA_URL = '/protected/'  # Internal Nginx location
+
+# Public media files (event images for landing page)
+PUBLIC_MEDIA_ROOT = os.path.join(BASE_DIR, 'media', 'public')
+
+# Ensure directories exist
+os.makedirs(PRIVATE_MEDIA_ROOT, exist_ok=True)
+os.makedirs(PUBLIC_MEDIA_ROOT, exist_ok=True)
+
+# X-Accel-Redirect configuration for Nginx
+USE_X_ACCEL_REDIRECT = not DEBUG  # Use in production, disable in dev
+
+# ===========================================================
 
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),

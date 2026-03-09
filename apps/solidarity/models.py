@@ -69,7 +69,18 @@ class Logs(models.Model):
 
 
 def solidarity_doc_upload_path(instance, filename):
-    return f"uploads/solidarity/{instance.solidarity.solidarity_id}/{filename}" 
+    """
+    Upload path for solidarity documents - stores in PRIVATE directory
+    """
+    import uuid
+    import os
+    
+    # Generate unique filename to prevent overwrites
+    ext = os.path.splitext(filename)[1]
+    unique_filename = f"{uuid.uuid4().hex}{ext}"
+    
+    # Store in private directory
+    return f"private/solidarity/{instance.solidarity.solidarity_id}/{unique_filename}" 
 
 class SolidarityDocs(models.Model):
     doc_id = models.AutoField(primary_key=True)
