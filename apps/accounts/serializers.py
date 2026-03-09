@@ -113,9 +113,15 @@ class StudentDetailSerializer(serializers.ModelSerializer):
         ]
 
     def get_profile_photo_url(self, obj):
+        """
+        Return secure profile photo URL that requires authentication
+        """
         request = self.context.get('request')
         if obj.profile_photo and request:
-            return request.build_absolute_uri(f'/media/{obj.profile_photo}')
+            # Changed from public /media/ URL to secure API endpoint
+            return request.build_absolute_uri(
+                f'/api/files/students/{obj.student_id}/image/'
+            )
         return None
 
 
@@ -142,13 +148,27 @@ class StudentUpdateSerializer(serializers.ModelSerializer):
 
         # Handle profile photo upload
         if profile_photo_file:
-            # Delete old file
-            if instance.profile_photo and default_storage.exists(instance.profile_photo):
-                default_storage.delete(instance.profile_photo)
-
+            # Get file extension from uploaded file
             ext = os.path.splitext(profile_photo_file.name)[1]
-            file_path = f'uploads/students/{instance.student_id}/image{ext}'
-            saved_path = default_storage.save(file_path, profile_photo_file)
+            
+            # Define the target file path (consistent naming)
+            new_file_path = f'uploads/students/{instance.student_id}/image{ext}'
+            
+            # Delete old file if it exists and is different from new path
+            if instance.profile_photo:
+                old_path = instance.profile_photo
+                # Delete old file if it exists
+                if default_storage.exists(old_path):
+                    default_storage.delete(old_path)
+            
+            # If a file with the new name already exists, delete it to force overwrite
+            if default_storage.exists(new_file_path):
+                default_storage.delete(new_file_path)
+            
+            # Save the new file
+            saved_path = default_storage.save(new_file_path, profile_photo_file)
+            
+            # Update the database field with the new path
             instance.profile_photo = saved_path
 
         # Remove photo

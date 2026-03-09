@@ -27,7 +27,7 @@ class SecureSolidarityFileViewSet(viewsets.GenericViewSet):
     """
     permission_classes = [IsAuthenticated]
     
-    def _serve_file_with_xaccel(self, file_path, filename, mime_type):
+    def _serve_file_with_xaccel(self, file_path, filename, mime_type, enable_cache=True):
         """
         Serve file using X-Accel-Redirect (Nginx) or direct FileResponse (dev)
         Files are displayed inline in browser when possible
@@ -36,6 +36,7 @@ class SecureSolidarityFileViewSet(viewsets.GenericViewSet):
             file_path: Absolute path to file
             filename: Original filename for display
             mime_type: MIME type of file
+            enable_cache: If True, allows browser caching (default). If False, disables all caching.
         """
         if not os.path.exists(file_path):
             raise Http404("File not found")
@@ -58,7 +59,16 @@ class SecureSolidarityFileViewSet(viewsets.GenericViewSet):
             
             # Browser compatibility headers
             response['X-Content-Type-Options'] = 'nosniff'
-            response['Cache-Control'] = 'private, max-age=3600'  # Cache for 1 hour
+            
+            # Cache control based on file type
+            if enable_cache:
+                # Allow caching for static documents (solidarity docs)
+                response['Cache-Control'] = 'private, max-age=3600'  # Cache for 1 hour
+            else:
+                # Disable caching for dynamic content (profile images)
+                response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+                response['Pragma'] = 'no-cache'
+                response['Expires'] = '0'
             
             logger.info(f"Serving file via X-Accel-Redirect: {internal_url}")
             return response
@@ -75,7 +85,16 @@ class SecureSolidarityFileViewSet(viewsets.GenericViewSet):
             
             # Browser compatibility headers
             response['X-Content-Type-Options'] = 'nosniff'
-            response['Cache-Control'] = 'private, max-age=3600'
+            
+            # Cache control based on file type
+            if enable_cache:
+                # Allow caching for static documents (solidarity docs)
+                response['Cache-Control'] = 'private, max-age=3600'
+            else:
+                # Disable caching for dynamic content (profile images)
+                response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+                response['Pragma'] = 'no-cache'
+                response['Expires'] = '0'
             
             logger.info(f"Serving file directly (dev mode): {file_path}")
             return response
@@ -171,5 +190,113 @@ class SecureSolidarityFileViewSet(viewsets.GenericViewSet):
             logger.error(f"Error serving solidarity document {pk}: {str(e)}", exc_info=True)
             return Response(
                 {'error': 'Failed to serve file'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+
+class SecureProfileImageViewSet(viewsets.GenericViewSet):
+    """
+    Secure file access for student profile images
+    Requires authentication and permission checks
+    """
+    permission_classes = [IsAuthenticated]
+    
+    @extend_schema(
+        tags=["Secure Files - Students"],
+        description="View/display student profile image (requires authentication and permission)",
+        responses={
+            200: OpenApiResponse(description="Profile image displayed inline"),
+            403: OpenApiResponse(description="Permission denied"),
+            404: OpenApiResponse(description="Profile image not found")
+        }
+    )
+    @action(detail=True, methods=['get'], url_path='image')
+    def view_profile_image(self, request, pk=None):
+        """
+        View/display student profile image by student_id
+        
+        Permission rules:
+        - Students: Can only access their own profile image
+        - Admins: Can access any student's profile image
+        """
+        try:
+            # Import here to avoid circular imports
+            from apps.accounts.models import Students
+            
+            # Get student
+            student = Students.objects.get(student_id=pk)
+            
+            # Check if profile photo exists
+            if not student.profile_photo:
+                return Response(
+                    {'error': 'No profile photo available'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Determine user type and check permissions
+            user = request.user
+            
+            if hasattr(user, 'student_id'):  # Student user
+                current_student = get_current_student(request)
+                if int(pk) != current_student.student_id:
+                    logger.warning(
+                        f"Student {current_student.student_id} attempted to access "
+                        f"profile image of student {pk}"
+                    )
+                    return Response(
+                        {'error': 'You can only access your own profile image'},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+            
+            elif hasattr(user, 'admin_id'):  # Admin user
+                # Admins can access any student profile image
+                pass
+            
+            else:
+                return Response(
+                    {'error': 'Invalid user type'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            # Log file access
+            client_ip = get_client_ip(request)
+            actor_id = getattr(user, 'admin_id', None) or getattr(user, 'student_id', None)
+
+            
+            # Determine MIME type from file extension
+            file_extension = os.path.splitext(student.profile_photo)[1].lower()
+            mime_type_map = {
+                '.jpg': 'image/jpeg',
+                '.jpeg': 'image/jpeg',
+                '.png': 'image/png',
+                '.gif': 'image/gif',
+                '.webp': 'image/webp'
+            }
+            mime_type = mime_type_map.get(file_extension, 'image/jpeg')
+            
+            # Serve file using the existing helper method from SecureSolidarityFileViewSet
+            file_path = os.path.join(settings.MEDIA_ROOT, student.profile_photo)
+            filename = os.path.basename(student.profile_photo)
+            
+            # Use the same _serve_file_with_xaccel method with caching disabled
+            return SecureSolidarityFileViewSet()._serve_file_with_xaccel(
+                file_path=file_path,
+                filename=filename,
+                mime_type=mime_type,
+                enable_cache=False  # Disable caching for profile images
+            )
+        
+        except Students.DoesNotExist:
+            logger.warning(f"Student {pk} not found")
+            return Response(
+                {'error': 'Student not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        except Exception as e:
+            logger.error(f"Error serving profile image for student {pk}: {str(e)}", exc_info=True)
+            return Response(
+                {'error': 'Failed to serve profile image'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
