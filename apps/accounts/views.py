@@ -290,10 +290,13 @@ class StudentSignUpView(APIView):
         access['student_id'] = student.student_id
         access['name'] = student.name
 
-        # Build full URL for profile photo if exists
+        # Build secure URL for profile photo if exists
         profile_photo_url = None
         if student.profile_photo:
-            profile_photo_url = request.build_absolute_uri(f'/media/{student.profile_photo}')
+            # Changed from public /media/ URL to secure API endpoint
+            profile_photo_url = request.build_absolute_uri(
+                f'/api/files/students/{student.student_id}/image/'
+            )
 
         return Response({
             "message": "Account created successfully",

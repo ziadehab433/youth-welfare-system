@@ -39,7 +39,18 @@ ALLOWED_MIME = {
 }
 MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10 MB
 
-def save_uploaded_file(uploaded_file, upload_subdir):
+def save_uploaded_file(uploaded_file, upload_subdir, is_private=True):
+    """
+    Save uploaded file to either private or public storage
+    
+    Args:
+        uploaded_file: Django UploadedFile object
+        upload_subdir: Subdirectory path (e.g., 'solidarity/123')
+        is_private: If True, store in private directory; if False, store in public
+    
+    Returns:
+        dict: File metadata including path, size, mime_type
+    """
     # Basic checks
     if uploaded_file.size > MAX_UPLOAD_SIZE:
         raise ValueError("File size exceeds the allowed limit.")
@@ -47,13 +58,19 @@ def save_uploaded_file(uploaded_file, upload_subdir):
     if uploaded_file.content_type not in ALLOWED_MIME:
         raise ValueError("File type is not allowed.")
 
-    # Ensure subdir exists (FileSystemStorage will handle location)
+    # Generate safe filename
     ext = os.path.splitext(uploaded_file.name)[1]
     safe_name = f"{uuid.uuid4().hex}{ext}"
-    relative_path = os.path.join(upload_subdir, safe_name).replace("\\", "/")
-    # fs.save takes a path relative to storage.location
+    
+    # Determine storage location
+    if is_private:
+        relative_path = os.path.join('private', upload_subdir, safe_name).replace("\\", "/")
+    else:
+        relative_path = os.path.join('public', upload_subdir, safe_name).replace("\\", "/")
+    
+    # Save file
     saved_name = fs.save(relative_path, uploaded_file)
-    # saved_name is the relative path under MEDIA_ROOT
+    
     return {
         'file_name': uploaded_file.name,       # original filename
         'file_path': saved_name,               # relative path stored
