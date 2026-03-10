@@ -63,6 +63,8 @@ class Logs(models.Model):
                                blank=True, null=True)
     family = models.ForeignKey('family.Families', models.DO_NOTHING,
                                blank=True, null=True)
+    student = models.ForeignKey('accounts.Students', models.DO_NOTHING, blank=True, null=True, db_column='student_id')
+    
     class Meta:
         managed = False
         db_table = 'logs'

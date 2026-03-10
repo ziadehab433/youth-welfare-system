@@ -1,6 +1,6 @@
 from apps.family.models import *
 from apps.accounts.models import AdminsUser , Students
-from apps.solidarity.models import Departments, Faculties
+from apps.solidarity.models import Departments, Faculties, Logs
 from apps.event.models import Events, Prtcps
 
 from django.core.exceptions import ValidationError
@@ -344,7 +344,21 @@ class FamilyService:
                     )
 
                 if created_by_student:
-                    # Create the family
+                    # Query logs to find the admin who granted this student permission to create a family
+                    grant_log = Logs.objects.filter(
+                        student_id=user_id,
+                        target_type='طالب',
+                        action='منح صلاحية إنشاء أسرة للطالب'
+                    ).order_by('-logged_at').first()
+                    
+                    if not grant_log:
+                        raise ValidationError(
+                            f"لم يتم العثور على سجل منح صلاحية إنشاء أسرة للطالب برقم {user_id}"
+                        )
+                    
+                    granting_admin_id = grant_log.actor_id
+                    
+                    # Create the family with the granting admin as created_by
                     family = Families.objects.create(
                         name=request_data['name'],
                         description=request_data['description'],
@@ -352,7 +366,7 @@ class FamilyService:
                         type=request_data['family_type'],
                         status='منتظر',
                         min_limit=request_data.get('min_limit', 50),
-                        created_by_id=user_id,  # Admin user ID
+                        created_by_id=granting_admin_id,  # Admin who granted permission
                         created_at=timezone.now()
                     )
                 else:
