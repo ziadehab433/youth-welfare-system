@@ -17,6 +17,7 @@ from .serializers import (
     PlanUpdateSerializer,
     AddEventToPlanSerializer,
     PlanEventSerializer,
+    CreateEventForPlanSerializer,
 )
 from .services import PlanService
 
@@ -187,4 +188,37 @@ class PlansViewSet(viewsets.GenericViewSet):
                 "event_id": event.event_id,
             },
             status=status.HTTP_200_OK,
+        )
+
+
+    # ───────────────── CREATE EVENT FOR PLAN ─────────────────
+
+    @extend_schema(
+        description="Create a new event that belongs to a plan. Status is automatically set to 'منتظر'.",
+        request=CreateEventForPlanSerializer,
+        responses={201: PlanEventSerializer},
+    )
+    @action(detail=False, methods=['post'], url_path='create-event')
+    @require_permission('create')
+    def create_event(self, request):
+        admin = get_current_admin(request)
+        serializer = CreateEventForPlanSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            event = PlanService.create_event_for_plan(
+                admin, serializer.validated_data
+            )
+        except ValidationError as e:
+            return Response(
+                {"error": e.message if hasattr(e, 'message') else str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(
+            {
+                "message": "تم إنشاء النشاط بنجاح",
+                "event": PlanEventSerializer(event).data,
+            },
+            status=status.HTTP_201_CREATED,
         )

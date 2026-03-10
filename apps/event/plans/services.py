@@ -285,3 +285,51 @@ class PlanService:
         )
         
         return event
+
+
+    # ─────────────────────── create event for plan ───────────────────────
+
+    @staticmethod
+    def create_event_for_plan(admin, validated_data):
+        """
+        Create a new event that belongs to a plan.
+        The event status is automatically set to 'منتظر' and cannot be overridden.
+        """
+        plan = validated_data.get('plan')
+        
+        # Verify admin can manage this plan
+        PlanService._can_manage_plan(admin, plan)
+        
+        # Check that only the plan creator can add events to it
+        if plan.created_by_id != admin.admin_id:
+            logger.warning(f"Admin {admin.admin_id} denied creating event for plan {plan.plan_id} (not creator)")
+            raise ValidationError("يمكن فقط لمنشئ الخطة إضافة أنشطة إليها")
+        
+        # Set required fields
+        validated_data['created_by'] = admin
+        validated_data['status'] = 'منتظر'  # Hardcoded - cannot be overridden
+        validated_data['active'] = True
+        
+        # Inherit faculty and dept from plan if available
+        if plan.faculty_id:
+            validated_data['faculty'] = plan.faculty
+        if plan.dept_id:
+            validated_data['dept'] = plan.dept
+        
+        # Create the event
+        event = Events.objects.create(**validated_data)
+        
+        logger.info(f"Admin {admin.admin_id} created event {event.event_id} for plan {plan.plan_id} with status 'منتظر'")
+        
+        # Log the event creation
+        from apps.accounts.utils import log_data_access
+        log_data_access(
+            actor_id=admin.admin_id,
+            actor_type=admin.role,
+            action=f'إنشاء نشاط جديد "{event.title}" للخطة "{plan.name}"',
+            target_type='نشاط',
+            event_id=event.event_id,
+            ip_address=None
+        )
+        
+        return event

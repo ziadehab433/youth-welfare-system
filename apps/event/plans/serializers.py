@@ -211,3 +211,38 @@ class AddEventToPlanSerializer(serializers.Serializer):
                 raise serializers.ValidationError({"dept_id": "القسم المحدد غير موجود"})
 
         return data
+
+
+# ───────────────────── create event for plan serializer ─────────────────────
+
+class CreateEventForPlanSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=150)
+    type = serializers.CharField(required=True, allow_blank=True, allow_null=True)
+    location = serializers.CharField(max_length=150, required=False, allow_blank=True, allow_null=True)
+    st_date = serializers.DateField()
+    end_date = serializers.DateField()
+    cost = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, allow_null=True)
+    s_limit = serializers.IntegerField(required=True, allow_null=True)
+    plan_id = serializers.IntegerField()
+
+    def validate_plan_id(self, value):
+        if not Plans.objects.filter(pk=value).exists():
+            raise serializers.ValidationError("الخطة المحددة غير موجودة")
+        return value
+
+    def validate(self, data):
+        if data.get('st_date') and data.get('end_date'):
+            if data['end_date'] < data['st_date']:
+                raise serializers.ValidationError(
+                    {"end_date": "تاريخ الانتهاء يجب أن يكون بعد تاريخ البداية"}
+                )
+        return data
+
+    def to_internal_value(self, data):
+        ret = super().to_internal_value(data)
+        
+        # Convert plan_id to plan instance
+        plan_id = ret.pop('plan_id')
+        ret['plan'] = Plans.objects.get(pk=plan_id)
+        
+        return ret
