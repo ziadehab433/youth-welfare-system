@@ -57,9 +57,9 @@ class EventGetterViewSet(viewsets.GenericViewSet):
                 Q(faculty_id=admin.faculty_id) | Q(faculty_id__isnull=True)
             ).order_by('-created_at')
         elif admin.role == 'مدير كلية':
-            return queryset.filter(faculty_id=admin.faculty_id).order_by('-created_at')
+            return queryset.filter(faculty_id=admin.faculty_id).order_by('-created_at').exclude(status="منتظر")
         elif admin.role == 'مدير عام':
-            return queryset.filter(faculty_id__isnull=True)
+            return queryset.filter(faculty_id__isnull=True).exclude(status="منتظر")
         elif admin.role == 'مشرف النظام': 
             return queryset
         elif admin.role == 'مدير ادارة': 
