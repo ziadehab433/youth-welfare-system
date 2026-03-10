@@ -192,10 +192,43 @@ class AddEventToPlanSerializer(serializers.Serializer):
     restrictions = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     reward = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     dept_id = serializers.IntegerField(required=False, allow_null=True)
+    selected_facs = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=False,
+        allow_null=True,
+        allow_empty=True
+    )
 
     def validate_event_id(self, value):
         if not Events.objects.filter(pk=value).exists():
             raise serializers.ValidationError("النشاط المحدد غير موجود")
+        return value
+
+    def validate_selected_facs(self, value):
+        """
+        Validate that all selected_facs are valid faculty IDs in the database.
+        Identical validation logic to EventCreateUpdateSerializer.
+        """
+        if not value:
+            return value
+        
+        if not isinstance(value, list):
+            raise serializers.ValidationError("selected_facs must be a list of faculty IDs")
+        
+        if len(value) != len(set(value)):
+            raise serializers.ValidationError("Duplicate faculty IDs are not allowed")
+        
+        existing_faculties = Faculties.objects.filter(faculty_id__in=value).values_list('faculty_id', flat=True)
+        existing_faculties_set = set(existing_faculties)
+        provided_faculties_set = set(value)
+        
+        invalid_faculties = provided_faculties_set - existing_faculties_set
+        
+        if invalid_faculties:
+            raise serializers.ValidationError(
+                f"The following faculty IDs do not exist: {sorted(invalid_faculties)}"
+            )
+        
         return value
 
     def validate(self, data):
