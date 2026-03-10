@@ -217,23 +217,3 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
             })
         except Exception as e:
             return self.handle_exception(e)
-
-    @extend_schema(
-        tags=["Solidarity Dept&Super Admin APIs"],
-        description="Get faculties"
-    )
-    @action(detail=False, methods=['get'], url_path='faculties')
-    def faculties(self, request):
-        try:
-            faculties = Faculties.objects.all()
-            serializer = DeptFacultiesSerializer(faculties, many=True)
-            return Response(serializer.data)
-        except DatabaseError as e:
-            logger.error(
-                f"Database error in faculties: {str(e)}",
-                exc_info=True
-            )
-            return Response(
-                {"detail": "Error fetching faculties from database"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
