@@ -1,9 +1,7 @@
-from pytz import timezone
 from rest_framework import viewsets
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework.permissions import IsAuthenticated
 from apps.family.models import Families, FamilyMembers, Students
-from apps.family.models import FamilyMembers
 from apps.accounts.permissions import IsRole
 from apps.family.serializers import FamiliesListSerializer, FamiliesDetailSerializer
 from rest_framework.decorators import action
@@ -93,15 +91,6 @@ class SuperDeptFamilyViewSet(viewsets.ReadOnlyModelViewSet):
         )
 
         return Response({"message": "تم رفض الأسرة بنجاح"}, status=status.HTTP_200_OK)
-    @extend_schema(
-        description="Approve the family creation request and convert it to an active family (Status: 'مقبول').",
-        request=None,
-        responses={
-            200: OpenApiResponse(description="Family finally approved and active"),
-            400: OpenApiResponse(description="Invalid status for final approval")
-        }
-    )
-
 # ----------------------------------------------------------------
 # Security Approval Actions
 # ----------------------------------------------------------------
@@ -136,7 +125,7 @@ class SuperDeptFamilyViewSet(viewsets.ReadOnlyModelViewSet):
             )
 
         student = Students.objects.filter(student_id=student_id).first()
-        if student and student.faculty_id != family.faculty_id:
+        if student and family.type == 'نوعية' and student.faculty_id != family.faculty_id:
             return Response(
                 {"error": "Student does not belong to the family's faculty."},
                 status=status.HTTP_400_BAD_REQUEST
@@ -145,8 +134,6 @@ class SuperDeptFamilyViewSet(viewsets.ReadOnlyModelViewSet):
         with transaction.atomic():
             FamilyMembers.objects.filter(family=family, student_id=student_id).update(status='مقبول')
             
-            # Log the approval
-            from apps.accounts.utils import log_data_access, get_client_ip
             log_data_access(
                 actor_id=request.user.admin_id,
                 actor_type=request.user.role,
@@ -200,8 +187,6 @@ class SuperDeptFamilyViewSet(viewsets.ReadOnlyModelViewSet):
         with transaction.atomic():
             FamilyMembers.objects.filter(family=family, student_id=student_id).update(status='مرفوض')
             
-            # Log the rejection
-            from apps.accounts.utils import log_data_access, get_client_ip
             log_data_access(
                 actor_id=request.user.admin_id,
                 actor_type=request.user.role,
@@ -222,7 +207,7 @@ class SuperDeptFamilyViewSet(viewsets.ReadOnlyModelViewSet):
 
     @extend_schema(
         description="Final approval for family activation",
-        request=None,  # 👈 ADD THIS LINE
+        request=None,  
 
         responses={
             200: OpenApiResponse(description="Family activated successfully"),
