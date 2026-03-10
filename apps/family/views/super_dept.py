@@ -153,7 +153,6 @@ class SuperDeptFamilyViewSet(viewsets.ReadOnlyModelViewSet):
                 action=f'الموافقة على عضو الأسرة (رقم: {student_id})',
                 target_type='اسر',
                 family_id=family.family_id,
-                student_id=student_id,
                 ip_address=get_client_ip(request)
             )
 
@@ -209,7 +208,6 @@ class SuperDeptFamilyViewSet(viewsets.ReadOnlyModelViewSet):
                 action=f'رفض عضو الأسرة (رقم: {student_id})',
                 target_type='اسر',
                 family_id=family.family_id,
-                student_id=student_id,
                 ip_address=get_client_ip(request)
             )
 
