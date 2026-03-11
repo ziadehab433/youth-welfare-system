@@ -307,19 +307,31 @@ class PlanService:
         
         # Set required fields
         validated_data['created_by'] = admin
-        validated_data['status'] = 'منتظر'  # Hardcoded - cannot be overridden
-        validated_data['active'] = True
+        validated_data['status'] = 'منتظر'
+        validated_data['active'] = False
         
-        # Inherit faculty and dept from plan if available
+        
+        # ─── REMOVE any user-provided dept to prevent override ───
+        validated_data.pop('dept', None)
+        validated_data.pop('dept_id', None)
+        
+        # ─── ALWAYS inherit faculty and dept from the plan ───
         if plan.faculty_id:
             validated_data['faculty'] = plan.faculty
-        if plan.dept_id:
-            validated_data['dept'] = plan.dept
+        else:
+            validated_data.pop('faculty', None)
+            validated_data['faculty_id'] = None
+
+        #  Always set dept_id from plan — even if it's None
+        validated_data['dept_id'] = plan.dept_id
         
         # Create the event
         event = Events.objects.create(**validated_data)
         
-        logger.info(f"Admin {admin.admin_id} created event {event.event_id} for plan {plan.plan_id} with status 'منتظر'")
+        logger.info(
+            f"Admin {admin.admin_id} created event {event.event_id} "
+            f"for plan {plan.plan_id} with dept_id={plan.dept_id} and status 'منتظر'"
+        )
         
         # Log the event creation
         from apps.accounts.utils import log_data_access
