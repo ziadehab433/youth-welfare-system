@@ -139,6 +139,10 @@ class EventGetterViewSet(viewsets.GenericViewSet):
         admin = get_current_admin(request)
         ip = get_client_ip(request)
         
+        # Authorization check: only the creator can delete
+        if event.created_by.admin_id != admin.admin_id:
+            raise PermissionDenied("لا يمكنك التعديل أو الحذف على نشاط لم تقم بإنشائه")
+        
         if admin.role == 'مدير ادارة':
             if event.dept_id != admin.dept_id and event.faculty_id is not None:
                 raise PermissionDenied("لا يمكنك حذف فعاليات من إدارة أخرى")
@@ -315,6 +319,10 @@ class EventManagementViewSet(viewsets.GenericViewSet):
         ip = get_client_ip(request)
         
         event = self.get_object()
+        
+        # Authorization check: only the creator can update
+        if event.created_by.admin_id != admin.admin_id:
+            raise PermissionDenied("لا يمكنك التعديل أو الحذف على نشاط لم تقم بإنشائه")
         
         if admin.role == 'مسؤول كلية':
             if 'selected_facs' in request.data and request.data.get('selected_facs'):
