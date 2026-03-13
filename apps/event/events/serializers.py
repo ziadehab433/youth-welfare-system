@@ -179,11 +179,15 @@ class EventCreateUpdateSerializer(serializers.ModelSerializer):
         return representation
 
 class EventListSerializer(serializers.ModelSerializer):
+    faculty_name = serializers.CharField(source='faculty.name', read_only=True, allow_null=True)
+    dept_name = serializers.CharField(source='dept.name', read_only=True, allow_null=True)
+    
     class Meta:
         model = Events
         fields = [
             'event_id', 'title', 'description', 'st_date', 'end_date',
-            'location', 'status', 'type', 'cost', 's_limit', 'faculty_id', 'dept_id','active'
+            'location', 'status', 'type', 'cost', 's_limit', 'faculty_id', 'dept_id',
+            'faculty_name', 'dept_name', 'active'
         ]
 
 class ParticipantSerializer(serializers.ModelSerializer):
