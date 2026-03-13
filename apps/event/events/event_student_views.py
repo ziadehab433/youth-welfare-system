@@ -130,17 +130,7 @@ class StudentEventViewSet(viewsets.ViewSet):
                 status='منتظر'
             )
             
-            # Log the join operation
-            from apps.accounts.utils import log_data_access
-            log_data_access(
-                actor_id=student.student_id,
-                actor_type='طالب',
-                action=f'انضمام الطالب {student.name} إلى نشاط: {event.title}',
-                target_type='نشاط',
-                event_id=event.event_id,
-                student_id=student.student_id,
-                ip_address=None
-            )
+
             
             return Response({
                 'status': 'success',
