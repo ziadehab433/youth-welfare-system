@@ -6,6 +6,7 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 from django.db import transaction
 from django.utils import timezone
+from django.shortcuts import get_object_or_404
 from apps.event.models import Events, Prtcps, EventDocs, Plans
 from .serializers import (
     EventCreateUpdateSerializer, 
@@ -68,27 +69,49 @@ class EventGetterViewSet(viewsets.GenericViewSet):
         return queryset.none() 
 
     def get_object(self):
+        """
+        Custom get_object that:
+        1. Fetches event directly by pk
+        2. For destroy action, allows event creator full access
+        3. For other actions, applies role-based filtering
+        """
         admin = get_current_admin(self.request)
-        queryset = Events.objects.select_related(
-            'created_by', 'faculty', 'dept', 'family'
-        ).filter(
-            family__isnull=True, 
-        ).exclude(status='ملغي').prefetch_related(
-            Prefetch(
-                'prtcps_set',
-                queryset=Prtcps.objects.select_related('student'),  
-                to_attr='participants'  
-            )
+        event = get_object_or_404(
+            Events.objects.select_related('created_by', 'faculty', 'dept', 'family')
+            .filter(family__isnull=True)
+            .exclude(status='ملغي')
+            .prefetch_related(
+                Prefetch(
+                    'prtcps_set',
+                    queryset=Prtcps.objects.select_related('student'),
+                    to_attr='participants'
+                )
+            ),
+            pk=self.kwargs['pk']
         )
-
-        queryset = self.get_queryset(queryset=queryset)
         
-        obj = queryset.filter(pk=self.kwargs['pk']).first()
+        # For destroy action, if admin is the event creator, allow access immediately
+        if self.action == 'destroy':
+            if event.created_by and event.created_by.admin_id == admin.admin_id:
+                return event
         
-        if obj is None:
-            raise PermissionDenied("You don't have permission to access this event")
+        # Apply role-based filtering for all actions
+        if admin.role == 'مسؤول كلية':
+            if event.faculty_id == admin.faculty_id or event.faculty_id is None:
+                return event
+        elif admin.role == 'مدير كلية':
+            if event.faculty_id == admin.faculty_id and event.status != "منتظر":
+                return event
+        elif admin.role == 'مدير عام':
+            if event.faculty_id is None and event.status != "منتظر":
+                return event
+        elif admin.role == 'مشرف النظام':
+            return event
+        elif admin.role == 'مدير ادارة':
+            if event.dept_id == admin.dept_id:
+                return event
         
-        return obj
+        raise PermissionDenied("You don't have permission to access this event")
 
     @extend_schema(
         description="List all events in the admin's faculty",
@@ -198,17 +221,59 @@ class EventManagementViewSet(viewsets.GenericViewSet):
         return context
 
     def get_object(self):
-        obj = super().get_object()
+        """
+        Custom get_object that:
+        1. Fetches event directly by pk (no role-based queryset filtering)
+        2. Allows event creator full access
+        3. For read-only actions, applies same view permissions as EventGetterViewSet
+        4. For write actions, only allows creator
+        """
         admin = get_current_admin(self.request)
+        event = get_object_or_404(
+            Events.objects.select_related('created_by', 'faculty', 'dept', 'family'),
+            pk=self.kwargs['pk']
+        )
         
+        # If admin is the event creator, allow access immediately
+        if event.created_by and event.created_by.admin_id == admin.admin_id:
+            return event
+        
+        # For read-only actions like get_images, apply same view permissions as EventGetterViewSet
+        read_only_actions = ['get_images']
+        if self.action in read_only_actions:
+            # Apply role-based view permissions
+            if admin.role == 'مسؤول كلية':
+                if event.faculty_id == admin.faculty_id or event.faculty_id is None:
+                    return event
+            elif admin.role == 'مدير كلية':
+                if event.faculty_id == admin.faculty_id:
+                    return event
+            elif admin.role == 'مدير عام':
+                if event.faculty_id is None:
+                    return event
+            elif admin.role == 'مدير ادارة':
+                if event.dept_id == admin.dept_id:
+                    return event
+            elif admin.role == 'مشرف النظام':
+                return event
+            
+            raise PermissionDenied("You don't have permission to access this event")
+        
+        # For write actions (partial_update, upload_images, delete_image)
+        # Only the creator can perform these actions (already checked above)
+        write_actions = ['partial_update', 'update', 'upload_images', 'delete_image']
+        if self.action in write_actions:
+            raise PermissionDenied("لا يمكنك التعديل أو الحذف على نشاط لم تقم بإنشائه")
+        
+        # Default fallback: apply original role-based check
         if admin.role == 'مدير ادارة':
-            if obj.faculty_id is not None:
+            if event.faculty_id is not None:
                 raise PermissionDenied("You don't have permission to access this event")
         else:
-            if obj.faculty_id != admin.faculty_id:
+            if event.faculty_id != admin.faculty_id:
                 raise PermissionDenied("You don't have permission to access this event")
-    
-        return obj
+        
+        return event
 
     def get_queryset(self):
         admin = get_current_admin(self.request)

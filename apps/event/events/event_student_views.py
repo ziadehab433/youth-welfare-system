@@ -1,15 +1,17 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.exceptions import PermissionDenied
 from django.db.models import OuterRef, Subquery, Q
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
-from apps.event.models import Events, Prtcps
-from apps.accounts.utils import get_current_student
+from apps.event.models import Events, Prtcps, EventDocs
+from apps.accounts.utils import get_current_student, get_client_ip, log_data_access
 from apps.accounts.permissions import require_permission, IsRole
 from .serializers import (
     EventAvailableSerializer, 
     EventJoinedSerializer,
+    EventDocsSerializer,
 )
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 
@@ -237,6 +239,66 @@ class StudentEventViewSet(viewsets.ViewSet):
                 'status': 'error',
                 'message': 'You have not participated in this event'
             }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'status': 'error',
+                'message': str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+    @extend_schema(
+        description="Get all images for an event (student access - only for events they are registered in)",
+        responses={
+            200: EventDocsSerializer(many=True),
+            403: OpenApiResponse(description="Permission denied - not a participant"),
+            404: OpenApiResponse(description="Event not found")
+        }
+    )
+    @action(detail=True, methods=['get'], url_path='images')
+    def get_images(self, request, pk=None):
+        """
+        GET /events/{id}/images/
+        Returns all images for a specific event that the student is registered in.
+        Students can ONLY view images for events they are participants of.
+        """
+        try:
+            student = get_current_student(request)
+            ip = get_client_ip(request)
+            
+            # Get the event
+            event = get_object_or_404(Events, event_id=pk, active=True)
+            
+            # Check if student is a participant in this event
+            participation = Prtcps.objects.filter(
+                event=event,
+                student=student
+            ).first()
+            
+            if not participation:
+                raise PermissionDenied("لا يمكنك عرض صور نشاط لم تشارك فيه")
+            
+            # Get all images for the event
+            docs = EventDocs.objects.filter(event=event)
+            
+
+            # Serialize and return the images
+            serializer = EventDocsSerializer(docs, many=True, context={'request': request})
+            
+            return Response({
+                'status': 'success',
+                'count': docs.count(),
+                'data': serializer.data
+            }, status=status.HTTP_200_OK)
+            
+        except Events.DoesNotExist:
+            return Response({
+                'status': 'error',
+                'message': 'Event not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except PermissionDenied as e:
+            return Response({
+                'status': 'error',
+                'message': str(e)
+            }, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
             return Response({
                 'status': 'error',
