@@ -341,23 +341,12 @@ class SolidarityService:
 
 
     @staticmethod
-    @transaction.atomic
     def update_faculty_discounts(admin, data):
         faculty = admin.faculty  # كلية الأدمن الحالي
         for field, value in data.items():
            setattr(faculty, field, value)
     
         faculty.save()
-        
-        # Log the faculty discount update
-        from apps.accounts.utils import log_data_access
-        log_data_access(
-            actor_id=admin.admin_id,
-            actor_type=admin.role,
-            action=f'تحديث خصومات الكلية: {faculty.name}',
-            target_type='اخر',
-            ip_address=None
-        )
         
         return faculty
 

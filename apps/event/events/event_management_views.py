@@ -24,11 +24,12 @@ from apps.accounts.utils import (
     log_data_access,
     get_current_user_token_payload
 )
+from apps.accounts.mixins import AdminActionMixin
 from django.db.models import Q, Prefetch
 
 # faculty admins & department managers 
 @extend_schema(tags=["Event Management APIs"])
-class EventGetterViewSet(viewsets.GenericViewSet):
+class EventGetterViewSet(AdminActionMixin, viewsets.GenericViewSet):
     permission_classes = [IsRole]
     allowed_roles = ['مسؤول كلية', 'مدير ادارة', 'مدير عام', 'مدير كلية', 'مشرف النظام']
 
@@ -160,7 +161,6 @@ class EventGetterViewSet(viewsets.GenericViewSet):
     def destroy(self, request, pk=None):
         event = self.get_object()
         admin = get_current_admin(request)
-        ip = get_client_ip(request)
         
         # Authorization check: only the creator can delete
         if event.created_by.admin_id != admin.admin_id:
@@ -173,33 +173,31 @@ class EventGetterViewSet(viewsets.GenericViewSet):
             if event.faculty_id and event.faculty_id != admin.faculty_id:
                 raise PermissionDenied("لا يمكنك حذف فعاليات من كلية أخرى")
         
-        event.active = False
-        event.status = 'ملغي'
-        event.save()
-        
-        log_data_access(
-            actor_id=admin.admin_id,
-            actor_type=admin.role,
-            action=f"حذف نشاط: {event.title}",
-            target_type='نشاط',
-            event_id=event.event_id,
-            ip_address=ip
-        )
-        
-        return Response(
-            {
+        def business_operation(admin, ip):
+            event.active = False
+            event.status = 'ملغي'
+            event.save()
+            return {
                 "detail": "تم إلغاء الفعالية بنجاح",
                 "event_id": event.event_id,
                 "title": event.title,
                 "status": event.status,
                 "active": event.active
-            },
-            status=status.HTTP_200_OK
+            }
+        
+        result = self.execute_admin_action(
+            request=request,
+            action_name=f"حذف نشاط: {event.title}",
+            target_type='نشاط',
+            business_operation=business_operation,
+            event_id=event.event_id
         )
+        
+        return Response(result, status=status.HTTP_200_OK)
 
 # faculty admins & department managers 
 @extend_schema(tags=["Event Management APIs"])
-class EventManagementViewSet(viewsets.GenericViewSet):
+class EventManagementViewSet(AdminActionMixin, viewsets.GenericViewSet):
     permission_classes = [IsRole]
     allowed_roles = ['مسؤول كلية', 'مدير ادارة']
     parser_classes = [JSONParser, MultiPartParser, FormParser]
@@ -296,7 +294,6 @@ class EventManagementViewSet(viewsets.GenericViewSet):
     def create(self, request):
         admin = get_current_admin(request)
         admin_payload = get_current_user_token_payload(request)
-        ip = get_client_ip(request)
         
         if admin.role == 'مسؤول كلية':
             if 'selected_facs' in request.data and request.data.get('selected_facs'):
@@ -347,7 +344,7 @@ class EventManagementViewSet(viewsets.GenericViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
-        with transaction.atomic():
+        def business_operation(admin, ip):
             create_kwargs = {
                 'created_by': admin,
             }
@@ -360,15 +357,15 @@ class EventManagementViewSet(viewsets.GenericViewSet):
                 create_kwargs['dept_id'] = request.data.get('dept')
             
             event = serializer.save(**create_kwargs)
-            
-            log_data_access(
-                actor_id=admin.admin_id,
-                actor_type=admin.role,
-                action=f"إنشاء نشاط: {event.title}",
-                target_type='نشاط',
-                event_id=event.event_id,
-                ip_address=ip
-            )
+            return event
+        
+        event = self.execute_admin_action(
+            request=request,
+            action_name=f"إنشاء نشاط",
+            target_type='نشاط',
+            business_operation=business_operation,
+            event_id=None
+        )
         
         detail_serializer = EventDetailSerializer(event)
         return Response(detail_serializer.data, status=status.HTTP_201_CREATED)
@@ -381,7 +378,6 @@ class EventManagementViewSet(viewsets.GenericViewSet):
     def partial_update(self, request, pk=None):
         admin = get_current_admin(request)
         admin_payload = get_current_user_token_payload(request)
-        ip = get_client_ip(request)
         
         event = self.get_object()
         
@@ -463,7 +459,7 @@ class EventManagementViewSet(viewsets.GenericViewSet):
         serializer = self.get_serializer(event, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         
-        with transaction.atomic():
+        def business_operation(admin, ip):
             updated_event = serializer.save()
             
             if admin.role == 'مدير ادارة':
@@ -475,14 +471,15 @@ class EventManagementViewSet(viewsets.GenericViewSet):
                     updated_event.dept_id = admin.dept_id
                     updated_event.save(update_fields=['dept_id'])
             
-            log_data_access(
-                actor_id=admin.admin_id,
-                actor_type=admin.role,
-                action=f"تحديث نشاط: {event.title}",
-                target_type='نشاط',
-                event_id=event.event_id,
-                ip_address=ip
-            )
+            return updated_event
+        
+        updated_event = self.execute_admin_action(
+            request=request,
+            action_name=f"تحديث نشاط: {event.title}",
+            target_type='نشاط',
+            business_operation=business_operation,
+            event_id=event.event_id
+        )
         
         detail_serializer = EventDetailSerializer(updated_event)
         return Response(detail_serializer.data)
@@ -504,7 +501,6 @@ class EventManagementViewSet(viewsets.GenericViewSet):
         Only the event creator can upload images
         """
         admin = get_current_admin(request)
-        ip = get_client_ip(request)
         
         # Get event and verify permissions
         event = self.get_object()
@@ -520,9 +516,8 @@ class EventManagementViewSet(viewsets.GenericViewSet):
         images = serializer.validated_data['images']
         doc_type = serializer.validated_data.get('doc_type', 'event_image')
         
-        uploaded_docs = []
-        
-        with transaction.atomic():
+        def business_operation(admin, ip):
+            uploaded_docs = []
             for image_file in images:
                 # Generate file path
                 import os
@@ -547,15 +542,15 @@ class EventManagementViewSet(viewsets.GenericViewSet):
                     uploaded_by=admin
                 )
                 uploaded_docs.append(doc)
-            
-            log_data_access(
-                actor_id=admin.admin_id,
-                actor_type=admin.role,
-                action=f"رفع {len(images)} صورة للنشاط: {event.title}",
-                target_type='نشاط',
-                event_id=event.event_id,
-                ip_address=ip
-            )
+            return uploaded_docs
+        
+        uploaded_docs = self.execute_admin_action(
+            request=request,
+            action_name=f"رفع {len(images)} صورة للنشاط: {event.title}",
+            target_type='نشاط',
+            business_operation=business_operation,
+            event_id=event.event_id
+        )
         
         response_serializer = EventDocsSerializer(
             uploaded_docs, 
@@ -574,19 +569,18 @@ class EventManagementViewSet(viewsets.GenericViewSet):
         """
         Retrieve all uploaded images for a specific event
         """
-        admin = get_current_admin(request)
-        ip = get_client_ip(request)
-        
         event = self.get_object()
         docs = event.event_docs.all()
         
-        log_data_access(
-            actor_id=admin.admin_id,
-            actor_type=admin.role,
-            action=f"عرض صور النشاط: {event.title}",
+        def business_operation(admin, ip):
+            return docs
+        
+        docs = self.execute_admin_action(
+            request=request,
+            action_name=f"عرض صور النشاط: {event.title}",
             target_type='نشاط',
-            event_id=event.event_id,
-            ip_address=ip
+            business_operation=business_operation,
+            event_id=event.event_id
         )
         
         serializer = EventDocsSerializer(docs, many=True, context={'request': request})
@@ -608,7 +602,6 @@ class EventManagementViewSet(viewsets.GenericViewSet):
         Only the event creator can delete images
         """
         admin = get_current_admin(request)
-        ip = get_client_ip(request)
         
         event = self.get_object()
         
@@ -624,7 +617,7 @@ class EventManagementViewSet(viewsets.GenericViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        with transaction.atomic():
+        def business_operation(admin, ip):
             # Delete the file from storage
             from django.core.files.storage import default_storage
             if doc.file_path:
@@ -637,21 +630,21 @@ class EventManagementViewSet(viewsets.GenericViewSet):
                     logger.warning(f"Could not delete file {doc.file_path}: {str(e)}")
             
             doc.delete()
-            
-            log_data_access(
-                actor_id=admin.admin_id,
-                actor_type=admin.role,
-                action=f"حذف صورة رقم {doc_id} من النشاط: {event.title}",
-                target_type='نشاط',
-                event_id=event.event_id,
-                ip_address=ip
-            )
+            return None
+        
+        self.execute_admin_action(
+            request=request,
+            action_name=f"حذف صورة رقم {doc_id} من النشاط: {event.title}",
+            target_type='نشاط',
+            business_operation=business_operation,
+            event_id=event.event_id
+        )
         
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 # faculty head & general admin
 @extend_schema(tags=["Event Management APIs"])
-class EventARViewSet(viewsets.GenericViewSet):
+class EventARViewSet(AdminActionMixin, viewsets.GenericViewSet):
     permission_classes = [IsRole]
     allowed_roles = ['مدير عام', 'مدير كلية']
     serializer_class = EventDetailSerializer
@@ -697,9 +690,6 @@ class EventARViewSet(viewsets.GenericViewSet):
         Approve an event by updating its status to 'مقبول'
         Only accessible by faculty heads and general admins
         """
-        admin = get_current_admin(request)
-        ip = get_client_ip(request)
-        
         event = self.get_object()
 
         if event.status == 'مقبول':
@@ -714,18 +704,18 @@ class EventARViewSet(viewsets.GenericViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        with transaction.atomic():
+        def business_operation(admin, ip):
             event.status = 'مقبول'
             event.save(update_fields=['status'])
-            
-            log_data_access(
-                actor_id=admin.admin_id,
-                actor_type=admin.role,
-                action=f"الموافقة على نشاط: {event.title}",
-                target_type='نشاط',
-                event_id=event.event_id,
-                ip_address=ip
-            )
+            return event
+        
+        event = self.execute_admin_action(
+            request=request,
+            action_name=f"الموافقة على نشاط: {event.title}",
+            target_type='نشاط',
+            business_operation=business_operation,
+            event_id=event.event_id
+        )
         
         serializer = EventDetailSerializer(event)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -745,9 +735,6 @@ class EventARViewSet(viewsets.GenericViewSet):
         Reject an event by updating its status to 'مرفوض'
         Only accessible by faculty heads and general admins
         """
-        admin = get_current_admin(request)
-        ip = get_client_ip(request)
-        
         event = self.get_object() 
 
         if event.status == 'مرفوض':
@@ -762,18 +749,18 @@ class EventARViewSet(viewsets.GenericViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        with transaction.atomic():
+        def business_operation(admin, ip):
             event.status = 'مرفوض'
             event.save(update_fields=['status'])
-            
-            log_data_access(
-                actor_id=admin.admin_id,
-                actor_type=admin.role,
-                action=f"رفض نشاط: {event.title}",
-                target_type='نشاط',
-                event_id=event.event_id,
-                ip_address=ip
-            )
+            return event
+        
+        event = self.execute_admin_action(
+            request=request,
+            action_name=f"رفض نشاط: {event.title}",
+            target_type='نشاط',
+            business_operation=business_operation,
+            event_id=event.event_id
+        )
         
         serializer = EventDetailSerializer(event)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -781,7 +768,7 @@ class EventARViewSet(viewsets.GenericViewSet):
 
 # faculty admins activating an event from a plan 
 @extend_schema(tags=["Event Management APIs"])
-class EventActivationViewSet(viewsets.GenericViewSet):
+class EventActivationViewSet(AdminActionMixin, viewsets.GenericViewSet):
     permission_classes = [IsRole]
     allowed_roles = ['مسؤول كلية','مدير ادارة']
     serializer_class = EventCreateUpdateSerializer
@@ -830,9 +817,6 @@ class EventActivationViewSet(viewsets.GenericViewSet):
     )
     @action(detail=True, methods=['post'], url_path='activate')
     def activate_event(self, request, pk=None):
-        admin = get_current_admin(request)
-        ip = get_client_ip(request)
-        
         event = self.get_object()
         
         if event.status != 'مقبول':
@@ -841,18 +825,18 @@ class EventActivationViewSet(viewsets.GenericViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        with transaction.atomic():
+        def business_operation(admin, ip):
             event.active = not event.active
             event.save(update_fields=['active'])
-            
-            log_data_access(
-                actor_id=admin.admin_id,
-                actor_type=admin.role,
-                action=f"{'تفعيل' if event.active else 'إلغاء تفعيل'} نشاط: {event.title}",
-                target_type='نشاط',
-                event_id=event.event_id,
-                ip_address=ip
-            )
+            return event
+        
+        event = self.execute_admin_action(
+            request=request,
+            action_name=f"{'تفعيل' if event.active else 'إلغاء تفعيل'} نشاط: {event.title}",
+            target_type='نشاط',
+            business_operation=business_operation,
+            event_id=event.event_id
+        )
         
         detail_serializer = EventDetailSerializer(event)
         return Response(detail_serializer.data)

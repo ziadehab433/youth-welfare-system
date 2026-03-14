@@ -6,13 +6,14 @@ from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse
 from django.db import transaction
 from apps.accounts.utils import get_current_admin, get_client_ip, log_data_access
+from apps.accounts.mixins import AdminActionMixin
 from apps.event.models import Events, Prtcps
 from apps.family.models import Students
 from .serializers import ParticipantResultSerializer
 from apps.accounts.permissions import require_permission, IsRole 
 from apps.accounts.serializers import StudentDetailSerializer
 @extend_schema(tags=["Event Management APIs"])
-class EventParticipantViewSet(viewsets.GenericViewSet):
+class EventParticipantViewSet(AdminActionMixin, viewsets.GenericViewSet):
     permission_classes = [IsRole]
     allowed_roles = ['مسؤول كلية', 'مدير ادارة', 'مشرف النظام']
     def get_queryset(self):
@@ -52,60 +53,51 @@ class EventParticipantViewSet(viewsets.GenericViewSet):
     @action(detail=True, methods=['patch'], url_path=r'participants/(?P<student_id>\d+)/approve')
     @require_permission('update')
     def approve_participant(self, request, pk=None, student_id=None):
-        admin = get_current_admin(request)
-        ip = get_client_ip(request)
         event = self.get_object()
         self._validate_event_editable(event)
 
-        with transaction.atomic():
-            participation = Prtcps.objects.select_for_update().filter(
-                event=event, 
-                student_id=student_id
-            ).first()
-            if not participation:
+        participation = Prtcps.objects.select_for_update().filter(
+            event=event, 
+            student_id=student_id
+        ).first()
+        if not participation:
+            return Response(
+                {"error": "No join request found for this student"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        if participation.status == 'مقبول':
+            return Response(
+                {"message": "Student is already approved"}, 
+                status=status.HTTP_200_OK
+            )
+        if participation.status == 'مرفوض':
+            return Response(
+                {"error": "Cannot approve a previously rejected student"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        student = Students.objects.filter(student_id=student_id).first()
+        if not student:
+            return Response(
+                {"error": "Student not found in system"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        if event.faculty_id:
+            if student.faculty_id != event.faculty_id:
                 return Response(
-                    {"error": "No join request found for this student"}, 
-                    status=status.HTTP_404_NOT_FOUND
+                    {"error": "Student does not belong to the organizing faculty"}, 
+                    status=status.HTTP_403_FORBIDDEN
                 )
-            if participation.status == 'مقبول':
+        elif event.selected_facs:
+            if student.faculty_id not in event.selected_facs:
                 return Response(
-                    {"message": "Student is already approved"}, 
-                    status=status.HTTP_200_OK
+                    {"error": "Student's faculty is not selected for this event"}, 
+                    status=status.HTTP_403_FORBIDDEN
                 )
-            if participation.status == 'مرفوض':
-                return Response(
-                    {"error": "Cannot approve a previously rejected student"}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            student = Students.objects.filter(student_id=student_id).first()
-            if not student:
-                return Response(
-                    {"error": "Student not found in system"}, 
-                    status=status.HTTP_404_NOT_FOUND
-                )
-            if event.faculty_id:
-                if student.faculty_id != event.faculty_id:
-                    return Response(
-                        {"error": "Student does not belong to the organizing faculty"}, 
-                        status=status.HTTP_403_FORBIDDEN
-                    )
-            elif event.selected_facs:
-                if student.faculty_id not in event.selected_facs:
-                    return Response(
-                        {"error": "Student's faculty is not selected for this event"}, 
-                        status=status.HTTP_403_FORBIDDEN
-                    )
+        
+        def business_operation(admin, ip):
             participation.status = 'مقبول'
             participation.save()
-            log_data_access(
-            actor_id=admin.admin_id, 
-            actor_type=admin.role,
-            action=f"تم قبول الطالب {student.name} (رقم: {student_id}) في نشاط: {event.title}",
-            target_type='نشاط', 
-            event_id=event.event_id, 
-            ip_address=ip
-            )
-            return Response({
+            return {
                 "message": "Student approved successfully",
                 "data": {
                     "student_id": student_id,
@@ -114,7 +106,17 @@ class EventParticipantViewSet(viewsets.GenericViewSet):
                     "event_title": event.title,
                     "status": participation.status
                 }
-            })
+            }
+        
+        result = self.execute_admin_action(
+            request=request,
+            action_name=f"تم قبول الطالب {student.name} (رقم: {student_id}) في نشاط: {event.title}",
+            target_type='نشاط',
+            business_operation=business_operation,
+            event_id=event.event_id
+        )
+        
+        return Response(result)
     @extend_schema(
         description="Reject a specific student's request to join the event.",
         responses={
@@ -127,43 +129,43 @@ class EventParticipantViewSet(viewsets.GenericViewSet):
     @action(detail=True, methods=['patch'], url_path=r'participants/(?P<student_id>\d+)/reject')
     @require_permission('update')
     def reject_participant(self, request, pk=None, student_id=None):
-        admin = get_current_admin(request)
-        ip = get_client_ip(request)
         event = self.get_object()
         self._validate_event_editable(event)
 
-        with transaction.atomic():
-            participation = Prtcps.objects.select_for_update().filter(
-                event=event, 
-                student_id=student_id
-            ).first()
-            if not participation:
-                return Response(
-                    {"error": "No join request found for this student"}, 
-                    status=status.HTTP_404_NOT_FOUND
-                )
-            if participation.status == 'مرفوض':
-                return Response(
-                    {"message": "Student is already rejected"}, 
-                    status=status.HTTP_200_OK
-                )
-            if participation.status == 'مقبول':
-                return Response(
-                    {"error": "Cannot reject an already approved student"}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+        participation = Prtcps.objects.select_for_update().filter(
+            event=event, 
+            student_id=student_id
+        ).first()
+        if not participation:
+            return Response(
+                {"error": "No join request found for this student"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        if participation.status == 'مرفوض':
+            return Response(
+                {"message": "Student is already rejected"}, 
+                status=status.HTTP_200_OK
+            )
+        if participation.status == 'مقبول':
+            return Response(
+                {"error": "Cannot reject an already approved student"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        def business_operation(admin, ip):
             participation.status = 'مرفوض'
             participation.save()
-
-            log_data_access(
-                actor_id=admin.admin_id, 
-                actor_type=admin.role,
-                action=f"تم رفض طلب انضمام الطالب (رقم: {student_id}) للنشاط: {event.title}",
-                target_type='نشاط', 
-                event_id=event.event_id, 
-                ip_address=ip
-            )
-            return Response({"message": "Student request rejected successfully"})
+            return {"message": "Student request rejected successfully"}
+        
+        result = self.execute_admin_action(
+            request=request,
+            action_name=f"تم رفض طلب انضمام الطالب (رقم: {student_id}) للنشاط: {event.title}",
+            target_type='نشاط',
+            business_operation=business_operation,
+            event_id=event.event_id
+        )
+        
+        return Response(result)
     @extend_schema(
         description="Approve all currently pending student requests for this event in bulk.",
         responses={200: OpenApiResponse(description="All pending participants approved")}
@@ -171,15 +173,15 @@ class EventParticipantViewSet(viewsets.GenericViewSet):
     @action(detail=True, methods=['patch'], url_path='approve-all-participants')
     @require_permission('update')
     def approve_all_participants(self, request, pk=None):
-        admin = get_current_admin(request)
-        ip = get_client_ip(request)
         event = self.get_object()
         self._validate_event_editable(event)
-        with transaction.atomic():
-            pending_count = Prtcps.objects.filter(
-                event=event, 
-                status='منتظر'
-            ).count()
+        
+        pending_count = Prtcps.objects.filter(
+            event=event, 
+            status='منتظر'
+        ).count()
+        
+        def business_operation(admin, ip):
             participants_qs = Prtcps.objects.select_for_update().filter(
                 event=event, 
                 status='منتظر'
@@ -189,23 +191,25 @@ class EventParticipantViewSet(viewsets.GenericViewSet):
             elif event.selected_facs:
                 participants_qs = participants_qs.filter(student__faculty_id__in=event.selected_facs)
             updated_count = participants_qs.update(status='مقبول')
-            log_data_access(
-                actor_id=admin.admin_id, 
-                actor_type=admin.role,
-                action=f"تم قبول جميع الطلاب (العدد: {updated_count}) في نشاط: {event.title}",
-                target_type='نشاط', 
-                event_id=event.event_id, 
-                ip_address=ip
-            )
-        return Response({
-            "message": f"Successfully approved {updated_count} out of {pending_count} pending participants",
-            "data": {
-                "event_id": event.event_id,
-                "event_title": event.title,
-                "approved_count": updated_count,
-                "pending_count": pending_count - updated_count
+            return {
+                "message": f"Successfully approved {updated_count} out of {pending_count} pending participants",
+                "data": {
+                    "event_id": event.event_id,
+                    "event_title": event.title,
+                    "approved_count": updated_count,
+                    "pending_count": pending_count - updated_count
+                }
             }
-        })
+        
+        result = self.execute_admin_action(
+            request=request,
+            action_name=f"تم قبول جميع الطلاب في نشاط: {event.title}",
+            target_type='نشاط',
+            business_operation=business_operation,
+            event_id=event.event_id
+        )
+        
+        return Response(result)
     @extend_schema(
         request=ParticipantResultSerializer,
         responses={
@@ -223,8 +227,6 @@ class EventParticipantViewSet(viewsets.GenericViewSet):
         - Event must be completed (end_date passed)
         - Participant must be approved
         """
-        admin = get_current_admin(request)
-        ip = get_client_ip(request)
         event = self.get_object()
         self._validate_event_editable(event)
         today = timezone.now().date()
@@ -237,40 +239,42 @@ class EventParticipantViewSet(viewsets.GenericViewSet):
             }, status=status.HTTP_400_BAD_REQUEST)
         serializer = ParticipantResultSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        with transaction.atomic():
-            participant = Prtcps.objects.select_for_update().filter(
-                event=event, 
-                student_id=student_id, 
-                status='مقبول'
-            ).first()
-            if not participant:
-                return Response({
-                    "error": "Student not found or not approved in this event"
-                }, status=status.HTTP_404_NOT_FOUND)
-            old_rank = participant.rank
-            old_reward = participant.reward
+        
+        participant = Prtcps.objects.select_for_update().filter(
+            event=event, 
+            student_id=student_id, 
+            status='مقبول'
+        ).first()
+        if not participant:
+            return Response({
+                "error": "Student not found or not approved in this event"
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        def business_operation(admin, ip):
             participant.rank = serializer.validated_data.get('rank', participant.rank)
             participant.reward = serializer.validated_data.get('reward', participant.reward)
             participant.save()
-            log_data_access(
-                actor_id=admin.admin_id, 
-                actor_type=admin.role,
-                action=f"تم تسجيل نتيجة الطالب (رقم: {student_id}) في نشاط: {event.title} - المركز: {participant.rank} - المكافأة: {participant.reward}",
-                target_type='نشاط', 
-                event_id=event.event_id, 
-                ip_address=ip
-            )
-        return Response({
-            "message": "Result assigned successfully",
-            "data": {
-                "student_id": student_id,
-                "event_id": event.event_id,
-                "event_title": event.title,
-                "rank": participant.rank,
-                "reward": participant.reward,
-                "assigned_at": timezone.now().isoformat()  
+            return {
+                "message": "Result assigned successfully",
+                "data": {
+                    "student_id": student_id,
+                    "event_id": event.event_id,
+                    "event_title": event.title,
+                    "rank": participant.rank,
+                    "reward": participant.reward,
+                    "assigned_at": timezone.now().isoformat()  
+                }
             }
-        })
+        
+        result = self.execute_admin_action(
+            request=request,
+            action_name=f"تم تسجيل نتيجة الطالب (رقم: {student_id}) في نشاط: {event.title} - المركز: {participant.rank} - المكافأة: {participant.reward}",
+            target_type='نشاط',
+            business_operation=business_operation,
+            event_id=event.event_id
+        )
+        
+        return Response(result)
     @extend_schema(
         tags=["Event Management APIs"],
         description="Retrieve detailed information of a specific student for admins.",
