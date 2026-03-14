@@ -162,17 +162,7 @@ class PlanService:
         plan = Plans.objects.create(**validated_data)
         
 
-        # Log the plan creation
-        # if we need it , must make a new column in logs (plan_id) and updated the constrain of logs_single_target_check to allow null values for plan_id and event_id ... and so on
-        # logger.info(f"Admin {admin.admin_id} created plan {plan.plan_id}")
-        # from apps.accounts.utils import log_data_access
-        # log_data_access(
-        #     actor_id=admin.admin_id,
-        #     actor_type=admin.role,
-        #     action=f'إنشاء خطة جديدة: {plan.name}',
-        #     target_type='اخر',
-        #     ip_address=None
-        # )
+
         
         return plan
 
@@ -187,16 +177,7 @@ class PlanService:
             setattr(plan, attr, value)
         plan.save()
         
-        # # Log the plan update
-        # logger.info(f"Admin {admin.admin_id} updated plan {plan.plan_id}")
-        # from apps.accounts.utils import log_data_access
-        # log_data_access(
-        #     actor_id=admin.admin_id,
-        #     actor_type=admin.role,
-        #     action=f'تحديث خطة: {plan.name}',
-        #     target_type='اخر',
-        #     ip_address=None
-        # )
+
         
         return plan
 

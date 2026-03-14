@@ -80,15 +80,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
             return Response({'error': msg}, status=status.HTTP_400_BAD_REQUEST)
             #  Log that this admin viewed the solidarity details
 
-        # log_data_access(
-        #     actor_id=admin.admin_id,
-        #     actor_type=admin.role,
-        #     action='عرض بيانات الطلب',      # “Viewed solidarity details”
-        #     target_type='تكافل',
-        #     solidarity_id=pk,
-        #     ip_address=client_ip
 
-        # )
         return Response(SolidarityDetailSerializer(solidarity).data)
 
     @extend_schema(
