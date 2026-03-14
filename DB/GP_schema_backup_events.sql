@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict C2ZQKu8YT0VbE0ppf7NLiauydPbhXPBzFT6E4acjoTQ3UOqksVEmt38JCE1VyEB
+\restrict WwGbtHldtIRgm4GnyvPxHxM2V2e7v1WxnWt47BFz5RitbcDv5fiZTmnFprXI2h2
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.6
@@ -1097,7 +1097,7 @@ CREATE TABLE public.logs (
     actor_type public.actor_type,
     target_type public.target_type NOT NULL,
     student_id integer,
-    CONSTRAINT logs_single_target_check CHECK ((((target_type = 'نشاط'::public.target_type) AND (event_id IS NOT NULL) AND (solidarity_id IS NULL)) OR ((target_type = 'تكافل'::public.target_type) AND (solidarity_id IS NOT NULL) AND (event_id IS NULL) AND (family_id IS NULL)) OR ((target_type = 'اسر'::public.target_type) AND (family_id IS NOT NULL) AND (event_id IS NULL) AND (solidarity_id IS NULL)) OR ((target_type = 'طالب'::public.target_type) AND (student_id IS NOT NULL) AND (event_id IS NULL) AND (solidarity_id IS NULL))))
+    CONSTRAINT logs_single_target_check CHECK ((((target_type = 'نشاط'::public.target_type) AND (event_id IS NOT NULL) AND (solidarity_id IS NULL) AND (family_id IS NULL) AND (student_id IS NULL)) OR ((target_type = 'تكافل'::public.target_type) AND (solidarity_id IS NOT NULL) AND (event_id IS NULL) AND (family_id IS NULL) AND (student_id IS NULL)) OR ((target_type = 'اسر'::public.target_type) AND (family_id IS NOT NULL) AND (event_id IS NULL) AND (solidarity_id IS NULL) AND (student_id IS NULL)) OR ((target_type = 'طالب'::public.target_type) AND (student_id IS NOT NULL) AND (event_id IS NULL) AND (solidarity_id IS NULL)) OR ((target_type = 'اخر'::public.target_type) AND (solidarity_id IS NULL) AND (family_id IS NULL) AND (event_id IS NULL) AND (student_id IS NULL))))
 );
 
 
@@ -2434,5 +2434,5 @@ ALTER TABLE ONLY public.students
 -- PostgreSQL database dump complete
 --
 
-\unrestrict C2ZQKu8YT0VbE0ppf7NLiauydPbhXPBzFT6E4acjoTQ3UOqksVEmt38JCE1VyEB
+\unrestrict WwGbtHldtIRgm4GnyvPxHxM2V2e7v1WxnWt47BFz5RitbcDv5fiZTmnFprXI2h2
 

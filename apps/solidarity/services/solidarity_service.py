@@ -322,17 +322,7 @@ class SolidarityService:
                     f"total_discount={solidarity.total_discount}, "
                     f"discount_type={solidarity.discount_type}")
             
-            # Log the discount assignment
-            from apps.accounts.utils import log_data_access
-            log_data_access(
-                actor_id=admin.admin_id,
-                actor_type=admin.role,
-                action=f'تعيين خصومات للطلب - المبلغ الإجمالي: {total_discount}',
-                target_type='تكافل',
-                solidarity_id=solidarity.solidarity_id,
-                ip_address=None
-            )
-            
+            # Logging removed - will be done in view layer
             return solidarity
             
         except Exception as e:
@@ -415,7 +405,6 @@ class SolidarityService:
 
 
     @staticmethod
-    @transaction.atomic
     def change_to_approve(solidarity_id, admin):
         solidarity = Solidarities.objects.select_for_update().get(solidarity_id=solidarity_id)
 
@@ -432,22 +421,12 @@ class SolidarityService:
 
         logger.info(f"Super admin {admin.name} approved application {solidarity_id}.")
         
-        # Log the super admin approval
-        from apps.accounts.utils import log_data_access
-        log_data_access(
-            actor_id=admin.admin_id,
-            actor_type=admin.role,
-            action=f'موافقة مشرف النظام على طلب تكافل',
-            target_type='تكافل',
-            solidarity_id=solidarity.solidarity_id,
-            ip_address=None
-        )
-        
+        # Logging removed - will be done in view layer
+        # @transaction.atomic removed - will be handled by execute_admin_action
         return {'message': 'Application approved successfully.'}
 
 
     @staticmethod
-    @transaction.atomic
     def change_to_reject(solidarity_id, admin):
         solidarity = Solidarities.objects.select_for_update().get(solidarity_id=solidarity_id)
 
@@ -464,17 +443,8 @@ class SolidarityService:
 
         logger.info(f"Super admin {admin.name} rejected application {solidarity_id}.")
         
-        # Log the super admin rejection
-        from apps.accounts.utils import log_data_access
-        log_data_access(
-            actor_id=admin.admin_id,
-            actor_type=admin.role,
-            action=f'رفض مشرف النظام لطلب تكافل',
-            target_type='تكافل',
-            solidarity_id=solidarity.solidarity_id,
-            ip_address=None
-        )
-        
+        # Logging removed - will be done in view layer
+        # @transaction.atomic removed - will be handled by execute_admin_action
         return {'message': 'Application rejected successfully.'}
     
 

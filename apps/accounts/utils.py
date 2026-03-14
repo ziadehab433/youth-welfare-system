@@ -1,10 +1,11 @@
 
-from django.db import connection
+from django.db import connection, transaction
 from django.shortcuts import get_object_or_404
 from apps.accounts.models import Students
 from django.core.files.storage import FileSystemStorage
 from django.utils import timezone
 from django.conf import settings
+import logging
 
 from io import BytesIO
 
@@ -14,6 +15,8 @@ from rest_framework.exceptions import AuthenticationFailed
 from django.shortcuts import get_object_or_404
 from apps.accounts.models import AdminsUser
 from apps.solidarity.models import Logs
+
+logger = logging.getLogger(__name__)
 
 
 def get_client_ip(request):
@@ -119,4 +122,35 @@ def get_all_logs(filters=None):
             queryset = queryset.filter(target_type=filters['target_type'])
             
     return queryset
+
     
+def execute_admin_action(
+    request,
+    operation,
+    action,
+    target_type,
+    solidarity_id=None,
+    family_id=None,
+    event_id=None,
+    student_id=None
+):
+    admin = get_current_admin(request)
+    ip_address = get_client_ip(request)
+    
+    # Both business logic AND logging inside the same transaction
+    with transaction.atomic():
+        result = operation(admin, ip_address)
+        
+        log_data_access(
+            actor_id=admin.admin_id,
+            actor_type=admin.role,
+            action=action,
+            target_type=target_type,
+            solidarity_id=solidarity_id,
+            family_id=family_id,
+            event_id=event_id,
+            ip_address=ip_address,
+            student_id=student_id
+        )
+    
+    return result

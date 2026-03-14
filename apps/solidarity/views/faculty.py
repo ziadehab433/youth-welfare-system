@@ -170,30 +170,43 @@ class FacultyAdminSolidarityViewSet(AdminActionMixin, viewsets.GenericViewSet):
     )
     @action(detail=True, methods=['patch'], url_path='assign_discount')
     @require_permission('update' )
-    #@require_any_permission('update', 'create')  # Can have either
     def assign_discount(self, request, pk=None):
         try:
-            admin = get_current_admin(request)
+            from apps.accounts.utils import execute_admin_action
+            
             serializer = DiscountAssignSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
 
             discount_data = serializer.validated_data['discounts']
             
+            # Get solidarity first for validation
+            admin = get_current_admin(request)
             solidarity = SolidarityService.get_application_detail(pk, admin)
-            updated_solidarity = SolidarityService.assign_discounts(
-                admin, 
-                solidarity, 
-                discount_data
+            
+            # Calculate total for logging
+            total_discount = sum(float(d['discount_value']) for d in discount_data)
+            
+            # Define business operation
+            def business_operation(admin, ip):
+                return SolidarityService.assign_discounts(admin, solidarity, discount_data)
+            
+            # Execute with safe logging
+            updated_solidarity = execute_admin_action(
+                request=request,
+                operation=business_operation,
+                action=f'تعيين خصومات للطلب - المبلغ الإجمالي: {total_discount}',
+                target_type='تكافل',
+                solidarity_id=pk
             )
 
             return Response({
                 "message": "تم تطبيق الخصم بنجاح",
                 "solidarity_id": updated_solidarity.solidarity_id,
                 "total_discount": float(updated_solidarity.total_discount) if updated_solidarity.total_discount else None,
-                "discount_types": updated_solidarity.discount_type,  # Returns Arabic
+                "discount_types": updated_solidarity.discount_type,
                 "discounts_applied": [
                     {
-                        "type": get_arabic_discount_type(d['discount_type']),  # Convert to Arabic
+                        "type": get_arabic_discount_type(d['discount_type']),
                         "value": float(d['discount_value'])
                     } for d in discount_data
                 ],
