@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict dij7xm3UpvpXuZwY15QOaCoGkizaRIb9RVmTg0XKlwDv7IBgKwduahlTPXOT5Fh
+\restrict CZhPO0ruM1pz3sgrqVKguFhDE47Bdw4I6nWT0SksY3VXUW0BIOJiqEbgovKNmXg
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.6
@@ -1096,8 +1096,7 @@ CREATE TABLE public.logs (
     logged_at timestamp with time zone DEFAULT now(),
     actor_type public.actor_type,
     target_type public.target_type NOT NULL,
-    student_id integer,
-    CONSTRAINT logs_single_target_check CHECK ((((target_type = 'نشاط'::public.target_type) AND (event_id IS NOT NULL) AND (solidarity_id IS NULL) AND (family_id IS NULL) AND (student_id IS NULL)) OR ((target_type = 'تكافل'::public.target_type) AND (solidarity_id IS NOT NULL) AND (event_id IS NULL) AND (family_id IS NULL) AND (student_id IS NULL)) OR ((target_type = 'اسر'::public.target_type) AND (family_id IS NOT NULL) AND (event_id IS NULL) AND (solidarity_id IS NULL) AND (student_id IS NULL)) OR ((target_type = 'طالب'::public.target_type) AND (student_id IS NOT NULL) AND (event_id IS NULL) AND (solidarity_id IS NULL)) OR ((target_type = 'اخر'::public.target_type) AND (solidarity_id IS NULL) AND (family_id IS NULL) AND (event_id IS NULL) AND (student_id IS NULL))))
+    student_id integer
 );
 
 
@@ -1407,7 +1406,7 @@ COPY public.admins (admin_id, name, email, password, faculty_id, dept_id, create
 8	omar	omar@gmail.com	pbkdf2_sha256$1000000$vlZHhPpW9IpNAdiVAlRLoZ$EKZZMi53hEdx/k1aLRSkqXWKnmZgVcXUMN0N8tP7RNQ=	1	\N	2025-10-30 01:10:42.356929+03	t	t	t	t	active	مسؤول كلية	{"الأنشطة العلمية","التكافل الإجتماعي","الأسر الطلابية"}	\N	\N
 24	culturedept	culturedept@gmail.com	pbkdf2_sha256$1000000$v8zWc4ANZlYIYRwN0tIMwz$IkQybCAsxps7w88JEaz276ucTV2KC9urijBSvwkVCfI=	\N	4	2026-03-13 02:28:35.041691+02	t	t	t	t	active	مدير ادارة	{}	\N	\N
 16	oo	oo@gmail.com	pbkdf2_sha256$1000000$QXXplajwQLlKBLRkvWyEDG$j2Hy8tqFThcTmWs+C0g6pFfGvVtrklz/leeYU9X0WzI=	\N	9	2025-11-18 20:45:57.231286+02	t	t	t	t	active	مدير ادارة	\N	\N	\N
-22	احمد محمد علي	ahmed.mohamed.ali@gmail.com	pbkdf2_sha256$1000000$5RPz3vxDK2TMUFtVC9pPlF$fI5uqR/sJ1MZ1LDrZcJGcyWCytgjYozVKwxSi6PsEaQ=	3	\N	2026-03-13 00:09:57.336158+02	t	t	t	t	active	مسؤول كلية	{"الأنشطة الرياضية","الأنشطة الثقافية","الأنشطة الاجتماعية","الأنشطة العلمية"}	\N	\N
+22	احمد محمد علي	ahmed.mohamed.ali@gmail.com	pbkdf2_sha256$1000000$5RPz3vxDK2TMUFtVC9pPlF$fI5uqR/sJ1MZ1LDrZcJGcyWCytgjYozVKwxSi6PsEaQ=	3	\N	2026-03-13 00:09:57.336158+02	t	t	t	t	active	مسؤول كلية	{"الأنشطة الرياضية","الأنشطة الثقافية","الأنشطة الاجتماعية","الأنشطة العلمية","التكافل الإجتماعي","الأسر الطلابية"}	\N	\N
 \.
 
 
@@ -1768,9 +1767,9 @@ COPY public.events (event_id, title, description, dept_id, faculty_id, created_b
 --
 
 COPY public.faculties (faculty_id, name, major, created_at, aff_discount, reg_discount, bk_discount, full_discount) FROM stdin;
-3	الطب	{البشري}	2025-10-25 22:28:16.437365+03	{100}	{200}	{300}	{400}
 2	كلية العلوم	{"علوم أساسية"}	2025-10-20 02:34:30.31113+03	{400}	{300}	{200}	{100}
-1	كلية الهندسة	{"هندسة عامة"}	2025-10-20 02:34:30.31113+03	{100}	{50}	{40}	{1020}
+1	كلية الهندسة	{"هندسة عامة"}	2025-10-20 02:34:30.31113+03	{100,200}	{50}	{40}	{1020}
+3	الطب	{البشري}	2025-10-25 22:28:16.437365+03	{100}	{200,500}	{300}	{400}
 \.
 
 
@@ -1976,8 +1975,6 @@ COPY public.logs (log_id, actor_id, action, event_id, solidarity_id, family_id, 
 21	8	عرض صور النشاط: fds	60	\N	\N	127.0.0.1	2026-03-07 00:32:54.169312+02	مسؤول كلية	نشاط	\N
 22	8	حذف صورة رقم 13 من النشاط: fds	60	\N	\N	127.0.0.1	2026-03-07 00:33:22.848377+02	مسؤول كلية	نشاط	\N
 23	8	إزالة نشاط "fds" من الخطة "string5005050r"	60	\N	\N	\N	2026-03-07 00:33:50.087375+02	مسؤول كلية	نشاط	\N
-28	8	عرض مستندات الطلب	\N	37	\N	127.0.0.1	2026-03-09 07:55:08.224264+02	مسؤول كلية	تكافل	\N
-29	8	عرض مستندات الطلب	\N	37	\N	127.0.0.1	2026-03-09 09:57:23.649498+02	مسؤول كلية	تكافل	\N
 30	8	عرض صور النشاط: fds	60	\N	\N	127.0.0.1	2026-03-09 10:07:14.385698+02	مسؤول كلية	نشاط	\N
 31	8	عرض صور النشاط: fds	60	\N	\N	127.0.0.1	2026-03-09 10:07:14.464137+02	مسؤول كلية	نشاط	\N
 32	16	عرض صور النشاط: ماراثون العدو السنوي	3	\N	\N	127.0.0.1	2026-03-09 10:09:57.874354+02	مدير ادارة	نشاط	\N
@@ -2018,6 +2015,8 @@ COPY public.logs (log_id, actor_id, action, event_id, solidarity_id, family_id, 
 73	22	انشاء نشاط	65	\N	\N	::1	2026-03-13 00:28:45.408385+02	\N	نشاط	\N
 74	22	إنشاء نشاط: عنوان وهمي	65	\N	\N	127.0.0.1	2026-03-13 00:28:45.408385+02	مسؤول كلية	نشاط	\N
 75	22	انشاء نشاط	66	\N	\N	::1	2026-03-13 00:30:21.455171+02	\N	نشاط	\N
+28	8	عرض مستندات الطلب	\N	\N	\N	127.0.0.1	2026-03-09 07:55:08.224264+02	مسؤول كلية	تكافل	\N
+29	8	عرض مستندات الطلب	\N	\N	\N	127.0.0.1	2026-03-09 09:57:23.649498+02	مسؤول كلية	تكافل	\N
 76	22	إنشاء نشاط جديد "نشاط ثقافي هنعمله" للخطة "خطة للأنشطة الثقافية"	66	\N	\N	\N	2026-03-13 00:30:21.468238+02	مسؤول كلية	نشاط	\N
 80	22	عرض صور النشاط: عنوان وهمي	65	\N	\N	127.0.0.1	2026-03-13 01:12:51.085463+02	مسؤول كلية	نشاط	\N
 81	22	عرض صور النشاط: عنوان وهمي	65	\N	\N	127.0.0.1	2026-03-13 01:12:51.212238+02	مسؤول كلية	نشاط	\N
@@ -2123,6 +2122,39 @@ COPY public.logs (log_id, actor_id, action, event_id, solidarity_id, family_id, 
 183	24	عرض صور النشاط: بيس	68	\N	\N	127.0.0.1	2026-03-13 09:50:08.316051+02	مدير ادارة	نشاط	\N
 184	24	عرض صور النشاط: بيس	68	\N	\N	127.0.0.1	2026-03-13 09:50:08.512714+02	مدير ادارة	نشاط	\N
 199	8	تحديث خصومات الكلية: كلية الهندسة	\N	\N	\N	127.0.0.1	2026-03-15 01:16:42.841226+02	مسؤول كلية	اخر	\N
+200	8	تحديث خصومات الكلية: كلية الهندسة	\N	\N	\N	127.0.0.1	2026-03-15 02:12:53.810214+02	مسؤول كلية	اخر	\N
+208	22	تحديث خصومات الكلية: الطب	\N	\N	\N	127.0.0.1	2026-03-15 02:23:31.229843+02	مسؤول كلية	اخر	\N
+201	8	عرض مستندات الطلب	\N	\N	\N	127.0.0.1	2026-03-15 02:14:07.839321+02	مسؤول كلية	تكافل	\N
+202	8	عرض مستندات الطلب	\N	\N	\N	127.0.0.1	2026-03-15 02:14:08.038105+02	مسؤول كلية	تكافل	\N
+203	22	عرض مستندات الطلب	\N	\N	\N	127.0.0.1	2026-03-15 02:21:42.453262+02	مسؤول كلية	تكافل	\N
+204	22	عرض مستندات الطلب	\N	\N	\N	127.0.0.1	2026-03-15 02:21:42.560242+02	مسؤول كلية	تكافل	\N
+205	22	موافقة مبدئية	\N	\N	\N	::1	2026-03-15 02:23:06.10783+02	مسؤول كلية	تكافل	\N
+206	22	عرض مستندات الطلب	\N	\N	\N	127.0.0.1	2026-03-15 02:23:06.236173+02	مسؤول كلية	تكافل	\N
+207	22	عرض مستندات الطلب	\N	\N	\N	127.0.0.1	2026-03-15 02:23:06.79682+02	مسؤول كلية	تكافل	\N
+209	22	عرض مستندات الطلب	\N	\N	\N	127.0.0.1	2026-03-15 02:23:33.738587+02	مسؤول كلية	تكافل	\N
+210	22	عرض مستندات الطلب	\N	\N	\N	127.0.0.1	2026-03-15 02:23:33.879695+02	مسؤول كلية	تكافل	\N
+211	22	تعيين خصومات للطلب - المبلغ الإجمالي: 500.0	\N	\N	\N	127.0.0.1	2026-03-15 02:23:38.682897+02	مسؤول كلية	تكافل	\N
+212	22	عرض مستندات الطلب	\N	\N	\N	127.0.0.1	2026-03-15 02:23:38.773578+02	مسؤول كلية	تكافل	\N
+213	22	تعيين خصومات للطلب - المبلغ الإجمالي: 500.0	\N	\N	\N	127.0.0.1	2026-03-15 02:23:44.795807+02	مسؤول كلية	تكافل	\N
+214	22	عرض مستندات الطلب	\N	\N	\N	127.0.0.1	2026-03-15 02:23:44.884687+02	مسؤول كلية	تكافل	\N
+215	22	تعيين خصومات للطلب - المبلغ الإجمالي: 500.0	\N	\N	\N	127.0.0.1	2026-03-15 02:23:50.10529+02	مسؤول كلية	تكافل	\N
+216	22	عرض مستندات الطلب	\N	\N	\N	127.0.0.1	2026-03-15 02:23:50.196606+02	مسؤول كلية	تكافل	\N
+217	22	موافقة طلب	\N	\N	\N	::1	2026-03-15 02:23:54.12927+02	مسؤول كلية	تكافل	\N
+218	22	عرض مستندات الطلب	\N	\N	\N	127.0.0.1	2026-03-15 02:23:54.224994+02	مسؤول كلية	تكافل	\N
+219	22	عرض مستندات الطلب	\N	\N	\N	127.0.0.1	2026-03-15 02:23:54.871052+02	مسؤول كلية	تكافل	\N
+221	22	موافقة مبدئية	\N	\N	\N	::1	2026-03-15 02:26:41.378953+02	مسؤول كلية	تكافل	\N
+222	22	عرض مستندات الطلب	\N	\N	\N	127.0.0.1	2026-03-15 02:30:04.506161+02	مسؤول كلية	تكافل	\N
+223	22	عرض مستندات الطلب	\N	\N	\N	127.0.0.1	2026-03-15 02:30:04.638042+02	مسؤول كلية	تكافل	\N
+224	22	تعيين خصومات للطلب - المبلغ الإجمالي: 100.0	\N	\N	\N	127.0.0.1	2026-03-15 02:30:08.383438+02	مسؤول كلية	تكافل	\N
+225	22	عرض مستندات الطلب	\N	\N	\N	127.0.0.1	2026-03-15 02:30:08.473984+02	مسؤول كلية	تكافل	\N
+226	22	موافقة طلب	\N	\N	\N	::1	2026-03-15 02:30:09.431732+02	مسؤول كلية	تكافل	\N
+227	22	عرض مستندات الطلب	\N	\N	\N	127.0.0.1	2026-03-15 02:30:09.520368+02	مسؤول كلية	تكافل	\N
+228	22	عرض مستندات الطلب	\N	\N	\N	127.0.0.1	2026-03-15 02:30:10.073538+02	مسؤول كلية	تكافل	\N
+229	22	عرض مستندات الطلب	\N	\N	\N	127.0.0.1	2026-03-15 02:32:43.593795+02	مسؤول كلية	تكافل	\N
+230	22	عرض مستندات الطلب	\N	\N	\N	127.0.0.1	2026-03-15 02:32:43.811786+02	مسؤول كلية	تكافل	\N
+231	22	رفض طلب	\N	\N	\N	::1	2026-03-15 02:32:44.970549+02	مسؤول كلية	تكافل	\N
+232	22	عرض مستندات الطلب	\N	\N	\N	127.0.0.1	2026-03-15 02:32:45.16996+02	مسؤول كلية	تكافل	\N
+233	22	عرض مستندات الطلب	\N	\N	\N	127.0.0.1	2026-03-15 02:32:45.727666+02	مسؤول كلية	تكافل	\N
 \.
 
 
@@ -2192,7 +2224,7 @@ COPY public.solidarities (solidarity_id, student_id, faculty_id, req_status, cre
 27	22	1	مقبول	2025-11-22 20:38:22.990429+02	5	working	working	200.00	200.00	400.00	2	+201215458777	+201225887745	uit98t7	نعم	امتياز	انتظام	eg	8	2025-11-22 21:11:35.528508+02	\N	ملك	600	f	{"خصم كتاب","خصم انتساب"}
 1	2	2	مقبول	2025-10-27 18:03:25.391324+03	7	بالمعاش	ربة منزل	700.00	0.00	700.00	2	+201587489632	+201578963214	احتياج الدعم	لا	جيد	ناجح	مصر	11	2025-11-22 21:22:48.621488+02	\N	ملك	400	f	{}
 28	22	1	مقبول	2025-11-22 21:25:05.521407+02	5	working	working	200.00	200.00	400.00	2	+201254578545	+201254578555	rture	نعم	امتياز	انتظام	eg	8	2025-11-22 21:26:29.8242+02	\N	ملك	1700	f	{"خصم كتاب","خصم انتظام"}
-37	13	1	منتظر	2026-03-09 07:40:59.129914+02	50	string	string	6838.00	269.00	7107.00	20	25275515824	1798996790	string	لا	string	string	string	\N	\N	\N	ملك	\N	f	{}
+40	37	1	منتظر	2026-03-15 03:20:06.822262+02	50	string	string	800.00	800.00	1600.00	20	+14606246837	+168043865	string	لا	string	string	string	\N	2026-03-15 03:27:12.504235+02	\N	ملك	\N	f	{}
 \.
 
 
@@ -2201,6 +2233,10 @@ COPY public.solidarities (solidarity_id, student_id, faculty_id, req_status, cre
 --
 
 COPY public.solidarity_docs (doc_id, solidarity_id, doc_type, mime_type, file_size, uploaded_at, file) FROM stdin;
+135	40	بحث احتماعي	image/jpeg	23818	2026-03-15 03:20:06.825272+02	private/solidarity/40/1fc53b4cbfb84f6184a1850aabec157b.jpg
+136	40	اثبات دخل	image/jpeg	14318	2026-03-15 03:20:06.836639+02	private/solidarity/40/03c53a0ec2144b6d9bddcd33dd55f4e3.jpg
+137	40	ص.ب ولي امر	image/png	10998	2026-03-15 03:20:06.838698+02	private/solidarity/40/dd05337207f64c80a6cd161d92a28665.png
+138	40	ص.ب شخصية	image/jpeg	7046	2026-03-15 03:20:06.845806+02	private/solidarity/40/d72cab14aab54a6583b72df31ea70c8d.jpg
 58	17	بحث احتماعي	image/jpeg	23818	2025-11-10 03:36:29.752539+02	uploads/solidarity/17/1.jpg
 59	17	اثبات دخل	image/jpeg	14318	2025-11-10 03:36:29.755902+02	uploads/solidarity/17/2.jpg
 60	17	ص.ب ولي امر	image/jpeg	23818	2025-11-10 03:36:29.75754+02	uploads/solidarity/17/1_ziCDGz3.jpg
@@ -2222,10 +2258,6 @@ COPY public.solidarity_docs (doc_id, solidarity_id, doc_type, mime_type, file_si
 86	28	اثبات دخل	image/jpeg	14318	2025-11-22 21:25:05.525354+02	uploads/solidarity/28/2.jpg
 87	28	ص.ب ولي امر	image/png	10998	2025-11-22 21:25:05.526434+02	uploads/solidarity/28/3.png
 88	28	ص.ب شخصية	image/jpeg	7046	2025-11-22 21:25:05.527432+02	uploads/solidarity/28/4.jpg
-123	37	بحث احتماعي	image/jpeg	23818	2026-03-09 07:40:59.131016+02	private/solidarity/37/93039c459ef24ababa46cb5c43c31693.jpg
-124	37	اثبات دخل	image/jpeg	14318	2026-03-09 07:40:59.134905+02	private/solidarity/37/c5b0025ad03549e4b0d82e00d911e999.jpg
-125	37	ص.ب ولي امر	image/png	10998	2026-03-09 07:40:59.137553+02	private/solidarity/37/f70aec8d590c48baa2adf6faf4aa3dc1.png
-126	37	ص.ب شخصية	image/jpeg	7046	2026-03-09 07:40:59.143783+02	private/solidarity/37/fa58f7f8faec4a869478e41bbb0d25dc.jpg
 \.
 
 
@@ -2255,7 +2287,7 @@ COPY public.students (student_id, name, email, password, faculty_id, profile_pho
 13	S	S@gmail.com	$2b$12$/yfBp5mpBNUt4EZp1IWEJu22QNUjejzEuBB/0JiUNeZ.32HPn7SOq	1	uploads/students/13/image.jpg	F	50248798445487	57857	5552222	string	string	2025-09-01	\N	string	string	\N	\N	f	email	\N	\N	f
 2	ليلى خالد	l.khaled@example.com	$2b$12$/yfBp5mpBNUt4EZp1IWEJu22QNUjejzEuBB/0JiUNeZ.32HPn7SOq	1	uploads/students/2/image.png	F	223456789	887654321	55522220	string	string	2025-09-01	\N	string	string	\N	\N	f	email	\N	\N	f
 11	A	AA@gmail.com	$2b$12$/yfBp5mpBNUt4EZp1IWEJu22QNUjejzEuBB/0JiUNeZ.32HPn7SOq	1	\N	F	50248798655487	55857	20125455485	Eg	2025	2025-09-01	\N	\N	hg	\N	\N	f	email	\N	\N	t
-37	ssh	ssh493147@gmail.com	$2b$12$JPbqOqj6x7c.E2WpLzYiieWdZBmv4pl5rFwKib8mT3yrlzYnPIfQy	3	\N	M	201215458747845	20121545	20124504850	egypt	one	2025-12-09	\N	\N	sdfs	108654151463126841079	https://lh3.googleusercontent.com/a/ACg8ocJOdPnMOecixsR8HSe3rh1b64btth_Gn1n3zcDYWxRxa71-BQ=s96-c	t	google	google	2026-03-13 06:06:22.863724	f
+37	ssh	ssh493147@gmail.com	$2b$12$JPbqOqj6x7c.E2WpLzYiieWdZBmv4pl5rFwKib8mT3yrlzYnPIfQy	3	\N	M	201215458747845	20121545	20124504850	egypt	one	2025-12-09	\N	\N	sdfs	108654151463126841079	https://lh3.googleusercontent.com/a/ACg8ocJOdPnMOecixsR8HSe3rh1b64btth_Gn1n3zcDYWxRxa71-BQ=s96-c	t	google	google	2026-03-15 01:20:40.644612	f
 \.
 
 
@@ -2382,7 +2414,7 @@ SELECT pg_catalog.setval('public.family_admins_id_seq', 60, true);
 -- Name: logs_log_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.logs_log_id_seq', 199, true);
+SELECT pg_catalog.setval('public.logs_log_id_seq', 233, true);
 
 
 --
@@ -2410,14 +2442,14 @@ SELECT pg_catalog.setval('public.prtcps_id_seq', 16, true);
 -- Name: solidarities_solidarity_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.solidarities_solidarity_id_seq', 37, true);
+SELECT pg_catalog.setval('public.solidarities_solidarity_id_seq', 41, true);
 
 
 --
 -- Name: solidarity_docs_doc_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.solidarity_docs_doc_id_seq', 126, true);
+SELECT pg_catalog.setval('public.solidarity_docs_doc_id_seq', 138, true);
 
 
 --
@@ -3482,5 +3514,5 @@ ALTER TABLE ONLY public.students
 -- PostgreSQL database dump complete
 --
 
-\unrestrict dij7xm3UpvpXuZwY15QOaCoGkizaRIb9RVmTg0XKlwDv7IBgKwduahlTPXOT5Fh
+\unrestrict CZhPO0ruM1pz3sgrqVKguFhDE47Bdw4I6nWT0SksY3VXUW0BIOJiqEbgovKNmXg
 

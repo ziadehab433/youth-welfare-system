@@ -101,7 +101,7 @@ class StudentSignUpSerializer(serializers.ModelSerializer):
 
 class StudentDetailSerializer(serializers.ModelSerializer):
     profile_photo_url = serializers.SerializerMethodField()
-
+    faculty_name = serializers.CharField(source='faculty.name', read_only=True) 
     class Meta:
         model = Students
         fields = [
@@ -110,7 +110,7 @@ class StudentDetailSerializer(serializers.ModelSerializer):
             'acd_year', 'grade', 'major',
             'profile_photo_url',
             'google_picture', 'is_google_auth', 'auth_method', 'last_google_login',
-            'can_create_fam'
+            'can_create_fam','faculty_name'
         ]
 
     def get_profile_photo_url(self, obj):
