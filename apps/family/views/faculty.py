@@ -731,7 +731,7 @@ class FamilyMembersViewSet(AdminActionMixin, viewsets.GenericViewSet):
         return Response(result, status=status.HTTP_200_OK)
     @extend_schema(
     tags=["Family Fac Admin APIs"],
-    description="Add a student to an approved family using their national ID.",
+    description="Add a student to a family using their national ID.",
     responses={
         201: OpenApiResponse(description="Student added successfully"),
         400: OpenApiResponse(description="Invalid data or family not approved"),
@@ -742,7 +742,7 @@ class FamilyMembersViewSet(AdminActionMixin, viewsets.GenericViewSet):
     @action(
         detail=False, 
         methods=['post'], 
-        url_path=r'families/(?P<family_id>\d+)/add-member-direct/(?P<nid>\d+)'
+        url_path=r'families/(?P<family_id>\d+)/add-member/(?P<nid>\d+)'
     )
     @require_permission('update')
     def add_member_by_nid_direct(self, request, family_id=None, nid=None):
