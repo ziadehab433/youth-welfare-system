@@ -1,4 +1,3 @@
-from rest_framework import viewsets
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework.permissions import IsAuthenticated
 from apps.family.models import Families, FamilyMembers, Students
@@ -6,14 +5,13 @@ from apps.accounts.permissions import IsRole
 from apps.family.serializers import FamiliesListSerializer, FamiliesDetailSerializer
 from rest_framework.decorators import action
 from drf_spectacular.utils import OpenApiResponse
+from django.db.models import Count, Q, F
 from apps.accounts.utils import get_client_ip, log_data_access
 from apps.accounts.mixins import AdminActionMixin
 from rest_framework.response import Response
 from rest_framework import viewsets, status
 from django.db import transaction
-from django.db.models import Count, Q
 from apps.accounts.utils import get_current_admin 
-from django.db import transaction
 from django.utils import timezone
 @extend_schema(tags=["Family Super_Dept"])
 class SuperDeptFamilyViewSet(AdminActionMixin, viewsets.ReadOnlyModelViewSet):
@@ -27,6 +25,16 @@ class SuperDeptFamilyViewSet(AdminActionMixin, viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
+        queryset = queryset.annotate(
+            accepted_members=Count(
+                'familymembers',
+                filter=Q(familymembers__status='مقبول')
+            )
+        ).filter(
+            status='موافقة مبدئية',
+            accepted_members__gte=F('min_limit')
+        )
+
         family_type = self.request.query_params.get('type')
         if family_type:
             queryset = queryset.filter(type=family_type)
