@@ -305,7 +305,8 @@ class FamilyFacultyAdminViewSet(AdminActionMixin, viewsets.GenericViewSet):
                 created_by_student=False,
                 user_id=admin.admin_id
             )
-
+            family.status = "مقبول"
+            family.save(update_fields=["status"])
             response_serializer = FamilyRequestDetailSerializer(
                 family, 
                 context={'created_by_student': False}
