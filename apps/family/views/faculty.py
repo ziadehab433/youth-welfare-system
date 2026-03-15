@@ -731,7 +731,7 @@ class FamilyMembersViewSet(AdminActionMixin, viewsets.GenericViewSet):
         return Response(result, status=status.HTTP_200_OK)
     @extend_schema(
     tags=["Family Fac Admin APIs"],
-    description="Add a student to an approved family using their national ID.",
+    description="Add a student to a family using their national ID.",
     responses={
         201: OpenApiResponse(description="Student added successfully"),
         400: OpenApiResponse(description="Invalid data or family not approved"),
