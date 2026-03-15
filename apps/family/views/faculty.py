@@ -742,7 +742,7 @@ class FamilyMembersViewSet(AdminActionMixin, viewsets.GenericViewSet):
     @action(
         detail=False, 
         methods=['post'], 
-        url_path=r'families/(?P<family_id>\d+)/add-member-direct/(?P<nid>\d+)'
+        url_path=r'families/(?P<family_id>\d+)/add-member/(?P<nid>\d+)'
     )
     @require_permission('update')
     def add_member_by_nid_direct(self, request, family_id=None, nid=None):
