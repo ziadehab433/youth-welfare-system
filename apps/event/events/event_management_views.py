@@ -56,7 +56,8 @@ class EventGetterViewSet(AdminActionMixin, viewsets.GenericViewSet):
         
         if admin.role == 'مسؤول كلية':
             return queryset.filter(
-                Q(faculty_id=admin.faculty_id) | Q(faculty_id__isnull=True)
+                Q(faculty_id=admin.faculty_id) | Q(faculty_id__isnull=True),
+                dept_id__in=admin_payload.get('dept_ids', [])
             ).order_by('-created_at')
         elif admin.role == 'مدير كلية':
             return queryset.filter(faculty_id=admin.faculty_id).order_by('-created_at').exclude(status="منتظر")
