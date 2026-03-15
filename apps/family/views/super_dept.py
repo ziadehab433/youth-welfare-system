@@ -26,13 +26,10 @@ class SuperDeptFamilyViewSet(AdminActionMixin, viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         queryset = super().get_queryset()
         queryset = queryset.annotate(
-            accepted_members=Count(
-                'familymembers',
-                filter=Q(familymembers__status='مقبول')
-            )
+            members_count=Count('family_members')
         ).filter(
             status='موافقة مبدئية',
-            accepted_members__gte=F('min_limit')
+            members_count__gte=F('min_limit')
         )
 
         family_type = self.request.query_params.get('type')
