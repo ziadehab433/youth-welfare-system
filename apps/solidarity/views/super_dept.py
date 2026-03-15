@@ -144,8 +144,19 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
     @require_permission('update')
     def change_to_approve(self, request, pk=None):
         try:
-            admin = get_current_admin(request)
-            result = SolidarityService.change_to_approve(pk, admin)
+            from apps.accounts.utils import execute_admin_action
+            
+            def business_operation(admin, ip):
+                return SolidarityService.change_to_approve(pk, admin)
+            
+            result = execute_admin_action(
+                request=request,
+                operation=business_operation,
+                action='موافقة مشرف النظام على طلب تكافل',
+                target_type='تكافل',
+                solidarity_id=pk
+            )
+            
             return Response(result)
         except Solidarities.DoesNotExist:
             raise NotFound(f"Solidarity application with id {pk} not found")
@@ -162,8 +173,19 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
     @require_permission('update')
     def change_to_reject(self, request, pk=None):
         try:
-            admin = get_current_admin(request)
-            result = SolidarityService.change_to_reject(pk, admin)
+            from apps.accounts.utils import execute_admin_action
+            
+            def business_operation(admin, ip):
+                return SolidarityService.change_to_reject(pk, admin)
+            
+            result = execute_admin_action(
+                request=request,
+                operation=business_operation,
+                action='رفض مشرف النظام لطلب تكافل',
+                target_type='تكافل',
+                solidarity_id=pk
+            )
+            
             return Response(result)
         except Solidarities.DoesNotExist:
             raise NotFound(f"Solidarity application with id {pk} not found")

@@ -7,6 +7,7 @@ from apps.family.serializers import FamiliesListSerializer, FamiliesDetailSerial
 from rest_framework.decorators import action
 from drf_spectacular.utils import OpenApiResponse
 from apps.accounts.utils import get_client_ip, log_data_access
+from apps.accounts.mixins import AdminActionMixin
 from rest_framework.response import Response
 from rest_framework import viewsets, status
 from django.db import transaction
@@ -15,7 +16,7 @@ from apps.accounts.utils import get_current_admin
 from django.db import transaction
 from django.utils import timezone
 @extend_schema(tags=["Family Super_Dept"])
-class SuperDeptFamilyViewSet(viewsets.ReadOnlyModelViewSet):
+class SuperDeptFamilyViewSet(AdminActionMixin, viewsets.ReadOnlyModelViewSet):
     queryset = Families.objects.all()
     permission_classes = [IsAuthenticated, IsRole]
     allowed_roles = ['مدير ادارة', 'مشرف النظام']
@@ -79,18 +80,21 @@ class SuperDeptFamilyViewSet(viewsets.ReadOnlyModelViewSet):
                 {"error": "لا يمكن رفض الطلب. الحالة الحالية لا تسمح بذلك."},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        family.status = 'مرفوض'
-        family.save()
-        log_data_access(
-            actor_id=request.user.admin_id,
-            actor_type=request.user.role,
-            action='رفض الأسرة (إدارة مركزية)',
+        
+        def business_operation(admin, ip):
+            family.status = 'مرفوض'
+            family.save()
+            return {"message": "تم رفض الأسرة بنجاح"}
+        
+        result = self.execute_admin_action(
+            request=request,
+            action_name='رفض الأسرة (إدارة مركزية)',
             target_type='اسر',
-            family_id=family.family_id,
-            ip_address=get_client_ip(request)
+            business_operation=business_operation,
+            family_id=family.family_id
         )
 
-        return Response({"message": "تم رفض الأسرة بنجاح"}, status=status.HTTP_200_OK)
+        return Response(result, status=status.HTTP_200_OK)
 # ----------------------------------------------------------------
 # Security Approval Actions
 # ----------------------------------------------------------------
@@ -131,26 +135,23 @@ class SuperDeptFamilyViewSet(viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        with transaction.atomic():
+        def business_operation(admin, ip):
             FamilyMembers.objects.filter(family=family, student_id=student_id).update(status='مقبول')
-            
-            log_data_access(
-                actor_id=request.user.admin_id,
-                actor_type=request.user.role,
-                action=f'الموافقة على عضو الأسرة (رقم: {student_id})',
-                target_type='اسر',
-                family_id=family.family_id,
-                ip_address=get_client_ip(request)
-            )
-
-        return Response(
-            {
+            return {
                 "message": "Member security approved successfully.",
                 "member_id": student_id,
                 "family_id": family.family_id
-            },
-            status=status.HTTP_200_OK
+            }
+        
+        result = self.execute_admin_action(
+            request=request,
+            action_name=f'الموافقة على عضو الأسرة (رقم: {student_id})',
+            target_type='اسر',
+            business_operation=business_operation,
+            family_id=family.family_id
         )
+
+        return Response(result, status=status.HTTP_200_OK)
 
     @extend_schema(
         description="Security reject a family member",
@@ -184,26 +185,23 @@ class SuperDeptFamilyViewSet(viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        with transaction.atomic():
+        def business_operation(admin, ip):
             FamilyMembers.objects.filter(family=family, student_id=student_id).update(status='مرفوض')
-            
-            log_data_access(
-                actor_id=request.user.admin_id,
-                actor_type=request.user.role,
-                action=f'رفض عضو الأسرة (رقم: {student_id})',
-                target_type='اسر',
-                family_id=family.family_id,
-                ip_address=get_client_ip(request)
-            )
-
-        return Response(
-            {
+            return {
                 "message": "Member security rejected successfully.",
                 "member_id": student_id,
                 "family_id": family.family_id
-            },
-            status=status.HTTP_200_OK
+            }
+        
+        result = self.execute_admin_action(
+            request=request,
+            action_name=f'رفض عضو الأسرة (رقم: {student_id})',
+            target_type='اسر',
+            business_operation=business_operation,
+            family_id=family.family_id
         )
+
+        return Response(result, status=status.HTTP_200_OK)
 
     @extend_schema(
         description="Final approval for family activation",
@@ -270,30 +268,25 @@ class SuperDeptFamilyViewSet(viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        with transaction.atomic():
+        def business_operation(admin, ip):
             family.status = 'مقبول'
-            family.approved_by = get_current_admin(request)
+            family.approved_by = admin
             family.final_approved_at = timezone.now()
             family.save()
-            
-            # Log the final approval
-            from apps.accounts.utils import log_data_access, get_client_ip
-            log_data_access(
-                actor_id=get_current_admin(request).admin_id,
-                actor_type=get_current_admin(request).role,
-                action=f'الموافقة النهائية على الأسرة: {family.name}',
-                target_type='اسر',
-                family_id=family.family_id,
-                ip_address=get_client_ip(request)
-            )
-
-        return Response(
-            {
+            return {
                 "message": "Family activated successfully.",
                 "family_id": family.family_id,
                 "accepted_members": accepted_count,
-                "approved_by": get_current_admin(request).name,
+                "approved_by": admin.name,
                 "approval_date": family.final_approved_at.isoformat()
-            },
-            status=status.HTTP_200_OK
+            }
+        
+        result = self.execute_admin_action(
+            request=request,
+            action_name=f'الموافقة النهائية على الأسرة: {family.name}',
+            target_type='اسر',
+            business_operation=business_operation,
+            family_id=family.family_id
         )
+
+        return Response(result, status=status.HTTP_200_OK)

@@ -14,7 +14,10 @@ import os
 from pathlib import Path
 from decouple import config
 
-
+# Add at the very top of settings.py ← line 1
+import sys
+import io
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -501,7 +504,7 @@ if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
 
 # Debug (development only)
 if DEBUG:
-    print(f"\n✓ Google OAuth Configuration Loaded:")
+    print(f"\n[OK] Google OAuth Configuration Loaded:")
     print(f"  - Client ID: {GOOGLE_CLIENT_ID[:30] if GOOGLE_CLIENT_ID else 'NOT SET'}...")
     print(f"  - Redirect URI: {GOOGLE_REDIRECT_URI}\n")
 

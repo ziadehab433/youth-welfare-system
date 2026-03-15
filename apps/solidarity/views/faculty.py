@@ -36,12 +36,13 @@ from apps.solidarity.services.solidarity_service import SolidarityService
 from ..serializers import FacultyApprovedResponseSerializer, SolidarityApprovedRowSerializer
 from ..serializers import DiscountAssignSerializer, SolidarityDocsSerializer
 from apps.accounts.utils import get_current_student , get_current_admin , get_client_ip
+from apps.accounts.mixins import AdminActionMixin
 from apps.solidarity.utils import   handle_report_data, html_to_pdf_buffer
 from apps.solidarity.services.solidarity_service import SolidarityService
 from ..utils import get_arabic_discount_type
 from apps.accounts.utils import log_data_access
 
-class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
+class FacultyAdminSolidarityViewSet(AdminActionMixin, viewsets.GenericViewSet):
     permission_classes = [ IsRole]
     allowed_roles = ['مسؤول كلية']
     serializer_class = SolidarityListSerializer
@@ -80,15 +81,7 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
             return Response({'error': msg}, status=status.HTTP_400_BAD_REQUEST)
             #  Log that this admin viewed the solidarity details
 
-        # log_data_access(
-        #     actor_id=admin.admin_id,
-        #     actor_type=admin.role,
-        #     action='عرض بيانات الطلب',      # “Viewed solidarity details”
-        #     target_type='تكافل',
-        #     solidarity_id=pk,
-        #     ip_address=client_ip
 
-        # )
         return Response(SolidarityDetailSerializer(solidarity).data)
 
     @extend_schema(
@@ -99,30 +92,30 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
     @action(detail=True, methods=['get'], url_path='documents')
     @require_permission('read')
     def get_documents(self, request, pk=None):
-
         admin = get_current_admin(request)
         docs_qs = SolidarityService.get_docs_by_solidarity_id(pk)
 
         docs = SolidarityService.get_docs_by_solidarity_id(pk)
         if not docs.exists():
             return Response({'detail': 'No documents found for this solidarity_id'}, status=404)
-           # # Log document access
+
         solidarity = docs_qs.first().solidarity 
         if admin.faculty_id != solidarity.faculty_id:
-           raise PermissionDenied("You can only view applications from your faculty.")      
-        client_ip = get_client_ip(request)
+           raise PermissionDenied("You can only view applications from your faculty.")
 
-        log_data_access(
-        actor_id=admin.admin_id,
-        actor_type=admin.role,
-        action='عرض مستندات الطلب',     # “Viewed solidarity documents”
-        target_type='تكافل',
-        solidarity_id=pk,
-        ip_address=client_ip
-    )
-       # ""
+        def business_operation(admin, ip):
+            return docs
+
+        docs = self.execute_admin_action(
+            request=request,
+            action_name='عرض مستندات الطلب',
+            target_type='تكافل',
+            business_operation=business_operation,
+            solidarity_id=pk
+        )
 
         return Response(SolidarityDocsSerializer(docs, many=True , context={'request': request}).data)
+
 
 
     @extend_schema(
@@ -177,30 +170,43 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
     )
     @action(detail=True, methods=['patch'], url_path='assign_discount')
     @require_permission('update' )
-    #@require_any_permission('update', 'create')  # Can have either
     def assign_discount(self, request, pk=None):
         try:
-            admin = get_current_admin(request)
+            from apps.accounts.utils import execute_admin_action
+            
             serializer = DiscountAssignSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
 
             discount_data = serializer.validated_data['discounts']
             
+            # Get solidarity first for validation
+            admin = get_current_admin(request)
             solidarity = SolidarityService.get_application_detail(pk, admin)
-            updated_solidarity = SolidarityService.assign_discounts(
-                admin, 
-                solidarity, 
-                discount_data
+            
+            # Calculate total for logging
+            total_discount = sum(float(d['discount_value']) for d in discount_data)
+            
+            # Define business operation
+            def business_operation(admin, ip):
+                return SolidarityService.assign_discounts(admin, solidarity, discount_data)
+            
+            # Execute with safe logging
+            updated_solidarity = execute_admin_action(
+                request=request,
+                operation=business_operation,
+                action=f'تعيين خصومات للطلب - المبلغ الإجمالي: {total_discount}',
+                target_type='تكافل',
+                solidarity_id=pk
             )
 
             return Response({
                 "message": "تم تطبيق الخصم بنجاح",
                 "solidarity_id": updated_solidarity.solidarity_id,
                 "total_discount": float(updated_solidarity.total_discount) if updated_solidarity.total_discount else None,
-                "discount_types": updated_solidarity.discount_type,  # Returns Arabic
+                "discount_types": updated_solidarity.discount_type,
                 "discounts_applied": [
                     {
-                        "type": get_arabic_discount_type(d['discount_type']),  # Convert to Arabic
+                        "type": get_arabic_discount_type(d['discount_type']),
                         "value": float(d['discount_value'])
                     } for d in discount_data
                 ],
@@ -227,16 +233,26 @@ class FacultyAdminSolidarityViewSet(viewsets.GenericViewSet):
         serializer = FacultyDiscountUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        updated_faculty = SolidarityService.update_faculty_discounts(admin, serializer.validated_data)
-        return Response({
-            "message": "تم تحديث خصومات الكلية بنجاح",
-            "faculty_discounts": {
-                "aff_discount": updated_faculty.aff_discount,
-                "reg_discount": updated_faculty.reg_discount,
-                "bk_discount": updated_faculty.bk_discount,
-                "full_discount": updated_faculty.full_discount,
+        def business_operation(admin, ip):
+            updated_faculty = SolidarityService.update_faculty_discounts(admin, serializer.validated_data)
+            return {
+                "message": "تم تحديث خصومات الكلية بنجاح",
+                "faculty_discounts": {
+                    "aff_discount": updated_faculty.aff_discount,
+                    "reg_discount": updated_faculty.reg_discount,
+                    "bk_discount": updated_faculty.bk_discount,
+                    "full_discount": updated_faculty.full_discount,
+                }
             }
-        })
+        
+        result = self.execute_admin_action(
+            request=request,
+            action_name=f'تحديث خصومات الكلية: {admin.faculty.name}',
+            target_type='اخر',
+            business_operation=business_operation
+        )
+        
+        return Response(result)
 
     @extend_schema(
         tags=["Solidarity Fac Admin APIs"],
