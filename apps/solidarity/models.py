@@ -35,6 +35,7 @@ class Solidarities(models.Model):
     req_type = models.TextField(blank=True, null=True)  # This field type is a guess.
     housing_status = models.TextField(blank=True, null=True)  # This field type is a guess.
     total_discount = models.FloatField(blank=True, null=True)
+    rejection_reason = models.IntegerField()
     discount_type = ArrayField(
         models.CharField(max_length=100),
         default=list,

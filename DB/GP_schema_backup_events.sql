@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict yDd8WFjitxPAjxJkJN03OW2dRApIHh6aSGFH3z5F9J6cn6yRsAKVqDAEVKMwvo4
+\restrict T6QG7ShbuEibAZ2Zp0FEIzUFCmvCFbhkcnKgCP03OJPbqrTXmNO2R8vjOSkuRam
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.6
@@ -1243,6 +1243,7 @@ CREATE TABLE public.solidarities (
     total_discount double precision,
     sd character(1) DEFAULT 'f'::bpchar NOT NULL,
     discount_type text[] DEFAULT '{}'::text[],
+    rejection_reason integer,
     CONSTRAINT solidarities_f_phone_num_check CHECK (((f_phone_num IS NULL) OR (f_phone_num ~ '^\+?[0-9]{6,15}$'::text))),
     CONSTRAINT solidarities_m_phone_num_check CHECK (((m_phone_num IS NULL) OR (m_phone_num ~ '^\+?[0-9]{6,15}$'::text))),
     CONSTRAINT solidarities_sd_check CHECK ((sd = ANY (ARRAY['t'::bpchar, 'f'::bpchar])))
@@ -2433,5 +2434,5 @@ ALTER TABLE ONLY public.students
 -- PostgreSQL database dump complete
 --
 
-\unrestrict yDd8WFjitxPAjxJkJN03OW2dRApIHh6aSGFH3z5F9J6cn6yRsAKVqDAEVKMwvo4
+\unrestrict T6QG7ShbuEibAZ2Zp0FEIzUFCmvCFbhkcnKgCP03OJPbqrTXmNO2R8vjOSkuRam
 

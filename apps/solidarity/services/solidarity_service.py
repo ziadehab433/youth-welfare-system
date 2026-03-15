@@ -40,7 +40,10 @@ class SolidarityService:
 
     @staticmethod
     def has_application(student):
-              return Solidarities.objects.filter(student=student, req_status='مقبول').exists()
+              return Solidarities.objects.filter(student=student, req_status='موافقة مبدئية').exists()
+    @staticmethod
+    def has_rejected_application(student):
+              return Solidarities.objects.filter(student=student, rejection_reason= 1).exists()
     
 
     @staticmethod
@@ -48,6 +51,8 @@ class SolidarityService:
     def create_application(student, application_data, uploaded_docs=None):
         if SolidarityService.has_pending_application(student) or SolidarityService.has_application(student):
             raise ValidationError("لديك طلب معلق بالفعل. يرجى الانتظار للمراجعة.")
+        if SolidarityService.has_rejected_application(student):
+            raise ValidationError("تم رفض طلبك السابق )(ازعاج). لا يمكنك تقديم طلب جديد.")
 
         father_income = application_data.get('father_income') or 0
         mother_income = application_data.get('mother_income') or 0
