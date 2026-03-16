@@ -855,18 +855,41 @@ class ParticipantSerializer(serializers.ModelSerializer):
         model = Prtcps
         fields = ['student_id', 'student_name', 'student_nid', 'college_id', 'status', 'rank', 'reward']
 class EventDetailSerializer(serializers.ModelSerializer):
-    dept_name = serializers.CharField(source='dept.name', read_only=True, allow_null=True)
-    family_name = serializers.CharField(source='family.name', read_only=True, allow_null=True)
+    dept_name = serializers.CharField(source='dept.name', read_only=True)
+    faculty_name = serializers.CharField(source='faculty.name', read_only=True)
+    family_name = serializers.CharField(source='family.name', read_only=True)
+
     registered_members = serializers.SerializerMethodField()
     class Meta:
         model = Events
         fields = [
-            'event_id', 'title', 'description', 'st_date', 'end_date',
-            'location', 'cost', 'dept_name', 'family_name',
-            'registered_members'
+            "event_id",
+            "title",
+            "description",
+            "type",
+            "st_date",
+            "end_date",
+            "location",
+            "cost",
+            "restrictions",
+            "reward",
+            "status",
+            "s_limit",
+            "resource",
+            "dept",
+            "dept_name",
+            "faculty",
+            "faculty_name",
+            "family",
+            "family_name",
+            "selected_facs",
+            "active",
+            "created_at",
+            "updated_at",
+            "registered_members"
         ]
     def get_registered_members(self, obj):
-        registrations = obj.prtcps_set.all().select_related('student').defer('student__can_create_fam')
+        registrations = obj.prtcps_set.all().select_related("student")
         return ParticipantSerializer(registrations, many=True).data
     
 class FamilyRequestDetailSerializer(serializers.ModelSerializer):
