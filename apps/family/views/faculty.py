@@ -39,6 +39,7 @@ from apps.family.serializers import (
     PreApproveFamilySerializer,
     FamilyFounderSerializer,
     CreateFamilyRequestSerializer,
+    CreateEnvFamilyRequestSerializer,
     FamilyRequestDetailSerializer
 )
 # ------------------------------------------------------------------
@@ -288,7 +289,7 @@ class FamilyFacultyAdminViewSet(AdminActionMixin, viewsets.GenericViewSet):
         try:
             admin = get_current_admin(request)
 
-            serializer = CreateFamilyRequestSerializer(
+            serializer = CreateEnvFamilyRequestSerializer(
                 data=request.data,
                 context={'creation_source': 'faculty_admin'}
             )
