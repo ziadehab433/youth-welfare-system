@@ -726,10 +726,6 @@ class CreateFamilyRequestSerializer(serializers.Serializer):
         return value
 
     def validate_committees(self, value):
-        """Validate all 7 committees are present with no duplicates"""
-        if len(value) != 7:
-            raise ValidationError(f"يجب أن يكون لديك بالضبط 7 لجان، لديك {len(value)}")
-
         committee_keys = [c['committee_key'] for c in value]
         valid_keys = [com['key'] for com in COMMITTEES]
 
