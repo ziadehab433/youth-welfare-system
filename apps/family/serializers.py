@@ -889,7 +889,7 @@ class EventDetailSerializer(serializers.ModelSerializer):
             "registered_members"
         ]
     def get_registered_members(self, obj):
-        registrations = obj.prtcps_set.all().select_related("student")
+        registrations = obj.prtcps_set.all().select_related('student').defer('student__can_create_fam')
         return ParticipantSerializer(registrations, many=True).data
     
 class FamilyRequestDetailSerializer(serializers.ModelSerializer):
