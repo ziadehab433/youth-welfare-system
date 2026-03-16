@@ -608,7 +608,7 @@ class FamilyService:
                         family=family,
                         dept=dept,
                         faculty=family.faculty,
-                        created_by_id=1,  # Admin user
+                        created_by_id=family.created_by_id,  # Admin user
                         st_date=activity['st_date'],
                         end_date=activity['end_date'],
                         location=activity.get('location', ''),
