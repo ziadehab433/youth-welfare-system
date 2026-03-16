@@ -541,11 +541,13 @@ class ActivitySerializer(serializers.Serializer):
     )
 
     def validate(self, data):
-        """Validate that end_date >= st_date"""
-        if data.get('end_date') and data.get('st_date'):
-            if data['end_date'] < data['st_date']:
-                raise ValidationError(
-                    "تاريخ الانتهاء يجب أن يكون أكبر من أو يساوي تاريخ البداية"
+        st_date = data.get("st_date")
+        end_date = data.get("end_date")
+
+        if end_date and st_date:
+            if end_date < st_date:
+                raise serializers.ValidationError(
+                    "End date must be after or equal to start date"
                 )
         return data
 
