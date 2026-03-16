@@ -34,6 +34,26 @@ COMMITTEES = [
         'name': 'اللجنة الرياضية',
         'name_en': 'Sports Committee',
         'key': 'sports'
+    },
+    {
+        'name': 'لجنة الخدمة العامة',
+        'name_en': 'Public Service Committee',
+        'key': 'public-service'
+    },
+    {
+        'name': 'لجنة التلوث البيئي وسلوكيات البيئة',
+        'name_en': 'Environmental Pollution and Behavior Committee',
+        'key': 'environmental-pollution'
+    },
+    {
+        'name': 'لجنة خدمة المجتمع وتنمية البيئة',
+        'name_en': 'Community Service and Environmental Development Committee',
+        'key': 'community-service'
+    },
+    {
+        'name': 'لجنة العلاقات العامة',
+        'name_en': 'Public Relations Committee',
+        'key': 'public-relations'
     }
 ]
 
