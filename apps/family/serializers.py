@@ -821,6 +821,160 @@ class CreateFamilyRequestSerializer(serializers.Serializer):
 
         return data
 
+class CreateEnvFamilyRequestSerializer(serializers.Serializer):
+    """Flexible serializer that adapts based on creation source"""
+    
+    # Common fields
+    name = serializers.CharField(max_length=100, required=True)
+    description = serializers.CharField(max_length=1000, required=True)
+    min_limit = serializers.IntegerField(
+        default=15,
+        min_value=1,
+        required=False
+    )
+    faculty_id = serializers.IntegerField(required=True)
+    default_roles = DefaultRolesDataSerializer(required=True)
+    committees = CommitteeDataSerializer(
+        many=True,
+        required=True,
+        help_text="7 لجان مع رؤساء ونواب ونشاطات"
+    )
+    
+    # Optional field - only validated in student context
+    family_type = serializers.ChoiceField(
+        choices=['نوعية', 'مركزية', 'أصدقاء البيئة'],
+        required=False,  # Make it optional
+        help_text="نوع الأسرة: نوعية (متخصصة) أو مركزية"
+    )
+    
+    # New field for environment family participants
+    participants = serializers.ListField(
+        child=serializers.CharField(max_length=255),  # NID as string
+        required=False,
+        help_text="قائمة المشاركين (أرقام الهوية الوطنية) - مطلوب للأسر البيئية"
+    )
+
+    def __init__(self, *args, **kwargs):
+        # Get context to know who is creating
+        super().__init__(*args, **kwargs)
+        self.creation_source = self.context.get('creation_source', 'student')
+        
+    def validate_family_type(self, value):
+        """Validate family type based on creation source"""
+        if self.creation_source == 'student':
+            if not value:
+                raise ValidationError("حقل نوع الأسرة مطلوب للطلاب")
+            if value not in ['نوعية', 'مركزية']:
+                raise ValidationError("نوع الأسرة يجب أن يكون 'نوعية' أو 'مركزية'")
+        elif self.creation_source == 'faculty_admin':
+            # For faculty admin, always use "أصدقاء البيئة"
+            value = "أصدقاء البيئة"
+        
+        return value
+
+    def validate_faculty_id(self, value):
+        """Validate faculty exists"""
+        if not Faculties.objects.filter(faculty_id=value).exists():
+            raise ValidationError(f"الكلية برقم {value} غير موجودة")
+        return value
+
+    def validate_committees(self, value):
+        committee_keys = [c['committee_key'] for c in value]
+        valid_keys = [com['key'] for com in COMMITTEES]
+
+        for key in committee_keys:
+            if key not in valid_keys:
+                raise ValidationError(f"مفتاح اللجنة غير صحيح: {key}")
+
+        if len(committee_keys) != len(set(committee_keys)):
+            raise ValidationError("تم العثور على لجان مكررة")
+
+        # Validate no person is assigned to multiple committee positions
+        all_student_uids = []
+        for committee in value:
+            all_student_uids.append(committee['head']['uid'])
+            all_student_uids.append(committee['assistant']['uid'])
+
+        if len(all_student_uids) != len(set(all_student_uids)):
+            raise ValidationError(
+                "كل طالب يمكن أن يكون مسؤولاً عن لجنة واحدة فقط"
+            )
+
+        return value
+
+    def validate_participants(self, value):
+        """Validate participants list"""
+        if self.creation_source == 'faculty_admin' and value:
+            # Check for duplicate NIDs
+            if len(value) != len(set(value)):
+                raise ValidationError("يوجد أرقام هوية وطنية مكررة في قائمة المشاركين")
+            
+            # Check if all NIDs exist in Students table
+            nids_count = Students.objects.filter(nid__in=value).count()
+            if nids_count != len(value):
+                raise ValidationError(
+                    f"بعض أرقام الهوية الوطنية غير موجودة في النظام. وجدنا {nids_count} من أصل {len(value)}"
+                )
+        
+        return value
+
+    def validate(self, data):
+        """Cross-field validation"""
+        # Ensure default roles students are different from committee students
+        default_role_students = [
+            data['default_roles']['أخ أكبر']['uid'],
+            data['default_roles']['أخت كبرى']['uid'],
+            data['default_roles']['أمين سر']['uid'],
+            data['default_roles']['عضو منتخب 1']['uid'],
+            data['default_roles']['عضو منتخب 2']['uid'],
+        ]
+
+        committee_student_uids = []
+        for committee in data['committees']:
+            committee_student_uids.append(committee['head']['uid'])
+            committee_student_uids.append(committee['assistant']['uid'])
+
+        overlap = set(default_role_students) & set(committee_student_uids)
+        if overlap:
+            raise ValidationError(
+                f"الطلاب برقم الجامعة {list(overlap)} مكلفين بأدوار افتراضية وأدوار لجان في نفس الوقت"
+            )
+        
+        # Validate participants for environment family
+        if self.creation_source == 'faculty_admin':
+            # Set family type for faculty admin if not provided
+            if 'family_type' not in data:
+                data['family_type'] = "أصدقاء البيئة"
+            
+            # Validate participants array
+            participants = data.get('participants', [])
+            min_limit = data.get('min_limit', 15)
+            
+            if len(participants) < min_limit:
+                raise ValidationError(
+                    f"عدد المشاركين ({len(participants)}) أقل من الحد الأدنى المطلوب ({min_limit})"
+                )
+            
+            # Check that participants don't include default roles or committee members
+            all_assigned_uids = set(default_role_students + committee_student_uids)
+            
+            # Get NIDs of assigned students
+            assigned_students = Students.objects.filter(
+                student_id__in=all_assigned_uids
+            ).values_list('nid', flat=True)
+            
+            participant_nids = set(participants)
+            assigned_nids = set(assigned_students)
+            
+            overlap_nids = participant_nids.intersection(assigned_nids)
+            if overlap_nids:
+                raise ValidationError(
+                    f"أرقام الهوية الوطنية التالية مخصصة بالفعل لأدوار خاصة: {list(overlap_nids)}"
+                )
+
+        return data
+
+
 # ========== Detail Response Serializers ==========
 
 class FamilyAdminDetailSerializer(serializers.ModelSerializer):
