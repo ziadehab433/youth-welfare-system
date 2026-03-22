@@ -252,6 +252,7 @@ LOGGING = {
             'maxBytes': 1024 * 1024 * 10,  # 10MB
             'backupCount': 5,
             'formatter': 'verbose',
+            'encoding': 'utf-8',
         },
         'audit_file': {
             'class': 'logging.handlers.RotatingFileHandler',
@@ -259,6 +260,7 @@ LOGGING = {
             'maxBytes': 1024 * 1024 * 50,  # 50MB
             'backupCount': 10,
             'formatter': 'verbose',
+            'encoding': 'utf-8',
         },
         'security_file': {
             'class': 'logging.handlers.RotatingFileHandler',
@@ -266,6 +268,8 @@ LOGGING = {
             'maxBytes': 1024 * 1024 * 20,  # 20MB
             'backupCount': 10,
             'formatter': 'verbose',
+            'encoding': 'utf-8',
+
         },
     },
     'loggers': {
