@@ -154,7 +154,7 @@ class PlaywrightPDFService:
                         await page.emulate_media(media="print")
                         await page.set_content(
                             html_content,
-                            wait_until="domcontentloaded",
+                            wait_until="networkidle",
                             timeout=20000,
                         )
                         try:
