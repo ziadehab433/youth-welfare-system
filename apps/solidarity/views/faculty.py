@@ -1,5 +1,5 @@
-import asyncio
 from asyncio.log import logger
+from io import BytesIO
 from django.db import DatabaseError
 from django.http import HttpResponse
 from django.template.loader import render_to_string
@@ -7,7 +7,7 @@ from django.http import FileResponse, HttpResponse
 from django.utils import timezone 
 from apps.solidarity.models import Solidarities
 from collections import defaultdict
-from apps.event.export.utils import get_report_assets
+from apps.event.export.utils import get_report_assets, generate_pdf_sync
 from django.db.models import Q
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -37,7 +37,6 @@ from ..serializers import FacultyApprovedResponseSerializer, SolidarityApprovedR
 from ..serializers import DiscountAssignSerializer, SolidarityDocsSerializer
 from apps.accounts.utils import get_current_student , get_current_admin , get_client_ip
 from apps.accounts.mixins import AdminActionMixin
-from apps.solidarity.utils import   handle_report_data, html_to_pdf_buffer
 from apps.solidarity.services.solidarity_service import SolidarityService
 from ..utils import get_arabic_discount_type
 from apps.accounts.utils import log_data_access
@@ -380,12 +379,11 @@ class FacultyAdminSolidarityViewSet(AdminActionMixin, viewsets.GenericViewSet):
         html_content = render_to_string("api/solidarity-report.html", report_context)
         
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                buffer = loop.run_until_complete(html_to_pdf_buffer([html_content]))
-            finally:
-                loop.close()
+            pdf_bytes = generate_pdf_sync(
+                html_content,
+                margins={"top": "10mm", "right": "10mm", "bottom": "10mm", "left": "10mm"}
+            )
+            buffer = BytesIO(pdf_bytes)
         except Exception as e:
             logger.exception(f"PDF generation error: {e}")
             return Response({'detail': 'Failed to generate PDF'}, status=500)
@@ -399,7 +397,7 @@ class FacultyAdminSolidarityViewSet(AdminActionMixin, viewsets.GenericViewSet):
             filename=filename,
             content_type='application/pdf'
         )
-        response['Content-Length'] = len(buffer.getvalue())
+        response['Content-Length'] = len(pdf_bytes)
         response['Access-Control-Expose-Headers'] = 'Content-Disposition'
         response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         response['Pragma'] = 'no-cache'

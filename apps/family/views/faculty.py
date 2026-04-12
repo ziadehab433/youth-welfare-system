@@ -4,7 +4,7 @@ from django.db.models import Count
 from django.http import FileResponse, HttpResponse
 from django.utils import timezone 
 from django.template.loader import render_to_string
-import asyncio
+from io import BytesIO
 from django.db import DatabaseError
 from django.db import transaction
 from apps.family.models import Students, FamilyAdmins
@@ -30,7 +30,7 @@ from apps.accounts.mixins import AdminActionMixin
 from drf_spectacular.utils import OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 from apps.event.models import Prtcps
-from apps.solidarity.utils import handle_report_data, html_to_pdf_buffer
+from apps.event.export.utils import generate_pdf_sync
 from apps.family.serializers import (
     EventDetailSerializer,
     FamiliesListSerializer,
@@ -391,9 +391,11 @@ class FamilyFacultyAdminViewSet(AdminActionMixin, viewsets.GenericViewSet):
         html_content = render_to_string("api/family-report.html", { "data": data })
 
         try:
-            buffer = asyncio.new_event_loop().run_until_complete(
-                html_to_pdf_buffer(html_content)
+            pdf_bytes = generate_pdf_sync(
+                html_content,
+                margins={"top": "10mm", "right": "10mm", "bottom": "10mm", "left": "10mm"}
             )
+            buffer = BytesIO(pdf_bytes)
         except Exception as e:
             print(f"PDF generation error: {e}")
             return Response({'detail': 'could not generate pdf'}, status=500)
@@ -404,7 +406,7 @@ class FamilyFacultyAdminViewSet(AdminActionMixin, viewsets.GenericViewSet):
             filename=filename,
             content_type='application/pdf'
         )
-        response['Content-Length'] = len(buffer.getvalue())
+        response['Content-Length'] = len(pdf_bytes)
         response['Access-Control-Expose-Headers'] = 'Content-Disposition'
         response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         response['Pragma'] = 'no-cache'

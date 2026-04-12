@@ -38,7 +38,6 @@ from apps.solidarity.services.solidarity_service import SolidarityService
 from ..serializers import FacultyApprovedResponseSerializer, SolidarityApprovedRowSerializer
 from ..serializers import DiscountAssignSerializer, SolidarityDocsSerializer
 from apps.accounts.utils import get_current_admin , get_client_ip , get_current_student
-from apps.solidarity.utils import  handle_report_data, html_to_pdf_buffer
 from apps.solidarity.services.solidarity_service import SolidarityService
 
 class StudentSolidarityViewSet(viewsets.GenericViewSet):
