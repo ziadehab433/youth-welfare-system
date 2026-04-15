@@ -24,44 +24,44 @@ class SuperDeptFamilyViewSet(AdminActionMixin, viewsets.ReadOnlyModelViewSet):
         return FamiliesListSerializer
 
     def get_queryset(self):
-        queryset = super().get_queryset()
-        queryset = queryset.annotate(
-            members_count=Count('family_members')
-        ).filter(
-            status='موافقة مبدئية',
-            members_count__gte=F('min_limit')
-        )
+            queryset = Families.objects.annotate(
+                members_count=Count('family_members')
+            ).all()
+            status_param = self.request.query_params.get('status')
+            if status_param:
+                queryset = queryset.filter(status=status_param)
+                
+            family_type = self.request.query_params.get('type')
+            if family_type:
+                queryset = queryset.filter(type=family_type)
+                
+            faculty_id = self.request.query_params.get('faculty')
+            if faculty_id:
+                queryset = queryset.filter(faculty_id=faculty_id)
+                
+            ready_to_approve = self.request.query_params.get('ready')
+            if ready_to_approve == 'true':
+                queryset = queryset.filter(
+                    status='موافقة مبدئية',
+                    members_count__gte=F('min_limit')
+                )
 
-        family_type = self.request.query_params.get('type')
-        if family_type:
-            queryset = queryset.filter(type=family_type)
-        faculty_id = self.request.query_params.get('faculty')
-        if faculty_id:
-            queryset = queryset.filter(faculty_id=faculty_id)
+            return queryset.order_by('-created_at')
 
-        return queryset
     @extend_schema(
         operation_id="list_families_filtered",
-        description="Fetch families filtered by Type (e.g., specialized) and Faculty ID.",
+        description="Fetch families with full filtering capabilities.",
         parameters=[
-            OpenApiParameter(
-                name='type', 
-                description='Family Type', 
-                required=False, 
-                type=str,
-                enum=['مركزية', 'نوعية', 'اصدقاء البيئة'] 
-            ),
-            OpenApiParameter(
-                name='faculty', 
-                description='Faculty ID (e.g., for specialized families)', 
-                required=False, 
-                type=int
-            ),
+            OpenApiParameter(name='status', description='Filter by status', required=False, type=str, 
+                            enum=['منتظر', 'موافقة مبدئية', 'مقبول', 'مرفوض']),
+            OpenApiParameter(name='type', description='Family Type', required=False, type=str),
+            OpenApiParameter(name='faculty', description='Faculty ID', required=False, type=int),
+            OpenApiParameter(name='ready', description='Show only families ready for final approval', required=False, type=bool),
         ],
         responses={200: FamiliesListSerializer(many=True)}
     )
     def list(self, request, *args, **kwargs):
-        return super().list(request, *args, **kwargs)
+            return super().list(request, *args, **kwargs)
     @extend_schema(
         operation_id="get_family_details_with_events",
         description="Fetch all details for a specific family, INCLUDING its events history.",
