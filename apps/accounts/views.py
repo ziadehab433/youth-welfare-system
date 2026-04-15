@@ -82,9 +82,10 @@ class LoginView(APIView):
         elif user.role == 'مسؤول كلية':
             # Multiple departments resolved from dept_fac_ls (names → ids)
             if user.dept_fac_ls:
+                raw_ids = [int(x) for x in user.dept_fac_ls]
                 departments = Departments.objects.filter(
-                    name__in=user.dept_fac_ls
-                )
+                dept_id__in=raw_ids  # ← Filter by ID, not name
+            )
                 for dept in departments:
                     dept_ids.append(dept.dept_id)
                     dept_names_map[dept.dept_id] = dept.name

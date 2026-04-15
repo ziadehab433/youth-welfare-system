@@ -199,7 +199,7 @@ class AdminsUserSerializer(serializers.ModelSerializer):
     )
 
     dept_fac_ls = serializers.ListField(
-        child=serializers.CharField(), required=False, allow_null=True
+        child=serializers.IntegerField(), required=False, allow_null=True
     )
 
     class Meta:
