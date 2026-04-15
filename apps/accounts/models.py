@@ -30,7 +30,7 @@ class AdminsUser(AbstractBaseUser, PermissionsMixin):
     acc_status = models.CharField(max_length=20, blank=True, null=True)
     role       = models.TextField(blank=True, null=True)
     dept_fac_ls = ArrayField(
-        base_field=models.CharField(max_length=255),
+        base_field=models.IntegerField(max_length=255),
         blank=True,
         null=True
     )
