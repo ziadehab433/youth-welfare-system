@@ -1,0 +1,391 @@
+import logging
+from rest_framework import viewsets, status, serializers
+from rest_framework.exceptions import ValidationError
+from django.db.models import Count
+from django.http import FileResponse
+from django.utils import timezone
+from django.template.loader import render_to_string
+from io import BytesIO
+from django.db import DatabaseError, transaction
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import extend_schema
+from drf_spectacular.openapi import OpenApiResponse
+from apps.family.models import Students, FamilyAdmins, Families, FamilyMembers
+from apps.family.services.family_service import FamilyService
+from apps.accounts.permissions import IsRole, require_permission
+from apps.accounts.utils import get_current_admin
+from apps.accounts.mixins import AdminActionMixin
+from apps.event.export.utils import generate_pdf_sync
+from apps.family.serializers import (
+    FamiliesListSerializer,
+    FamiliesDetailSerializer,
+    FamilyRequestListSerializer,
+    PreApproveFamilySerializer,
+    FamilyFounderSerializer,
+    CreateFamilyRequestSerializer,
+    CreateEnvFamilyRequestSerializer,
+    FamilyRequestDetailSerializer
+)
+
+logger = logging.getLogger(__name__)
+
+STATUS_PENDING = 'منتظر'
+STATUS_PRE_APPROVED = 'موافقة مبدئية'
+STATUS_APPROVED = 'مقبول'
+STATUS_REJECTED = 'مرفوض'
+
+
+@extend_schema(tags=["Family Fac Admin APIs"])
+class FamilyFacultyAdminViewSet(AdminActionMixin, viewsets.GenericViewSet):
+    permission_classes = [IsRole]
+    allowed_roles = ['مسؤول كلية']
+    queryset = Families.objects.all()
+    serializer_class = FamiliesListSerializer
+
+    @extend_schema(
+        description="List all approved families for the current faculty",
+        responses={200: FamiliesListSerializer(many=True)}
+    )
+    @action(detail=False, methods=['get'], url_path='families')
+    @require_permission('read')
+    def list_families(self, request):
+        admin = get_current_admin(request)
+        families = FamilyService.get_families_for_faculty(admin)
+        approved_families = families.filter(status=STATUS_APPROVED)
+        return Response(FamiliesListSerializer(approved_families, many=True).data)
+
+    @extend_schema(
+        description="Retrieve details of a specific family",
+        responses={200: FamiliesDetailSerializer}
+    )
+    @action(detail=True, methods=['get'], url_path='details')
+    @require_permission('read')
+    def get_family(self, request, pk=None):
+        admin = get_current_admin(request)
+        family = FamilyService.get_family_detail(pk, admin)
+        return Response(FamiliesDetailSerializer(family).data)
+
+    @extend_schema(
+        description="Fetch ONLY pending family creation requests for the current faculty.",
+        responses={200: FamilyRequestListSerializer(many=True)}
+    )
+    @action(detail=False, methods=['get'], url_path='pending_requests')
+    @require_permission('read')
+    def list_requests(self, request):
+        admin = get_current_admin(request)
+        family_requests = Families.objects.filter(
+            faculty_id=admin.faculty_id,
+            status=STATUS_PENDING
+        ).order_by('-created_at')
+        return Response(FamilyRequestListSerializer(family_requests, many=True).data)
+
+    @extend_schema(
+        description="Approve request initially, setting the minimum members limit and closing date for joining.",
+        request=PreApproveFamilySerializer,
+        responses={
+            200: OpenApiResponse(description="Family request pre-approved successfully"),
+            400: OpenApiResponse(description="Invalid data or status")
+        }
+    )
+    @action(detail=True, methods=['post'], url_path='pre-approve')
+    @require_permission('update')
+    def pre_approve_request(self, request, pk=None):
+        admin = get_current_admin(request)
+        family = get_object_or_404(Families, pk=pk, faculty_id=admin.faculty_id)
+
+        if family.status != STATUS_PENDING:
+            return Response(
+                {"error": "لا يمكن إعطاء موافقة مبدئية. حالة الطلب يجب أن تكون 'منتظر'."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        serializer = PreApproveFamilySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        def business_operation(admin, ip):
+            family.status = STATUS_PRE_APPROVED
+            family.min_limit = serializer.validated_data['min_limit']
+            family.closing_date = serializer.validated_data['closing_date']
+            family.save()
+            return {"message": "تم منح الموافقة المبدئية وتحديث شروط الانضمام بنجاح"}
+
+        result = self.execute_admin_action(
+            request=request,
+            action_name='موافقة مبدئية وتحديد الشروط',
+            target_type='اسر',
+            business_operation=business_operation,
+            family_id=family.family_id
+        )
+
+        return Response(result, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        description="Reject a pending family creation request.",
+        request=None,
+        responses={
+            200: OpenApiResponse(description="Family request rejected successfully"),
+            400: OpenApiResponse(description="Invalid status for rejection"),
+            404: OpenApiResponse(description="Family request not found")
+        }
+    )
+    @action(detail=True, methods=['post'], url_path='reject')
+    @require_permission('update')
+    def reject_request(self, request, pk=None):
+        admin = get_current_admin(request)
+        family = get_object_or_404(Families, pk=pk, faculty_id=admin.faculty_id)
+
+        if family.status not in [STATUS_PENDING, STATUS_PRE_APPROVED]:
+            return Response(
+                {"error": "لا يمكن رفض طلب في هذه الحالة. يجب أن تكون الحالة 'منتظر' أو 'موافقة مبدئية'."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        def business_operation(admin, ip):
+            family.status = STATUS_REJECTED
+            family.save()
+            return {"message": "تم رفض طلب إنشاء الأسرة"}
+
+        result = self.execute_admin_action(
+            request=request,
+            action_name='رفض طلب إنشاء أسرة',
+            target_type='اسر',
+            business_operation=business_operation,
+            family_id=family.family_id
+        )
+
+        return Response(result, status=status.HTTP_200_OK)
+
+    def _set_family_creation_permission(self, request, nid, grant=True):
+        try:
+            student = Students.objects.get(nid=nid)
+        except Students.DoesNotExist:
+            return Response(
+                {"error": "لم يتم العثور على طالب"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        current_permission = student.can_create_fam
+        if grant and current_permission:
+            return Response(
+                {"error": "الطالب لديه بالفعل صلاحية إنشاء أسرة"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if not grant and not current_permission:
+            return Response(
+                {"error": "الطالب لا يملك صلاحية إنشاء أسرة حالياً"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        action_name = 'منح صلاحية إنشاء أسرة للطالب' if grant else 'سحب صلاحية إنشاء أسرة من الطالب'
+
+        def business_operation(admin, ip):
+            student.can_create_fam = grant
+            student.save()
+            return {
+                "message": "تم منح صلاحية إنشاء الأسرة للطالب بنجاح" if grant else "تم سحب صلاحية إنشاء الأسرة من الطالب بنجاح",
+                "student": {
+                    "nid": student.nid,
+                    "name": student.name,
+                    "can_create_fam": student.can_create_fam
+                }
+            }
+
+        result = self.execute_admin_action(
+            request=request,
+            action_name=action_name,
+            target_type='طالب',
+            business_operation=business_operation,
+            student_id=student.student_id
+        )
+
+        return Response(result, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        description="Grant family creation permission to a student by their NID",
+        request=None,
+        responses={
+            200: OpenApiResponse(description="Student granted family creation permission"),
+            404: OpenApiResponse(description="Student not found"),
+            400: OpenApiResponse(description="Student already has permission")
+        }
+    )
+    @action(detail=False, methods=['post'], url_path='family-founder/(?P<nid>[^/.]+)/add')
+    @require_permission('update')
+    def grant_family_creation_permission(self, request, nid=None):
+        return self._set_family_creation_permission(request, nid, grant=True)
+
+    @extend_schema(
+        tags=["Family Fac Admin APIs"],
+        description="Revoke family creation permission from a student by their NID",
+        request=None,
+        responses={
+            200: OpenApiResponse(description="Student family creation permission revoked"),
+            404: OpenApiResponse(description="Student not found"),
+            400: OpenApiResponse(description="Student already doesn't have permission")
+        }
+    )
+    @action(detail=False, methods=['delete'], url_path='family-founder/(?P<nid>[^/.]+)/remove')
+    @require_permission('update')
+    def revoke_family_creation_permission(self, request, nid=None):
+        return self._set_family_creation_permission(request, nid, grant=False)
+
+    @extend_schema(
+        tags=["Family Fac Admin APIs"],
+        description="List all students with family creation permission in the faculty",
+        responses={200: FamilyFounderSerializer(many=True)}
+    )
+    @action(detail=False, methods=['get'], url_path='family-founders')
+    def get_family_founders(self, request):
+        admin = get_current_admin(request)
+        students = Students.objects.filter(
+            faculty=admin.faculty_id,
+            can_create_fam=True
+        )
+        return Response(FamilyFounderSerializer(students, many=True).data)
+
+    @extend_schema(
+        tags=["Family Fac Admin APIs"],
+        description="Create a new environment family with detailed configuration",
+        request=CreateFamilyRequestSerializer,
+        responses={
+            201: FamilyRequestDetailSerializer,
+            400: OpenApiResponse(description="Validation error"),
+            409: OpenApiResponse(description="Conflict error"),
+            500: OpenApiResponse(description="Server error")
+        }
+    )
+    @action(detail=False, methods=['post'], url_path='environment-family')
+    def create_environment_family(self, request):
+        try:
+            admin = get_current_admin(request)
+
+            serializer = CreateEnvFamilyRequestSerializer(
+                data=request.data,
+                context={'creation_source': 'faculty_admin'}
+            )
+            if not serializer.is_valid():
+                return Response(
+                    {'errors': serializer.errors},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            validated_data = serializer.validated_data
+
+            with transaction.atomic():
+                family = FamilyService.create_family_request(
+                    request_data=validated_data,
+                    created_by_student=False,
+                    user_id=admin.admin_id
+                )
+                family.status = STATUS_APPROVED
+                family.save(update_fields=["status"])
+
+            response_serializer = FamilyRequestDetailSerializer(
+                family,
+                context={'created_by_student': False}
+            )
+            return Response(
+                response_serializer.data,
+                status=status.HTTP_201_CREATED
+            )
+
+        except ValidationError as e:
+            error_msg = str(e.detail) if hasattr(e, 'detail') else str(e)
+
+            if any(keyword in error_msg for keyword in [
+                "مسؤول بالفعل",
+                "طلب أسرة قيد الانتظار",
+                "مكلفين بأدوار"
+            ]):
+                return Response(
+                    {'error': error_msg},
+                    status=status.HTTP_409_CONFLICT
+                )
+
+            return Response(
+                {'error': error_msg},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            logger.exception(f"Error creating environment family: {str(e)}")
+            return Response(
+                {'error': f'خطأ غير متوقع: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def _calculate_gender_distribution(self, family_id):
+        results = FamilyMembers.objects.filter(
+            family_id=family_id
+        ).values('student__gender').annotate(
+            count=Count('student_id')
+        ).order_by('student__gender')
+
+        distribution = {'F': 0, 'M': 0, 'total': 0}
+        for result in results:
+            gender = result['student__gender']
+            count = result['count']
+            if gender in ['F', 'M']:
+                distribution[gender] = count
+                distribution['total'] += count
+        return distribution
+
+    @extend_schema(
+        tags=["Family Fac Admin APIs"],
+        description="Export family report as PDF",
+        responses={
+            200: OpenApiResponse(description="PDF file download"),
+            403: OpenApiResponse(description="Access denied"),
+            404: OpenApiResponse(description="Family not found"),
+            500: OpenApiResponse(description="Server error")
+        }
+    )
+    @action(detail=False, methods=['get'], url_path=r'(?P<family_id>\d+)/export')
+    @require_permission('read')
+    def export(self, request, family_id=None):
+        admin = get_current_admin(request)
+        try:
+            family = Families.objects.select_related('faculty').get(family_id=family_id)
+            if admin.faculty and family.faculty_id != admin.faculty.faculty_id:
+                return Response({'detail': 'Access denied to this family'}, status=403)
+
+            distribution = self._calculate_gender_distribution(family_id)
+
+            data = {
+                'distribution': distribution,
+                'family_admins': FamilyAdmins.objects.filter(family=family_id),
+                'family_members': FamilyMembers.objects.select_related('student').filter(family_id=family_id),
+                'family': family
+            }
+
+        except Families.DoesNotExist:
+            return Response({'detail': 'Family not found'}, status=404)
+        except DatabaseError:
+            logger.exception("Database error while fetching family data")
+            return Response({'detail': 'Database error while fetching data'}, status=500)
+
+        try:
+            html_content = render_to_string("api/family-report.html", {"data": data})
+            pdf_bytes = generate_pdf_sync(
+                html_content,
+                margins={"top": "10mm", "right": "10mm", "bottom": "10mm", "left": "10mm"}
+            )
+            buffer = BytesIO(pdf_bytes)
+        except Exception as e:
+            logger.exception(f"PDF generation error: {str(e)}")
+            return Response({'detail': 'Could not generate PDF'}, status=500)
+
+        filename = f"family_report_{family_id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        response = FileResponse(
+            buffer,
+            as_attachment=True,
+            filename=filename,
+            content_type='application/pdf'
+        )
+        response['Content-Length'] = len(pdf_bytes)
+        response['Access-Control-Expose-Headers'] = 'Content-Disposition'
+        response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response['Pragma'] = 'no-cache'
+        response['Expires'] = '0'
+        return response
