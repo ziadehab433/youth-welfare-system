@@ -476,9 +476,10 @@ class FacultyEventApprovalViewSet(AdminActionMixin, viewsets.GenericViewSet):
     @action(detail=True, methods=['post'], url_path='approve')
     @require_permission('update')
     def approve(self, request, pk=None):
+        event = self.get_object()
         return self._set_event_status(
             request, pk, STATUS_APPROVED,
-            f"الموافقة على نشاط"
+            f"الموافقة على نشاط: {event.title}"
         )
 
     @extend_schema(
@@ -489,9 +490,10 @@ class FacultyEventApprovalViewSet(AdminActionMixin, viewsets.GenericViewSet):
     @action(detail=True, methods=['post'], url_path='reject')
     @require_permission('update')
     def reject(self, request, pk=None):
+        event = self.get_object()
         return self._set_event_status(
             request, pk, STATUS_REJECTED,
-            f"رفض نشاط"
+            f"رفض نشاط: {event.title}"
         ) 
     @extend_schema(
         description="List accepted events for a specific family within this faculty.",
@@ -524,7 +526,7 @@ class FacultyEventApprovalViewSet(AdminActionMixin, viewsets.GenericViewSet):
 
         if not family_is_valid:
             return Response(
-                {"error": "Family not found or does not belong to your faculty."},
+                {"error": "Family not found, is not 'نوعية', or does not belong to your faculty."},
                 status=status.HTTP_404_NOT_FOUND
             )
 
@@ -590,20 +592,20 @@ class FacultyEventApprovalViewSet(AdminActionMixin, viewsets.GenericViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
 
+        def business_operation(admin, ip):
+            updated = Prtcps.objects.select_for_update().filter(
+                event=event,
+                student_id=student_id
+            ).update(status=new_status)
+
+            if updated == 0:
+                raise ValidationError("Student not found in this event")
+            
+            status_msg = "Participant approved successfully" if new_status == STATUS_APPROVED else "Participant rejected successfully"
+            return {"message": status_msg}
+        
         try:
             with transaction.atomic():
-                def business_operation(admin, ip):
-                    updated = Prtcps.objects.select_for_update().filter(
-                        event=event,
-                        student_id=student_id
-                    ).update(status=new_status)
-
-                    if updated == 0:
-                        raise ValidationError("Student not found in this event")
-                    
-                    status_msg = "Participant approved successfully" if new_status == STATUS_APPROVED else "Participant rejected successfully"
-                    return {"message": status_msg}
-                
                 result = self.execute_admin_action(
                     request=request,
                     action_name=action_name,
