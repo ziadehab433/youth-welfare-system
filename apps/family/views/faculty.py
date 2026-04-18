@@ -1,12 +1,12 @@
-from jsonschema import ValidationError
+import logging
 from rest_framework import viewsets, status, serializers
+from rest_framework.exceptions import ValidationError
 from django.db.models import Count
-from django.http import FileResponse, HttpResponse
+from django.http import FileResponse
 from django.utils import timezone 
 from django.template.loader import render_to_string
 from io import BytesIO
-from django.db import DatabaseError
-from django.db import transaction
+from django.db import DatabaseError, transaction
 from apps.family.models import Students, FamilyAdmins
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -18,14 +18,7 @@ from apps.family.services.family_service import FamilyService
 from apps.event.models import Events
 from apps.event.serializers import EventSerializer
 from apps.accounts.permissions import IsRole, require_permission
-from django.db import transaction
-
-from apps.accounts.utils import (
-    get_current_admin,
-    get_client_ip,
-    get_current_student,
-    log_data_access
-)
+from apps.accounts.utils import get_current_admin
 from apps.accounts.mixins import AdminActionMixin
 from drf_spectacular.utils import OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
@@ -42,6 +35,16 @@ from apps.family.serializers import (
     CreateEnvFamilyRequestSerializer,
     FamilyRequestDetailSerializer
 )
+
+logger = logging.getLogger(__name__)
+
+# Status constants
+STATUS_PENDING = 'منتظر'
+STATUS_PRE_APPROVED = 'موافقة مبدئية'
+STATUS_APPROVED = 'مقبول'
+STATUS_REJECTED = 'مرفوض'
+
+ROLE_MEMBER = 'عضو'
 # ------------------------------------------------------------------
 # Families (Faculty Admin)
 # ------------------------------------------------------------------
@@ -60,7 +63,7 @@ class FamilyFacultyAdminViewSet(AdminActionMixin, viewsets.GenericViewSet):
     def list_families(self, request):
         admin = get_current_admin(request)
         families = FamilyService.get_families_for_faculty(admin)
-        approved_families = families.filter(status='مقبول')
+        approved_families = families.filter(status=STATUS_APPROVED)
         return Response(FamiliesListSerializer(approved_families, many=True).data)
     @extend_schema(
         description="Retrieve details of a specific family",
@@ -74,18 +77,18 @@ class FamilyFacultyAdminViewSet(AdminActionMixin, viewsets.GenericViewSet):
         return Response(FamiliesDetailSerializer(family).data)
 
     @extend_schema(
-        description="Fetch ONLY pending ('منتظر') family creation requests for the current faculty.",
+        description="Fetch ONLY pending family creation requests for the current faculty.",
         responses={200: FamilyRequestListSerializer(many=True)}
     )
     @action(detail=False, methods=['get'], url_path='pending_requests')
     @require_permission('read')
     def list_requests(self, request):
         admin = get_current_admin(request)
-        requests = Families.objects.filter(
+        family_requests = Families.objects.filter(
             faculty_id=admin.faculty_id,
-            status="منتظر"  
+            status=STATUS_PENDING
         ).order_by('-created_at')
-        return Response(FamilyRequestListSerializer(requests, many=True).data)
+        return Response(FamilyRequestListSerializer(family_requests, many=True).data)
     @extend_schema(
         description="Approve request initially, setting the minimum members limit and closing date for joining.",
         request=PreApproveFamilySerializer,  
@@ -100,7 +103,7 @@ class FamilyFacultyAdminViewSet(AdminActionMixin, viewsets.GenericViewSet):
         admin = get_current_admin(request)
         family = get_object_or_404(Families, pk=pk, faculty_id=admin.faculty_id)
         
-        if family.status != 'منتظر':
+        if family.status != STATUS_PENDING:
             return Response(
                 {"error": "لا يمكن إعطاء موافقة مبدئية. حالة الطلب يجب أن تكون 'منتظر'."},
                 status=status.HTTP_400_BAD_REQUEST
@@ -110,7 +113,7 @@ class FamilyFacultyAdminViewSet(AdminActionMixin, viewsets.GenericViewSet):
         serializer.is_valid(raise_exception=True)
         
         def business_operation(admin, ip):
-            family.status = 'موافقة مبدئية'
+            family.status = STATUS_PRE_APPROVED
             family.min_limit = serializer.validated_data['min_limit']
             family.closing_date = serializer.validated_data['closing_date']
             family.save()
@@ -130,6 +133,7 @@ class FamilyFacultyAdminViewSet(AdminActionMixin, viewsets.GenericViewSet):
         request=None,
         responses={
             200: OpenApiResponse(description="Family request rejected successfully"),
+            400: OpenApiResponse(description="Invalid status for rejection"),
             404: OpenApiResponse(description="Family request not found")
         }
     )
@@ -142,8 +146,14 @@ class FamilyFacultyAdminViewSet(AdminActionMixin, viewsets.GenericViewSet):
         admin = get_current_admin(request)
         family = get_object_or_404(Families, pk=pk, faculty_id=admin.faculty_id)
         
+        if family.status not in [STATUS_PENDING, STATUS_PRE_APPROVED]:
+            return Response(
+                {"error": "لا يمكن رفض طلب في هذه الحالة. يجب أن تكون الحالة 'منتظر' أو 'موافقة مبدئية'."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         def business_operation(admin, ip):
-            family.status = 'مرفوض'
+            family.status = STATUS_REJECTED
             family.save()
             return {"message": "تم رفض طلب إنشاء الأسرة"}
         
@@ -157,106 +167,80 @@ class FamilyFacultyAdminViewSet(AdminActionMixin, viewsets.GenericViewSet):
         
         return Response(result, status=status.HTTP_200_OK)
 
-    @extend_schema(
-        description="Grant family creation permission to a student by their NID",
-        request=None,
-        responses={ 200: OpenApiResponse(description="Student granted family creation permission"), 404: OpenApiResponse(description="Student not found"), 400: OpenApiResponse(description="Student already has permission") })
-    @action(detail=False, methods=['post'], url_path='family-founder/(?P<nid>[^/.]+)/add')
-    @require_permission('update')
-    def grant_family_creation_permission(self, request, nid=None):
+    def _set_family_creation_permission(self, request, nid, grant=True):
+        """Helper method to grant or revoke family creation permission."""
         try:
             student = Students.objects.get(nid=nid)
-            
-            if student.can_create_fam:
-                return Response(
-                    {"error": "الطالب لديه بالفعل صلاحية إنشاء أسرة"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            def business_operation(admin, ip):
-                student.can_create_fam = True
-                student.save()
-                return {
-                    "message": "تم منح صلاحية إنشاء الأسرة للطالب بنجاح",
-                    "student": {
-                        "nid": student.nid,
-                        "name": f"{student.name}",  
-                        "can_create_fam": student.can_create_fam
-                    }
-                }
-            
-            result = self.execute_admin_action(
-                request=request,
-                action_name='منح صلاحية إنشاء أسرة للطالب',
-                target_type='طالب',
-                business_operation=business_operation,
-                student_id=student.student_id
-            )
-            
-            return Response(result, status=status.HTTP_200_OK)
-            
         except Students.DoesNotExist:
             return Response(
                 {"error": "لم يتم العثور على طالب"},
                 status=status.HTTP_404_NOT_FOUND
             )
-        except Exception as e:
+        
+        current_permission = student.can_create_fam
+        if grant and current_permission:
             return Response(
-                {"error": f"حدث خطأ: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": "الطالب لديه بالفعل صلاحية إنشاء أسرة"},
+                status=status.HTTP_400_BAD_REQUEST
             )
+        if not grant and not current_permission:
+            return Response(
+                {"error": "الطالب لا يملك صلاحية إنشاء أسرة حالياً"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        action_name = 'منح صلاحية إنشاء أسرة للطالب' if grant else 'سحب صلاحية إنشاء أسرة من الطالب'
+        
+        def business_operation(admin, ip):
+            student.can_create_fam = grant
+            student.save()
+            return {
+                "message": "تم منح صلاحية إنشاء الأسرة للطالب بنجاح" if grant else "تم سحب صلاحية إنشاء الأسرة من الطالب بنجاح",
+                "student": {
+                    "nid": student.nid,
+                    "name": student.name,
+                    "can_create_fam": student.can_create_fam
+                }
+            }
+        
+        result = self.execute_admin_action(
+            request=request,
+            action_name=action_name,
+            target_type='طالب',
+            business_operation=business_operation,
+            student_id=student.student_id
+        )
+        
+        return Response(result, status=status.HTTP_200_OK)
 
+    @extend_schema(
+        description="Grant family creation permission to a student by their NID",
+        request=None,
+        responses={
+            200: OpenApiResponse(description="Student granted family creation permission"),
+            404: OpenApiResponse(description="Student not found"),
+            400: OpenApiResponse(description="Student already has permission")
+        }
+    )
+    @action(detail=False, methods=['post'], url_path='family-founder/(?P<nid>[^/.]+)/add')
+    @require_permission('update')
+    def grant_family_creation_permission(self, request, nid=None):
+        return self._set_family_creation_permission(request, nid, grant=True)
 
     @extend_schema(
         tags=["Family Fac Admin APIs"],
         description="Revoke family creation permission from a student by their NID",
         request=None,
-        responses={ 200: OpenApiResponse(description="Student family creation permission revoked"), 404: OpenApiResponse(description="Student not found"), 400: OpenApiResponse(description="Student already doesn't have permission") }
+        responses={
+            200: OpenApiResponse(description="Student family creation permission revoked"),
+            404: OpenApiResponse(description="Student not found"),
+            400: OpenApiResponse(description="Student already doesn't have permission")
+        }
     )
     @action(detail=False, methods=['delete'], url_path='family-founder/(?P<nid>[^/.]+)/remove')
     @require_permission('update')
     def revoke_family_creation_permission(self, request, nid=None):
-        try:
-            student = Students.objects.get(nid=nid)
-            
-            if not student.can_create_fam:
-                return Response(
-                    {"error": "الطالب لا يملك صلاحية إنشاء أسرة حالياً"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            def business_operation(admin, ip):
-                student.can_create_fam = False
-                student.save()
-                return {
-                    "message": "تم سحب صلاحية إنشاء الأسرة من الطالب بنجاح",
-                    "student": {
-                        "nid": student.nid,
-                        "name": f"{student.name}",
-                        "can_create_fam": student.can_create_fam
-                    }
-                }
-            
-            result = self.execute_admin_action(
-                request=request,
-                action_name='سحب صلاحية إنشاء أسرة من الطالب',
-                target_type='طالب',
-                business_operation=business_operation,
-                student_id=student.student_id
-            )
-            
-            return Response(result, status=status.HTTP_200_OK)
-            
-        except Students.DoesNotExist:
-            return Response(
-                {"error": "لم يتم العثور على طالب"},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        except Exception as e:
-            return Response(
-                {"error": f"حدث خطأ: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        return self._set_family_creation_permission(request, nid, grant=False)
 
     @extend_schema(
         tags=["Family Fac Admin APIs"],
@@ -275,7 +259,7 @@ class FamilyFacultyAdminViewSet(AdminActionMixin, viewsets.GenericViewSet):
     
     @extend_schema(
         tags=["Family Fac Admin APIs"],
-        description="Create a new envronment family with detailed configuration",
+        description="Create a new environment family with detailed configuration",
         request=CreateFamilyRequestSerializer,
         responses={
             201: FamilyRequestDetailSerializer,
@@ -301,13 +285,15 @@ class FamilyFacultyAdminViewSet(AdminActionMixin, viewsets.GenericViewSet):
 
             validated_data = serializer.validated_data
 
-            family = FamilyService.create_family_request(
-                request_data=validated_data,
-                created_by_student=False,
-                user_id=admin.admin_id
-            )
-            family.status = "مقبول"
-            family.save(update_fields=["status"])
+            with transaction.atomic():
+                family = FamilyService.create_family_request(
+                    request_data=validated_data,
+                    created_by_student=False,
+                    user_id=admin.admin_id
+                )
+                family.status = STATUS_APPROVED
+                family.save(update_fields=["status"])
+            
             response_serializer = FamilyRequestDetailSerializer(
                 family, 
                 context={'created_by_student': False}
@@ -336,69 +322,75 @@ class FamilyFacultyAdminViewSet(AdminActionMixin, viewsets.GenericViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         except Exception as e:
-            import traceback
-            traceback.print_exc()
+            logger.exception(f"Error creating environment family: {str(e)}")
             return Response(
                 {'error': f'خطأ غير متوقع: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    def _calculate_gender_distribution(self, family_id):
+        """Calculate gender distribution for family members."""
+        results = FamilyMembers.objects.filter(
+            family_id=family_id
+        ).values('student__gender').annotate(
+            count=Count('student_id')
+        ).order_by('student__gender')
+
+        distribution = {'F': 0, 'M': 0, 'total': 0}
+        for result in results:
+            gender = result['student__gender']
+            count = result['count']
+            if gender in ['F', 'M']:
+                distribution[gender] = count
+                distribution['total'] += count
+        
+        return distribution
+
     @extend_schema(
         tags=["Family Fac Admin APIs"],
-        description="pdf",
+        description="Export family report as PDF",
         responses={
-            200: OpenApiResponse(
-                description="PDF file download",
-            )
+            200: OpenApiResponse(description="PDF file download"),
+            403: OpenApiResponse(description="Access denied"),
+            404: OpenApiResponse(description="Family not found"),
+            500: OpenApiResponse(description="Server error")
         }
     )
     @action(detail=False, methods=['get'], url_path=r'(?P<family_id>\d+)/export')
     @require_permission('read')
     def export(self, request, family_id=None):
         admin = get_current_admin(request)
-        data = {}
         try:
             family = Families.objects.select_related('faculty').get(family_id=family_id)
             if admin.faculty and family.faculty_id != admin.faculty.faculty_id:
                 return Response({'detail': 'Access denied to this family'}, status=403)
 
-            results = FamilyMembers.objects.filter(
-                family_id=family_id
-            ).values('student__gender').annotate(
-                count=Count('student_id')
-            ).order_by('student__gender')
+            distribution = self._calculate_gender_distribution(family_id)
 
-            distribution = {'F': 0, 'M': 0, 'total': 0}
+            data = {
+                'distribution': distribution,
+                'family_admins': FamilyAdmins.objects.filter(family=family_id),
+                'family_members': FamilyMembers.objects.select_related('student').filter(family_id=family_id),
+                'family': family
+            }
 
-            for result in results:
-                gender = result['student__gender']
-                count = result['count']
-                if gender in ['F', 'M']:
-                    distribution[gender] = count
-                    distribution['total'] += count
-
-            class DataObject:
-                def __init__(self):
-                    self.distribution = distribution
-                    self.family_admins = FamilyAdmins.objects.filter(family=family_id)
-                    self.family_members = FamilyMembers.objects.select_related('student').filter(family_id=family_id)
-                    self.family = family
-            data = DataObject()
-
+        except Families.DoesNotExist:
+            return Response({'detail': 'Family not found'}, status=404)
         except DatabaseError:
-            return Response({'detail': 'database error while fetching data'}, status=500)
-
-        html_content = render_to_string("api/family-report.html", { "data": data })
+            logger.exception("Database error while fetching family data")
+            return Response({'detail': 'Database error while fetching data'}, status=500)
 
         try:
+            html_content = render_to_string("api/family-report.html", {"data": data})
             pdf_bytes = generate_pdf_sync(
                 html_content,
                 margins={"top": "10mm", "right": "10mm", "bottom": "10mm", "left": "10mm"}
             )
             buffer = BytesIO(pdf_bytes)
         except Exception as e:
-            print(f"PDF generation error: {e}")
-            return Response({'detail': 'could not generate pdf'}, status=500)
+            logger.exception(f"PDF generation error: {str(e)}")
+            return Response({'detail': 'Could not generate PDF'}, status=500)
+
         filename = f"family_report_{family_id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         response = FileResponse(
             buffer,
@@ -439,17 +431,43 @@ class FacultyEventApprovalViewSet(AdminActionMixin, viewsets.GenericViewSet):
     )
     @action(detail=False, methods=['get'], url_path='pending')
     def pending(self, request):
-        events = self.get_queryset().filter(status="منتظر")
+        events = self.get_queryset().filter(status=STATUS_PENDING)
         return Response(self.get_serializer(events, many=True).data)
     
     @extend_schema(
         description="Get event details including registered members.",
         responses={200: EventDetailSerializer}
     )
-
     def retrieve(self, request, pk=None):
         event = self.get_object()
         return Response(self.get_serializer(event).data)
+
+    def _set_event_status(self, request, pk, new_status, action_name):
+        """Helper method to approve or reject an event."""
+        event = self.get_object()
+        
+        if event.status != STATUS_PENDING:
+            return Response(
+                {"error": "This event is not pending approval"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        def business_operation(admin, ip):
+            event.status = new_status
+            event.save()
+            status_msg = "Event approved successfully" if new_status == STATUS_APPROVED else "Event rejected successfully"
+            return {"message": status_msg}
+        
+        result = self.execute_admin_action(
+            request=request,
+            action_name=action_name,
+            target_type='نشاط',
+            business_operation=business_operation,
+            event_id=event.event_id
+        )
+
+        return Response(result, status=status.HTTP_200_OK)
+
     @extend_schema(
         description="Approve an event for a faculty family.",
         request=None,
@@ -459,24 +477,10 @@ class FacultyEventApprovalViewSet(AdminActionMixin, viewsets.GenericViewSet):
     @require_permission('update')
     def approve(self, request, pk=None):
         event = self.get_object()
-        
-        if event.status != 'منتظر':
-             return Response({"error": "This event is not pending approval"}, status=status.HTTP_400_BAD_REQUEST)
-
-        def business_operation(admin, ip):
-            event.status = "مقبول"
-            event.save()
-            return {"message": "Event approved successfully"}
-        
-        result = self.execute_admin_action(
-            request=request,
-            action_name=f"الموافقة على نشاط: {event.title}",
-            target_type='نشاط',
-            business_operation=business_operation,
-            event_id=event.event_id
+        return self._set_event_status(
+            request, pk, STATUS_APPROVED,
+            f"الموافقة على نشاط: {event.title}"
         )
-
-        return Response(result, status=status.HTTP_200_OK)
 
     @extend_schema(
         description="Reject an event for a faculty family.",
@@ -487,27 +491,10 @@ class FacultyEventApprovalViewSet(AdminActionMixin, viewsets.GenericViewSet):
     @require_permission('update')
     def reject(self, request, pk=None):
         event = self.get_object()
-
-        if event.status != 'منتظر':
-             return Response({"error": "This event is not pending approval"}, status=status.HTTP_400_BAD_REQUEST)
-
-        def business_operation(admin, ip):
-            event.status = "مرفوض"
-            event.save()
-            return {"message": "Event rejected successfully"}
-        
-        result = self.execute_admin_action(
-            request=request,
-            action_name=f"رفض نشاط: {event.title}",
-            target_type='نشاط',
-            business_operation=business_operation,
-            event_id=event.event_id
-        )
-
-        return Response(result, status=status.HTTP_200_OK) 
-    # ----------------------------------------------------------------
-    # List Accepted Events by Family
-    # ----------------------------------------------------------------
+        return self._set_event_status(
+            request, pk, STATUS_REJECTED,
+            f"رفض نشاط: {event.title}"
+        ) 
     @extend_schema(
         description="List accepted events for a specific family within this faculty.",
         parameters=[
@@ -521,13 +508,17 @@ class FacultyEventApprovalViewSet(AdminActionMixin, viewsets.GenericViewSet):
     )
     @action(detail=False, methods=['get'], url_path='by-family')
     def list_accepted_events_by_family(self, request):
-        raw_family_id = request.query_params.get('family_id')
+        family_id = request.query_params.get('family_id')
         admin = get_current_admin(request)
 
         try:
-            family_id = int(raw_family_id)
+            family_id = int(family_id)
         except (TypeError, ValueError):
-            return Response({"error": "family_id must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "family_id must be an integer"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         family_is_valid = Families.objects.filter(
             family_id=family_id, 
             faculty_id=admin.faculty_id, 
@@ -535,17 +526,15 @@ class FacultyEventApprovalViewSet(AdminActionMixin, viewsets.GenericViewSet):
 
         if not family_is_valid:
             return Response(
-                {"error": "Family not found, is not 'نوعية', or does not belong to your faculty."}, 
+                {"error": "Family not found, is not 'نوعية', or does not belong to your faculty."},
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        events = self.get_queryset().filter(family_id=family_id, status='مقبول')
+        events = self.get_queryset().filter(family_id=family_id, status=STATUS_APPROVED)
         return Response(self.get_serializer(events, many=True).data)
-    # ----------------------------------------------------------------
-    # Manage Event Participants 
-    # ----------------------------------------------------------------
     def _validate_event_editable(self, event):
-        if event.status != 'مقبول':
+        """Validate that event is in approved status for participant management."""
+        if event.status != STATUS_APPROVED:
             raise serializers.ValidationError(
                 {"error": "Cannot manage participants. The event must be 'مقبول' first."}
             )
@@ -553,30 +542,85 @@ class FacultyEventApprovalViewSet(AdminActionMixin, viewsets.GenericViewSet):
     @extend_schema(
         description="Approve ALL pending participants.",
         request=None,
-        responses={200: OpenApiResponse(description="Approved successfully"), 400: OpenApiResponse}
+        responses={
+            200: OpenApiResponse(description="Approved successfully"),
+            400: OpenApiResponse(description="Event not in correct status")
+        }
     )
     @action(detail=True, methods=['post'], url_path='approve-all-participants')
+    @require_permission('update')
     def approve_all_participants(self, request, pk=None):
-        event = self.get_object()
-        self._validate_event_editable(event)
-        
-        def business_operation(admin, ip):
-            participants_qs = Prtcps.objects.select_for_update().filter(
-                event=event, 
-                status='منتظر'
+        with transaction.atomic():
+            event = self.get_object()
+            self._validate_event_editable(event)
+            
+            def business_operation(admin, ip):
+                participants_qs = Prtcps.objects.select_for_update().filter(
+                    event=event, 
+                    status=STATUS_PENDING
+                )
+                updated_count = participants_qs.update(status=STATUS_APPROVED)
+                return {"message": f"Successfully approved {updated_count} participants."}
+            
+            result = self.execute_admin_action(
+                request=request,
+                action_name=f"قبول جماعي للمشاركين في النشاط: {event.title}",
+                target_type='نشاط',
+                business_operation=business_operation,
+                event_id=event.event_id
             )
-            updated_count = participants_qs.update(status='مقبول')
-            return {"message": f"Successfully approved {updated_count} participants."}
-        
-        result = self.execute_admin_action(
-            request=request,
-            action_name=f"قبول جماعي للمشاركين في النشاط: {event.title}",
-            target_type='نشاط',
-            business_operation=business_operation,
-            event_id=event.event_id
-        )
         
         return Response(result, status=status.HTTP_200_OK)
+    def _set_participant_status(self, request, pk, student_id, new_status, action_name):
+        """Helper method to approve or reject a participant."""
+        event = self.get_object()
+        self._validate_event_editable(event)
+
+        student_id = int(student_id)
+
+        try:
+            student = Students.objects.only('faculty_id').get(student_id=student_id)
+        except Students.DoesNotExist:
+            return Response(
+                {"error": "Student not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if student.faculty_id != event.faculty_id:
+            return Response(
+                {"error": "Student does not belong to the event's faculty"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        def business_operation(admin, ip):
+            updated = Prtcps.objects.select_for_update().filter(
+                event=event,
+                student_id=student_id
+            ).update(status=new_status)
+
+            if updated == 0:
+                raise ValidationError("Student not found in this event")
+            
+            status_msg = "Participant approved successfully" if new_status == STATUS_APPROVED else "Participant rejected successfully"
+            return {"message": status_msg}
+        
+        try:
+            with transaction.atomic():
+                result = self.execute_admin_action(
+                    request=request,
+                    action_name=action_name,
+                    target_type='نشاط',
+                    business_operation=business_operation,
+                    event_id=event.event_id
+                )
+            return Response(result, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            error_msg = e.detail if hasattr(e, "detail") else str(e)
+            return Response(
+                {"error": error_msg},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
     @extend_schema(
         description="Approve a specific participant.",
         request=None,
@@ -599,47 +643,12 @@ class FacultyEventApprovalViewSet(AdminActionMixin, viewsets.GenericViewSet):
         methods=['post'],
         url_path=r'participants/(?P<student_id>\d+)/approve'
     )
+    @require_permission('update')
     def approve_participant(self, request, pk=None, student_id=None):
-        event = self.get_object()
-        self._validate_event_editable(event)
-
-        student_id = int(student_id)
-
-        student_faculty_id = Students.objects.filter(
-            student_id=student_id
-        ).values_list('faculty_id', flat=True).first()
-
-        if student_faculty_id != event.faculty_id:
-            return Response(
-                {"error": "Student does not belong to the event's faculty"},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
-        def business_operation(admin, ip):
-            updated = Prtcps.objects.select_for_update().filter(
-                event=event,
-                student_id=student_id
-            ).update(status='مقبول')
-
-            if updated == 0:
-                raise ValidationError("Student not found in this event")
-            
-            return {"message": "Participant approved successfully"}
-        
-        try:
-            result = self.execute_admin_action(
-                request=request,
-                action_name=f"قبول الطالب رقم {student_id} في النشاط: {event.title}",
-                target_type='نشاط',
-                business_operation=business_operation,
-                event_id=event.event_id
-            )
-            return Response(result, status=status.HTTP_200_OK)
-        except ValidationError as e:
-            return Response(
-                {"error": str(e)},
-                status=status.HTTP_404_NOT_FOUND
-            )
+        return self._set_participant_status(
+            request, pk, student_id, STATUS_APPROVED,
+            f"قبول الطالب رقم {student_id} في النشاط"
+        )
 
     @extend_schema(
         description="Reject a specific participant.",
@@ -662,37 +671,12 @@ class FacultyEventApprovalViewSet(AdminActionMixin, viewsets.GenericViewSet):
         methods=['post'],
         url_path=r'participants/(?P<student_id>\d+)/reject'
     )
+    @require_permission('update')
     def reject_participant(self, request, pk=None, student_id=None):
-        event = self.get_object()
-        self._validate_event_editable(event)
-
-        student_id = int(student_id)
-
-        def business_operation(admin, ip):
-            updated = Prtcps.objects.select_for_update().filter(
-                event=event,
-                student_id=student_id
-            ).update(status='مرفوض')
-
-            if updated == 0:
-                raise ValidationError("Student not found in this event")
-            
-            return {"message": "Participant rejected successfully"}
-        
-        try:
-            result = self.execute_admin_action(
-                request=request,
-                action_name=f"رفض الطالب رقم {student_id} من النشاط: {event.title}",
-                target_type='نشاط',
-                business_operation=business_operation,
-                event_id=event.event_id
-            )
-            return Response(result, status=status.HTTP_200_OK)
-        except ValidationError as e:
-            return Response(
-                {"error": str(e)},
-                status=status.HTTP_404_NOT_FOUND
-            )
+        return self._set_participant_status(
+            request, pk, student_id, STATUS_REJECTED,
+            f"رفض الطالب رقم {student_id} من النشاط"
+        )
 # ------------------------------------------------------------------
 # Family Members (Faculty Admin)
 # ------------------------------------------------------------------
@@ -704,7 +688,10 @@ class FamilyMembersViewSet(AdminActionMixin, viewsets.GenericViewSet):
     @extend_schema(
         tags=["Family Fac Admin APIs"],
         description="Remove a member from a specific family",
-        responses={204: OpenApiResponse(description="Member removed")}
+        responses={
+            200: OpenApiResponse(description="Member removed successfully"),
+            404: OpenApiResponse(description="Member not found")
+        }
     )
     @action(
         detail=False,
@@ -733,15 +720,16 @@ class FamilyMembersViewSet(AdminActionMixin, viewsets.GenericViewSet):
         )
         
         return Response(result, status=status.HTTP_200_OK)
+
     @extend_schema(
-    tags=["Family Fac Admin APIs"],
-    description="Add a student to a family using their national ID.",
-    responses={
-        201: OpenApiResponse(description="Student added successfully"),
-        400: OpenApiResponse(description="Invalid data or family not approved"),
-        404: OpenApiResponse(description="Student or family not found"),
-        403: OpenApiResponse(description="Faculty mismatch")
-    }
+        tags=["Family Fac Admin APIs"],
+        description="Add a student to a family using their national ID.",
+        responses={
+            201: OpenApiResponse(description="Student added successfully"),
+            400: OpenApiResponse(description="Invalid data or family not approved"),
+            404: OpenApiResponse(description="Student or family not found"),
+            403: OpenApiResponse(description="Faculty mismatch")
+        }
     )
     @action(
         detail=False, 
@@ -756,7 +744,7 @@ class FamilyMembersViewSet(AdminActionMixin, viewsets.GenericViewSet):
             Families, 
             pk=family_id, 
             faculty_id=admin.faculty_id,
-            status='مقبول'
+            status=STATUS_APPROVED
         )
         
         try:
@@ -783,8 +771,8 @@ class FamilyMembersViewSet(AdminActionMixin, viewsets.GenericViewSet):
             FamilyMembers.objects.create(
                 family=family,
                 student=student,
-                role='عضو',
-                status='مقبول'
+                role=ROLE_MEMBER,
+                status=STATUS_APPROVED
             )
             return {
                 "message": f"Student {student.name} added successfully to family {family.name}",
