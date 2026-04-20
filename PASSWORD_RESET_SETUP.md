@@ -204,6 +204,9 @@ curl -X POST http://localhost:8000/api/accounts/password-reset/confirm/ \
 
 Check logs for password reset activity:
 
+
+
+
 ```bash
 # Application logs
 tail -f logs/app.log
