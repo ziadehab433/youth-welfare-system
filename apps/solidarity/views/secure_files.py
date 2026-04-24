@@ -28,75 +28,56 @@ class SecureSolidarityFileViewSet(viewsets.GenericViewSet):
     permission_classes = [IsAuthenticated]
     
     def _serve_file_with_xaccel(self, file_path, filename, mime_type, enable_cache=True):
-        """
-        Serve file using X-Accel-Redirect (Nginx) or direct FileResponse (dev)
-        Files are displayed inline in browser when possible
-        
-        Args:
-            file_path: Absolute path to file
-            filename: Original filename for display
-            mime_type: MIME type of file
-            enable_cache: If True, allows browser caching (default). If False, disables all caching.
-        """
         if not os.path.exists(file_path):
             raise Http404("File not found")
-        
-        # Ensure correct MIME type (fallback to octet-stream if unknown)
+
         content_type = mime_type or 'application/octet-stream'
-        
-        # Production: Use X-Accel-Redirect for Nginx
+
         if getattr(settings, 'USE_X_ACCEL_REDIRECT', False):
-            # Convert absolute path to relative path for Nginx
-            relative_path = file_path.replace(settings.MEDIA_ROOT, '').lstrip('/')
-            internal_url = f"{settings.PRIVATE_MEDIA_URL}{relative_path}"
             
+            # ✅ Strip PRIVATE_MEDIA_ROOT (not MEDIA_ROOT) to get correct relative path
+            private_root = settings.PRIVATE_MEDIA_ROOT.rstrip('/')
+            media_root = settings.MEDIA_ROOT.rstrip('/')
+
+            if file_path.startswith(private_root):
+                # Private file → serve via /protected/
+                relative_path = file_path.replace(private_root, '').lstrip('/')
+                internal_url = f"{settings.PRIVATE_MEDIA_URL}{relative_path}"
+                # Result: /protected/solidarity/file.pdf  
+            else:
+                # Public file → serve via /media/
+                relative_path = file_path.replace(media_root, '').lstrip('/')
+                internal_url = f"{settings.MEDIA_URL}{relative_path}"
+                # Result: /media/public/image.jpg  
+
             response = HttpResponse()
             response['X-Accel-Redirect'] = internal_url
             response['Content-Type'] = content_type
-            
-            # Display inline in browser (not download)
             response['Content-Disposition'] = f'inline; filename="{filename}"'
-            
-            # Browser compatibility headers
             response['X-Content-Type-Options'] = 'nosniff'
-            
-            # Cache control based on file type
+
             if enable_cache:
-                # Allow caching for static documents (solidarity docs)
-                response['Cache-Control'] = 'private, max-age=3600'  # Cache for 1 hour
-            else:
-                # Disable caching for dynamic content (profile images)
-                response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-                response['Pragma'] = 'no-cache'
-                response['Expires'] = '0'
-            
-            logger.info(f"Serving file via X-Accel-Redirect: {internal_url}")
-            return response
-        
-        # Development: Direct file serving
-        else:
-            response = FileResponse(
-                open(file_path, 'rb'),
-                content_type=content_type
-            )
-            
-            # Display inline in browser (not download)
-            response['Content-Disposition'] = f'inline; filename="{filename}"'
-            
-            # Browser compatibility headers
-            response['X-Content-Type-Options'] = 'nosniff'
-            
-            # Cache control based on file type
-            if enable_cache:
-                # Allow caching for static documents (solidarity docs)
                 response['Cache-Control'] = 'private, max-age=3600'
             else:
-                # Disable caching for dynamic content (profile images)
                 response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
                 response['Pragma'] = 'no-cache'
                 response['Expires'] = '0'
-            
-            logger.info(f"Serving file directly (dev mode): {file_path}")
+
+            logger.info(f"X-Accel-Redirect: {internal_url}")
+            return response
+
+        # Development: Direct file serving
+        else:
+            response = FileResponse(open(file_path, 'rb'), content_type=content_type)
+            response['Content-Disposition'] = f'inline; filename="{filename}"'
+            response['X-Content-Type-Options'] = 'nosniff'
+            if enable_cache:
+                response['Cache-Control'] = 'private, max-age=3600'
+            else:
+                response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+                response['Pragma'] = 'no-cache'
+                response['Expires'] = '0'
+            logger.info(f"Serving directly (dev): {file_path}")
             return response
     
     @extend_schema(
