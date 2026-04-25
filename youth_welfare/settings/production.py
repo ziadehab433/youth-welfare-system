@@ -10,6 +10,7 @@ ALLOWED_HOSTS = config(
     cast=lambda v: [s.strip() for s in v.split(',')]
 )
 
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://193.227.34.82')
 # ── Security ──────────────────────────────────────────────────
 CORS_ALLOW_ALL_ORIGINS = config(
     'CORS_ALLOW_ALL_ORIGINS',

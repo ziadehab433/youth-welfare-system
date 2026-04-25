@@ -5,6 +5,8 @@ from .base import *
 # ── Dev-specific overrides ────────────────────────────────────
 ALLOWED_HOSTS = ['*']
 
+FRONTEND_URL = 'http://localhost:3000' 
+
 CORS_ALLOW_ALL_ORIGINS = True
 
 USE_X_ACCEL_REDIRECT = False
