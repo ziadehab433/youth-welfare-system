@@ -333,7 +333,7 @@ FONTS_DIR = os.path.join(BASE_DIR, 'static', 'fonts')
 if not os.path.exists(FONTS_DIR):
     os.makedirs(FONTS_DIR, exist_ok=True)
 
-SECURE_BROWSER_XSS_FILTER = True
+# SECURE_BROWSER_XSS_FILTER = True
 CSRF_COOKIE_HTTPONLY = True
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
