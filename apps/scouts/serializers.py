@@ -211,7 +211,6 @@ class ClanOverviewSerializer(serializers.ModelSerializer):
 # ============================================
 # Group Serializers
 # ============================================
-
 class GroupSerializer(serializers.ModelSerializer):
     members_count = serializers.SerializerMethodField()
 
@@ -228,7 +227,7 @@ class GroupSerializer(serializers.ModelSerializer):
         read_only_fields = ['group_id', 'created_at']
 
     def get_members_count(self, obj):
-        return obj.members.filter(status='مقبول').count()
+        return obj.group_members.filter(status='مقبول').count()
 
 
 class GroupDetailSerializer(serializers.ModelSerializer):
@@ -236,7 +235,7 @@ class GroupDetailSerializer(serializers.ModelSerializer):
     members_count = serializers.SerializerMethodField()
     leaders = serializers.SerializerMethodField()
 
-    class Meta:
+    class Meta:                            
         model = ClanGroups
         fields = [
             'group_id',
@@ -254,7 +253,7 @@ class GroupDetailSerializer(serializers.ModelSerializer):
         ]
 
     def get_members_count(self, obj):
-        return obj.members.filter(status='مقبول').count()
+        return obj.group_members.filter(status='مقبول').count() 
 
     def get_leaders(self, obj):
         """Get group leaders (male + female) and assistants"""
@@ -264,7 +263,7 @@ class GroupDetailSerializer(serializers.ModelSerializer):
             'GROUP_ASSISTANT_MALE',
             'GROUP_ASSISTANT_FEMALE',
         ]
-        leaders = obj.members.filter(
+        leaders = obj.group_members.filter( 
             status='مقبول',
             role__in=leadership_roles
         ).select_related('student')
@@ -276,8 +275,6 @@ class GroupDetailSerializer(serializers.ModelSerializer):
                 'name': leader.student.name,
             }
         return result
-
-
 class GroupCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = ClanGroups
