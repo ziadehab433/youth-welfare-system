@@ -10,7 +10,11 @@ FRONTEND_URL = 'http://localhost:3000'
 # In dev, you CANNOT use CORS_ALLOW_ALL_ORIGINS=True with credentials.
 # You must whitelist origins explicitly.
 CORS_ALLOW_ALL_ORIGINS   = False                        # ← CHANGED
-CORS_ALLOWED_ORIGINS     = ['http://localhost:3000']    # ← ADD
+CORS_ALLOWED_ORIGINS     = [
+    'http://localhost:3000',       # Next.js frontend
+    'http://localhost:8000',       # Swagger UI (localhost)
+    'http://127.0.0.1:8000',      # Swagger UI (127.0.0.1)  ← THIS FIXES IT
+]
 CORS_ALLOW_CREDENTIALS   = True                         # ← CRITICAL for cookies
 
 # ── Cookie Auth ───────────────────────────────────────
@@ -19,11 +23,11 @@ AUTH_COOKIE_SECURE = False   # HTTP in dev — no SSL
 # ── CSRF ──────────────────────────────────────────────
 CSRF_COOKIE_SECURE  = False
 SESSION_COOKIE_SECURE = False
-CSRF_TRUSTED_ORIGINS = config(
-    'CSRF_TRUSTED_ORIGINS',
-    default='http://localhost:3000',
-    cast=lambda v: [s.strip() for s in v.split(',')]
-)
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:3000',
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+]
 
 USE_X_ACCEL_REDIRECT = False
 

@@ -143,7 +143,7 @@ def _set_auth_cookies(response, access_token, raw_refresh_token):
         httponly = True,
         secure   = secure,
         samesite = 'Lax',
-        path     = '/api/accounts/token/refresh/',
+        path     ='/api/auth/token/refresh/',
     )
 
     return response
@@ -154,7 +154,7 @@ def _clear_auth_cookies(response):
     Delete both auth cookies from the browser.
     """
     response.delete_cookie(ACCESS_COOKIE_NAME, path='/')
-    response.delete_cookie(REFRESH_COOKIE_NAME, path='/api/accounts/token/refresh/')
+    response.delete_cookie(REFRESH_COOKIE_NAME, path='/api/auth/token/refresh/')
     return response
 
 
@@ -781,24 +781,37 @@ class AdminManagementViewSet(viewsets.ModelViewSet):
 class StudentProfileViewSet(GenericViewSet):
     """
     ViewSet for students to view and update their own profile details.
-    Uses the student_id from the JWT token payload.
+    Uses the user_id from the JWT token payload.
     """
     serializer_class = StudentDetailSerializer
     permission_classes = [IsAuthenticated, IsRole]
     allowed_roles = ['student']
-    parser_classes = [MultiPartParser, FormParser] 
-    
+    parser_classes = [MultiPartParser, FormParser]
+
     def get_object(self):
-        """Custom method to get the currently authenticated student."""
+        """Get the currently authenticated student from the JWT payload."""
+        auth = self.request.auth  # This is the decoded JWT dict
+
+        # Support both old format (simplejwt object) and new format (dict)
+        if hasattr(auth, 'payload'):
+            # Old simplejwt token object (backward compat)
+            payload = auth.payload
+        elif isinstance(auth, dict):
+            # New CookieJWTAuthentication returns dict directly
+            payload = auth
+        else:
+            raise AuthenticationFailed("Invalid token format")
+
+        # Our new JWT uses 'user_id', old used 'student_id'
+        student_id = payload.get('user_id') or payload.get('student_id')
+
+        if not student_id:
+            raise AuthenticationFailed("Token missing 'user_id'")
+
         try:
-            student_id = self.request.auth.payload.get('student_id')
-            if not student_id:
-                 raise Students.DoesNotExist # Treat as not found
-            
             return Students.objects.get(student_id=student_id)
         except Students.DoesNotExist:
-            raise AuthenticationFailed("User not found or token missing 'student_id'")
-
+            raise AuthenticationFailed("Student not found")
 
     @extend_schema(
         tags=["Student Profile"],
@@ -806,20 +819,9 @@ class StudentProfileViewSet(GenericViewSet):
         responses={200: StudentDetailSerializer}
     )
     def list(self, request, *args, **kwargs):
-        """Handles GET /accounts/profile/ to retrieve the current user's details."""
         instance = self.get_object()
         serializer = self.get_serializer(instance, context={'request': request})
         return Response(serializer.data)
-    
-    def get_object(self):
-        try:
-            student_id = self.request.auth.payload.get('student_id')
-            if not student_id:
-                    raise Students.DoesNotExist
-            
-            return Students.objects.get(student_id=student_id)
-        except Students.DoesNotExist:
-            raise AuthenticationFailed("User not found or token missing 'student_id'")
 
     @extend_schema(
         tags=["Student Profile"],
@@ -827,19 +829,16 @@ class StudentProfileViewSet(GenericViewSet):
         request=StudentUpdateSerializer,
         responses={200: StudentDetailSerializer}
     )
-   
     @action(detail=False, methods=['patch'])
     def update_profile(self, request, *args, **kwargs):
-        """Handles PATCH /accounts/profile/update_profile/ to update the current user's details."""
         instance = self.get_object()
         serializer = StudentUpdateSerializer(
-            instance, 
-            data=request.data, 
+            instance,
+            data=request.data,
             partial=True,
             context={'request': request}
         )
         serializer.is_valid(raise_exception=True)
         updated_instance = serializer.save()
-        
         detail_serializer = self.get_serializer(updated_instance, context={'request': request})
         return Response(detail_serializer.data, status=status.HTTP_200_OK)
