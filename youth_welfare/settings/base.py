@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'apps.family',
     'apps.accounts',
     'apps.accounts.schema',
+    'apps.scouts',
 ]
 
 MIDDLEWARE = [
