@@ -3,7 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status
 from django.db import transaction
-
+from drf_spectacular.utils import extend_schema
 from ..models import Clans, ScoutMembers
 from ..serializers import (
     ClanSerializer,
@@ -15,6 +15,7 @@ from ..utils import (
     error_response,
 )
 
+@extend_schema(tags=["Student Scouts"])
 
 class StudentScoutViewSet(ViewSet):
 

@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.utils import timezone
 from django.db import transaction
-
+from drf_spectacular.utils import extend_schema
 from ..models import Clans, ClanGroups, ScoutMembers
 from ..serializers import (
     ClanSerializer,
@@ -37,7 +37,7 @@ from ..utils import (
 )
 from apps.accounts.mixins import AdminActionMixin
 
-
+@extend_schema(tags=["Faculty Admin Scouts"])
 class FacultyAdminScoutViewSet(ViewSet, AdminActionMixin):
     """
     Faculty admin scout endpoints with logging.

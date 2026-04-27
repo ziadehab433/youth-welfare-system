@@ -18,6 +18,8 @@ urlpatterns = [
     path('api/', include('apps.family.urls')),
     # Event subsystem routes
     path('api/', include('apps.event.urls')),
+    # Scouts subsystem routes
+    path('api/', include('apps.scouts.urls')),
     # Schema and Swagger UI (drf-spectacular)
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/swagger/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
