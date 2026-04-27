@@ -2,15 +2,10 @@
 from django.db import connection, transaction
 from django.shortcuts import get_object_or_404
 from apps.accounts.models import Students
-from django.core.files.storage import FileSystemStorage
-from django.utils import timezone
-from django.conf import settings
 import logging
 
-from io import BytesIO
 
     
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 from django.shortcuts import get_object_or_404
 from apps.accounts.models import AdminsUser
@@ -28,72 +23,72 @@ def get_client_ip(request):
     return ip
 
 
+def _get_payload(request):
+    """
+    Safely extract JWT payload from request.auth.
+    Works with both cookie-based (new) and simplejwt (old) auth.
+    """
+    auth = getattr(request, 'auth', None)
+    if auth is None:
+        raise AuthenticationFailed("لم يتم العثور على توكن صالح.")
+    if isinstance(auth, dict):
+        return auth
+    if hasattr(auth, 'payload'):
+        return auth.payload
+    raise AuthenticationFailed("خطأ في التوثيق: صيغة التوكن غير معروفة.")
+
+
 def get_current_student(request):
     """
     Safely get the current authenticated student using the JWT token.
     """
-    auth = JWTAuthentication()
-    header = request.headers.get('Authorization')
+    payload = _get_payload(request)
 
-    if not header or not header.startswith('Bearer '):
-        raise AuthenticationFailed("Missing or invalid Authorization header")
+    # Support both new ('user_id') and old ('student_id') format
+    student_id = payload.get('user_id') or payload.get('student_id')
 
-    raw_token = header.split(' ')[1]
-    try:
-        validated_token = auth.get_validated_token(raw_token)
-        payload = validated_token.payload
+    if not student_id:
+        raise AuthenticationFailed("Token missing student_id claim")
 
-        student_id = payload.get('student_id')
-        if not student_id:
-            raise AuthenticationFailed("Token missing student_id claim")
+    # Extra safety: make sure it's actually a student token
+    user_type = payload.get('user_type')
+    if user_type and user_type != 'student':
+        raise AuthenticationFailed("هذا التوكن ليس لطالب.")
 
-        return get_object_or_404(Students, pk=student_id)
-
-    except Exception as e:
-        raise AuthenticationFailed(str(e))
-    
+    return get_object_or_404(Students, pk=student_id)
 
 
 def get_current_admin(request):
     """
     Get the current authenticated admin based on the JWT token.
-    If the token is valid, extract the admin_id from its payload.
     """
-    jwt_auth = JWTAuthentication()
-    try:
-        # validate the token and get (user, token) tuple
-        user, token = jwt_auth.authenticate(request)
-        if not user:
-            raise AuthenticationFailed("لم يتم العثور على مستخدم مرتبط .")
-        
-        # the user should already be an instance of Admins
-        if isinstance(user, AdminsUser):
-            return user
-        
-        # fallback if token payload has admin_id
-        admin_id = token.payload.get('admin_id') or token.payload.get('user_id')
-        if not admin_id:
-            raise AuthenticationFailed("لا يحتوي  على admin_id.")
+    # First: request.user is already set by CookieJWTAuthentication
+    user = getattr(request, 'user', None)
+    if user and isinstance(user, AdminsUser):
+        return user
 
-        return get_object_or_404(AdminsUser, pk=admin_id)
+    # Fallback: read from payload
+    payload = _get_payload(request)
 
-    except Exception as e:
-        raise AuthenticationFailed(f"خطأ في التوكن: {str(e)}")
-    
+    admin_id = payload.get('user_id') or payload.get('admin_id')
+
+    if not admin_id:
+        raise AuthenticationFailed("لا يحتوي التوكن على admin_id.")
+
+    # Extra safety: make sure it's actually an admin token
+    user_type = payload.get('user_type')
+    if user_type and user_type != 'admin':
+        raise AuthenticationFailed("هذا التوكن ليس لمسؤول.")
+
+    return get_object_or_404(AdminsUser, pk=admin_id)
+
+
 def get_current_user_token_payload(request):
     """
-    Get the payload of the current authenticated admin's JWT token.
+    Get the payload of the current authenticated user's JWT token.
+    Works with both cookie-based auth (new) and header-based auth (old).
     """
-    jwt_auth = JWTAuthentication()
-    try:
-        user, token = jwt_auth.authenticate(request)
-        if not user:
-            raise AuthenticationFailed("لم يتم العثور على مستخدم مرتبط .")
-        
-        return token.payload
-
-    except Exception as e:
-        raise AuthenticationFailed(f"خطأ في التوكن: {str(e)}")
+    return _get_payload(request)
 
 
 
