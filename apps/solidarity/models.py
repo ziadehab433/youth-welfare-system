@@ -103,7 +103,7 @@ class SolidarityDocs(models.Model):
     uploaded_at = models.DateTimeField(blank=True, null=True)
 
     class Meta:
-        managed = True
+        managed = False
         db_table = 'solidarity_docs'
         unique_together = (('solidarity', 'doc_type'),)
 
