@@ -45,6 +45,7 @@ MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
+    'apps.accounts.middleware.EnsureCsrfCookieMiddleware',   # ← NEW
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -113,7 +114,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "apps.accounts.authentication.CustomJWTAuthentication",
+        "apps.accounts.authentication.CookieJWTAuthentication",   # ← CHANGED
     ),
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.AllowAny",
@@ -130,17 +131,39 @@ REST_FRAMEWORK = {
     ),
 }
 
-SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=150),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
-    "ROTATE_REFRESH_TOKENS": False,
-    "BLACKLIST_AFTER_ROTATION": True,
-    "ALGORITHM": "HS256",
-    "SIGNING_KEY": config('SECRET_KEY'),
-    "AUTH_HEADER_TYPES": ("Bearer",),
-    "USER_ID_FIELD": "admin_id",
-    "USER_ID_CLAIM": "admin_id",
-}
+# SIMPLE_JWT = {
+#     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=150),
+#     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+#     "ROTATE_REFRESH_TOKENS": False,
+#     "BLACKLIST_AFTER_ROTATION": True,
+#     "ALGORITHM": "HS256",
+#     "SIGNING_KEY": config('SECRET_KEY'),
+#     "AUTH_HEADER_TYPES": ("Bearer",),
+#     "USER_ID_FIELD": "admin_id",
+#     "USER_ID_CLAIM": "admin_id",
+# }
+
+# ── HttpOnly Cookie Auth Settings ──────────────────────────────
+# These are overridden per-environment in development.py / production.py
+AUTH_COOKIE_SECURE    = False    # overridden in production.py → True after SSL
+AUTH_COOKIE_SAMESITE  = 'Lax'
+AUTH_COOKIE_HTTPONLY   = True
+
+
+# 4. CSRF — ensure these are set:
+CSRF_COOKIE_HTTPONLY  = False    # ← CHANGED to False! 
+#   The frontend needs to READ the csrftoken cookie via JS 
+#   to send it in the X-CSRFToken header.
+#   This is safe — CSRF token is not a secret, it's a double-submit check.
+
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+
+CSRF_COOKIE_SAMESITE = 'Lax'
+
+
+# 5. CORS — add credentials support (needed for cookies to work cross-origin):
+CORS_ALLOW_CREDENTIALS = True    # ← ADD THIS
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')

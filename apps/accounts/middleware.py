@@ -192,3 +192,21 @@ class RateLimitMiddleware(MiddlewareMixin):
             return None
         
         return None
+    
+class EnsureCsrfCookieMiddleware(MiddlewareMixin):
+    """
+    Ensures the CSRF cookie is set on every response.
+    This way the frontend always has a valid CSRF token
+    without needing to call /api/accounts/csrf/ first.
+    
+    Place this AFTER Django's CsrfViewMiddleware in MIDDLEWARE list.
+    """
+    
+    def process_response(self, request, response):
+        # If the CSRF cookie isn't already set, force it
+        if not request.COOKIES.get(settings.CSRF_COOKIE_NAME, None):
+            from django.middleware.csrf import get_token
+            get_token(request)
+            # Django's CsrfViewMiddleware will set the cookie
+            # on the next response cycle. This just ensures the token exists.
+        return response
