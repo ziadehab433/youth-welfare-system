@@ -82,7 +82,19 @@ class ClanDetailSerializer(serializers.ModelSerializer):
             'structure',
             'created_at',
         ]
-        read_only_fields = '__all__'
+        read_only_fields = [
+            'clan_id',
+            'name',
+            'description',
+            'faculty',
+            'faculty_name',
+            'status',
+            'min_members',
+            'members_count',
+            'groups',
+            'structure',
+            'created_at',
+        ]
 
     def get_members_count(self, obj):
         return obj.members.filter(status='مقبول').count()
@@ -153,7 +165,20 @@ class ClanOverviewSerializer(serializers.ModelSerializer):
             'is_structure_complete',
             'created_at',
         ]
-        read_only_fields = '__all__'
+        read_only_fields = [
+            'clan_id',
+            'name',
+            'faculty',
+            'faculty_name',
+            'status',
+            'min_members',
+            'members_count',
+            'accepted_count',
+            'pending_count',
+            'groups_count',
+            'is_structure_complete',
+            'created_at',
+        ]
 
     def get_members_count(self, obj):
         return obj.members.count()
@@ -220,6 +245,13 @@ class GroupDetailSerializer(serializers.ModelSerializer):
             'members_count',
             'leaders',
         ]
+        read_only_fields = [
+            'group_id',
+            'name',
+            'display_order',
+            'members_count',
+            'leaders',
+        ]
 
     def get_members_count(self, obj):
         return obj.members.filter(status='مقبول').count()
@@ -260,7 +292,6 @@ class GroupCreateSerializer(serializers.ModelSerializer):
 # Scout Member Serializers
 # ============================================
 
-# Student submits a join request
 class ScoutJoinSerializer(serializers.ModelSerializer):
     class Meta:
         model = ScoutMembers
@@ -292,7 +323,6 @@ class ScoutJoinSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     "أنت عضو بالفعل في العشيرة"
                 )
-            # مرفوض → allow re-application (handled in view)
 
         if clan.faculty_id != student['faculty_id']:
             raise serializers.ValidationError(
@@ -302,7 +332,6 @@ class ScoutJoinSerializer(serializers.ModelSerializer):
         return data
 
 
-# Student views their membership status
 class ScoutStatusSerializer(serializers.ModelSerializer):
     clan_name = serializers.CharField(
         source='clan.name',
@@ -327,10 +356,19 @@ class ScoutStatusSerializer(serializers.ModelSerializer):
             'rejection_reason',
             'joined_at',
         ]
-        read_only_fields = '__all__'
+        read_only_fields = [
+            'scout_member_id',
+            'clan',
+            'clan_name',
+            'group',
+            'group_name',
+            'role',
+            'status',
+            'rejection_reason',
+            'joined_at',
+        ]
 
 
-# Faculty admin / dept manager reviews a join request
 class ScoutReviewSerializer(serializers.Serializer):
     action = serializers.ChoiceField(
         choices=['approve', 'reject']
@@ -349,7 +387,6 @@ class ScoutReviewSerializer(serializers.Serializer):
         return data
 
 
-# Faculty admin assigns member to a group
 class ScoutAssignGroupSerializer(serializers.Serializer):
     group_id = serializers.IntegerField()
 
@@ -362,7 +399,6 @@ class ScoutAssignGroupSerializer(serializers.Serializer):
         return value
 
 
-# Faculty admin / dept manager changes member role
 class ScoutChangeRoleSerializer(serializers.Serializer):
     role = serializers.ChoiceField(
         choices=ScoutMembers.ROLE_CHOICES
@@ -383,7 +419,6 @@ class ScoutChangeRoleSerializer(serializers.Serializer):
                 "يجب قبول العضو أولاً قبل تعيينه في منصب قيادي"
             )
 
-        # Gender validation for gendered roles
         if member.student.gender == 'M' and value in [
             'GROUP_LEADER_FEMALE', 'GROUP_ASSISTANT_FEMALE', 'ASSISTANT_FEMALE'
         ]:
@@ -401,7 +436,6 @@ class ScoutChangeRoleSerializer(serializers.Serializer):
         return value
 
 
-# Faculty admin adds a student directly by national ID
 class ScoutAddByNidSerializer(serializers.Serializer):
     nid = serializers.CharField(required=True)
 
@@ -415,7 +449,6 @@ class ScoutAddByNidSerializer(serializers.Serializer):
         return value
 
 
-# Faculty admin views full members list
 class ScoutMemberListSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(
         source='student.name',
@@ -456,4 +489,69 @@ class ScoutMemberListSerializer(serializers.ModelSerializer):
             'joined_at',
             'created_at',
         ]
-        read_only_fields = '__all__'
+        read_only_fields = [
+            'scout_member_id',
+            'student',
+            'student_name',
+            'student_email',
+            'student_gender',
+            'student_phone',
+            'clan',
+            'group',
+            'group_name',
+            'role',
+            'status',
+            'joined_at',
+            'created_at',
+        ]
+
+
+# ============================================
+# Swagger Request Serializers (Schema Only)
+# ============================================
+
+class GroupUpdateRequestSerializer(serializers.Serializer):
+    """For Swagger documentation only"""
+    group_id = serializers.IntegerField()
+    name = serializers.CharField(required=False)
+    display_order = serializers.IntegerField(required=False)
+
+
+class GroupDeleteRequestSerializer(serializers.Serializer):
+    """For Swagger documentation only"""
+    group_id = serializers.IntegerField()
+
+
+class ReviewMemberRequestSerializer(serializers.Serializer):
+    """For Swagger documentation only"""
+    member_id = serializers.IntegerField()
+    action = serializers.ChoiceField(choices=['approve', 'reject'])
+    rejection_reason = serializers.CharField(
+        required=False,
+        allow_blank=True
+    )
+
+
+class AssignGroupRequestSerializer(serializers.Serializer):
+    """For Swagger documentation only"""
+    member_id = serializers.IntegerField()
+    group_id = serializers.IntegerField()
+
+
+class ChangeRoleRequestSerializer(serializers.Serializer):
+    """For Swagger documentation only"""
+    member_id = serializers.IntegerField()
+    role = serializers.ChoiceField(
+        choices=ScoutMembers.ROLE_CHOICES
+    )
+
+
+class TransferMemberRequestSerializer(serializers.Serializer):
+    """For Swagger documentation only"""
+    member_id = serializers.IntegerField()
+    group_id = serializers.IntegerField()
+
+
+class RemoveMemberRequestSerializer(serializers.Serializer):
+    """For Swagger documentation only"""
+    member_id = serializers.IntegerField()

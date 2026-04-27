@@ -3,9 +3,6 @@ from apps.accounts.models import Students, AdminsUser
 from apps.solidarity.models import Faculties
 
 
-# ============================================
-# 1. Clan
-# ============================================
 class Clans(models.Model):
 
     STATUS_CHOICES = [
@@ -18,14 +15,15 @@ class Clans(models.Model):
     description = models.TextField(blank=True, null=True)
 
     faculty = models.OneToOneField(
-        Faculties,  
-        on_delete=models.CASCADE,
+        Faculties,
+        on_delete=models.DO_NOTHING,
+        db_column='faculty_id',
         related_name='clan'
     )
 
     created_by = models.ForeignKey(
-        AdminsUser,  
-        on_delete=models.SET_NULL,  
+        AdminsUser,
+        on_delete=models.DO_NOTHING,
         db_column='created_by',
         blank=True,
         null=True,
@@ -51,9 +49,6 @@ class Clans(models.Model):
         return self.name
 
 
-# ============================================
-# 2. Clan Group (Raht)
-# ============================================
 class ClanGroups(models.Model):
 
     group_id = models.AutoField(primary_key=True)
@@ -61,7 +56,8 @@ class ClanGroups(models.Model):
 
     clan = models.ForeignKey(
         Clans,
-        on_delete=models.CASCADE,
+        on_delete=models.DO_NOTHING,
+        db_column='clan_id',
         related_name='groups'
     )
 
@@ -73,17 +69,15 @@ class ClanGroups(models.Model):
     class Meta:
         managed = False
         db_table = 'clan_groups'
+        ordering = ['display_order']
 
     def __str__(self):
         return f"{self.name} - {self.clan.name}"
 
 
-# ============================================
-# 3. Scout Member
-# ============================================
 class ScoutMembers(models.Model):
 
-    ROLE_CHOICES = [
+    CLAN_LEVEL_ROLES = [
         ('CLAN_LEADER', 'Clan Leader'),
         ('ASSISTANT_MALE', 'Assistant Male'),
         ('ASSISTANT_FEMALE', 'Assistant Female'),
@@ -91,18 +85,35 @@ class ScoutMembers(models.Model):
         ('SECRETARY', 'Secretary'),
         ('EQUIPMENT_MANAGER', 'Equipment Manager'),
         ('VETERAN', 'Veteran'),
+    ]
 
+    GROUP_LEVEL_ROLES = [
         ('GROUP_LEADER_MALE', 'Group Leader Male'),
         ('GROUP_LEADER_FEMALE', 'Group Leader Female'),
         ('GROUP_ASSISTANT_MALE', 'Group Assistant Male'),
         ('GROUP_ASSISTANT_FEMALE', 'Group Assistant Female'),
+    ]
 
+    MEMBER_ROLE = [
         ('MEMBER', 'Member'),
+    ]
+
+    ROLE_CHOICES = CLAN_LEVEL_ROLES + GROUP_LEVEL_ROLES + MEMBER_ROLE
+
+    MALE_ONLY_ROLES = [
+        'ASSISTANT_MALE',
+        'GROUP_LEADER_MALE',
+        'GROUP_ASSISTANT_MALE',
+    ]
+
+    FEMALE_ONLY_ROLES = [
+        'ASSISTANT_FEMALE',
+        'GROUP_LEADER_FEMALE',
+        'GROUP_ASSISTANT_FEMALE',
     ]
 
     STATUS_CHOICES = [
         ('منتظر', 'منتظر'),
-        ('موافقة مبدئية', 'موافقة مبدئية'),
         ('مقبول', 'مقبول'),
         ('مرفوض', 'مرفوض'),
     ]
@@ -110,23 +121,26 @@ class ScoutMembers(models.Model):
     scout_member_id = models.AutoField(primary_key=True)
 
     student = models.ForeignKey(
-        Students, 
-        on_delete=models.CASCADE,  
-        related_name='scout_membership'
+        Students,
+        on_delete=models.DO_NOTHING,
+        db_column='student_id',
+        related_name='scout_memberships'
     )
 
     clan = models.ForeignKey(
         Clans,
-        on_delete=models.CASCADE,  
+        on_delete=models.DO_NOTHING,
+        db_column='clan_id',
         related_name='members'
     )
 
     group = models.ForeignKey(
         ClanGroups,
-        on_delete=models.SET_NULL,
+        on_delete=models.DO_NOTHING,
+        db_column='group_id',
         blank=True,
         null=True,
-        related_name='members'
+        related_name='group_members'
     )
 
     role = models.CharField(
@@ -142,11 +156,11 @@ class ScoutMembers(models.Model):
     )
 
     reviewed_by = models.ForeignKey(
-        AdminsUser,  
-        on_delete=models.SET_NULL,  
+        AdminsUser,
+        on_delete=models.DO_NOTHING,
+        db_column='reviewed_by',
         blank=True,
         null=True,
-        db_column='reviewed_by',
         related_name='reviewed_scouts'
     )
 
@@ -163,4 +177,32 @@ class ScoutMembers(models.Model):
         unique_together = (('student', 'clan'),)
 
     def __str__(self):
-        return f"{self.student.name} - {self.clan.name} ({self.role})"
+        return f"{self.student.name} - {self.clan.name} ({self.get_role_display()})"
+
+    @property
+    def is_accepted(self):
+        return self.status == 'مقبول'
+
+    @property
+    def is_pending(self):
+        return self.status == 'منتظر'
+
+    @property
+    def is_rejected(self):
+        return self.status == 'مرفوض'
+
+    @property
+    def is_leader(self):
+        return self.role != 'MEMBER'
+
+    @property
+    def is_clan_level_leader(self):
+        return self.role in [r[0] for r in self.CLAN_LEVEL_ROLES]
+
+    @property
+    def is_group_level_leader(self):
+        return self.role in [r[0] for r in self.GROUP_LEVEL_ROLES]
+
+    @property
+    def has_group(self):
+        return self.group_id is not None
