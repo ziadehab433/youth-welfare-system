@@ -18,9 +18,10 @@ from apps.solidarity.serializers import (
     SolidarityListSerializer,
     SolidarityDetailSerializer,
     LogSerializer,
-    DeptFacultiesSerializer,
     DeptFacultySummarySerializer,
-    SolidarityDocsSerializer
+    SolidarityDocsSerializer,
+    RejectionSerializer
+
 )
 from apps.solidarity.services.solidarity_service import SolidarityService
 logger = logging.getLogger(__name__)
@@ -163,10 +164,12 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
         except Exception as e:
             return self.handle_exception(e)
         
+
+
     @extend_schema(
-        request=None,
+        request=RejectionSerializer,
         tags=["Solidarity Dept&Super Admin APIs"],
-        description="Change status of request to 'Rejected'",
+        description="Change status of request to 'Rejected' and save rejection reason code",
         responses={200: OpenApiResponse(description="Application rejected")}
     )
     @action(detail=True, methods=['post'], url_path='change_to_reject')
@@ -174,10 +177,15 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
     def change_to_reject(self, request, pk=None):
         try:
             from apps.accounts.utils import execute_admin_action
-            
+
+            serializer = RejectionSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+
+            rejection_reason = serializer.validated_data['rejection_reason']
+
             def business_operation(admin, ip):
-                return SolidarityService.change_to_reject(pk, admin)
-            
+                return SolidarityService.change_to_reject(pk, admin, rejection_reason)
+
             result = execute_admin_action(
                 request=request,
                 operation=business_operation,
@@ -185,7 +193,7 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
                 target_type='تكافل',
                 solidarity_id=pk
             )
-            
+
             return Response(result)
         except Solidarities.DoesNotExist:
             raise NotFound(f"Solidarity application with id {pk} not found")

@@ -432,7 +432,7 @@ class SolidarityService:
 
 
     @staticmethod
-    def change_to_reject(solidarity_id, admin):
+    def change_to_reject(solidarity_id, admin, rejection_reason):
         solidarity = Solidarities.objects.select_for_update().get(solidarity_id=solidarity_id)
 
         if admin.role != 'مشرف النظام':
@@ -442,16 +442,18 @@ class SolidarityService:
             raise ValidationError("Application is already rejected.")
 
         solidarity.req_status = 'مرفوض'
+        solidarity.rejection_reason = rejection_reason
         solidarity.approved_by = admin
         solidarity.updated_at = timezone.now()
-        solidarity.save()
+        solidarity.save(update_fields=['req_status', 'rejection_reason', 'approved_by', 'updated_at'])
 
         logger.info(f"Super admin {admin.name} rejected application {solidarity_id}.")
+
+        return {
+            'message': 'Application rejected successfully.',
+            'rejection_reason': rejection_reason
+        }
         
-        # Logging removed - will be done in view layer
-        # @transaction.atomic removed - will be handled by execute_admin_action
-        return {'message': 'Application rejected successfully.'}
-    
 
 
 
