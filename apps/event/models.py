@@ -90,6 +90,7 @@ class Events(models.Model):
     restrictions = models.TextField(blank=True, null=True)
     reward = models.TextField(blank=True, null=True)
     status = models.TextField(blank=True, null=True)
+    rejection_reason = models.TextField(blank=True, null=True)
     st_date = models.DateField()
     end_date = models.DateField()
     s_limit = models.IntegerField(blank=True, null=True)

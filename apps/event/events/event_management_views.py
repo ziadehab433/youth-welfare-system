@@ -13,7 +13,8 @@ from .serializers import (
     EventListSerializer, 
     EventDetailSerializer,
     EventImageUploadSerializer,
-    EventDocsSerializer
+    EventDocsSerializer,
+    RejectEventSerializer
 )
 from apps.accounts.models import AdminsUser
 from apps.accounts.permissions import require_permission, IsRole
@@ -720,12 +721,12 @@ class EventARViewSet(AdminActionMixin, viewsets.GenericViewSet):
         
         serializer = EventDetailSerializer(event)
         return Response(serializer.data, status=status.HTTP_200_OK)
-
     @extend_schema(
-        description="Reject an event (update status to 'مرفوض')",
-        request=None,
+        description="Reject an event and save rejection reason",
+        request=RejectEventSerializer,
         responses={
             200: OpenApiResponse(response=EventDetailSerializer, description="Event rejected successfully"),
+            400: OpenApiResponse(description="Invalid request"),
             403: OpenApiResponse(description="Permission denied"),
             404: OpenApiResponse(description="Event not found")
         }
@@ -733,28 +734,35 @@ class EventARViewSet(AdminActionMixin, viewsets.GenericViewSet):
     @action(detail=True, methods=['patch'], url_path='reject')
     def reject_event(self, request, pk=None):
         """
-        Reject an event by updating its status to 'مرفوض'
+        Reject an event by updating status to 'مرفوض'
+        and saving rejection_reason.
         Only accessible by faculty heads and general admins
         """
-        event = self.get_object() 
+        event = self.get_object()
+
+        serializer = RejectEventSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        rejection_reason = serializer.validated_data['rejection_reason']
 
         if event.status == 'مرفوض':
             return Response(
                 {"detail": "Event is already rejected"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        if event.status != 'موافقة مبدئية': 
-            return Response( 
+
+        if event.status != 'موافقة مبدئية':
+            return Response(
                 {"detail": "Event is not in 'موافقة مبدئية' status"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         def business_operation(admin, ip):
             event.status = 'مرفوض'
-            event.save(update_fields=['status'])
+            event.rejection_reason = rejection_reason
+            event.save(update_fields=['status', 'rejection_reason'])
             return event
-        
+
         event = self.execute_admin_action(
             request=request,
             action_name=f"رفض نشاط: {event.title}",
@@ -762,7 +770,7 @@ class EventARViewSet(AdminActionMixin, viewsets.GenericViewSet):
             business_operation=business_operation,
             event_id=event.event_id
         )
-        
+
         serializer = EventDetailSerializer(event)
         return Response(serializer.data, status=status.HTTP_200_OK)
 

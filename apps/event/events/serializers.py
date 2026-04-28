@@ -309,3 +309,7 @@ class ParticipantResultSerializer(serializers.Serializer):
                 "At least one of 'rank' or 'reward' must be provided."
             )
         return data
+    
+
+class RejectEventSerializer(serializers.Serializer):
+    rejection_reason = serializers.CharField(required=True, allow_blank=False, max_length=1000)
