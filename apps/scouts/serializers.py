@@ -288,26 +288,17 @@ class GroupCreateSerializer(serializers.ModelSerializer):
 # ============================================
 # Scout Member Serializers
 # ============================================
-
 class ScoutJoinSerializer(serializers.ModelSerializer):
     class Meta:
         model = ScoutMembers
-        fields = [
-            'clan',
-        ]
+        fields = ['clan']
 
     def validate(self, data):
-        """
-        Validate join request:
-        - No active duplicate requests
-        - Allows re-application after rejection (handled in view)
-        - Student must belong to the same faculty
-        """
-        student = self.context['request'].user_data
+        student = self.context['request'].user  
         clan = data['clan']
 
         existing = ScoutMembers.objects.filter(
-            student_id=student['student_id'],
+            student_id=student.student_id,  
             clan=clan
         ).first()
 
@@ -321,7 +312,7 @@ class ScoutJoinSerializer(serializers.ModelSerializer):
                     "أنت عضو بالفعل في العشيرة"
                 )
 
-        if clan.faculty_id != student['faculty_id']:
+        if clan.faculty_id != student.faculty_id:  
             raise serializers.ValidationError(
                 "لا يمكنك الانضمام إلى عشيرة كلية أخرى"
             )
