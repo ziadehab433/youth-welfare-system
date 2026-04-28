@@ -2,7 +2,8 @@ from rest_framework.viewsets import ViewSet
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, OpenApiParameter
+from drf_spectacular.types import OpenApiTypes
 from ..serializers import (
     ClanOverviewSerializer,
     ClanDetailSerializer,
@@ -20,6 +21,7 @@ from ..utils import (
 )
 from ..services.dept_manager_services import (
     ScoutValidationError,
+    Roles,
     get_clan_or_error,
     get_member_or_error,
     get_accepted_member_or_error,
@@ -31,7 +33,6 @@ from ..services.dept_manager_services import (
     get_clan_groups,
     validate_clan_status,
     change_clan_status as svc_change_clan_status,
-    validate_role_change,
     change_member_role as svc_change_member_role,
     remove_member as svc_remove_member,
 )
@@ -53,6 +54,88 @@ MSG = {
     'role_changed': "تم تغيير دور العضو بنجاح",
     'member_removed': "تم إزالة العضو من العشيرة بنجاح",
 }
+
+
+# ============================================
+# Shared OpenAPI Parameters
+# ============================================
+PARAM_CLAN_ID_QUERY = OpenApiParameter(
+    name='clan_id',
+    type=OpenApiTypes.INT,
+    location=OpenApiParameter.QUERY,
+    required=True,
+    description='رقم العشيرة',
+)
+
+PARAM_MEMBER_ID_QUERY = OpenApiParameter(
+    name='member_id',
+    type=OpenApiTypes.INT,
+    location=OpenApiParameter.QUERY,
+    required=True,
+    description='رقم العضو',
+)
+
+PARAM_CLAN_STATUS_QUERY = OpenApiParameter(
+    name='status',
+    type=OpenApiTypes.STR,
+    location=OpenApiParameter.QUERY,
+    required=True,
+    enum=['active', 'inactive'],
+    description='الحالة الجديدة للعشيرة',
+)
+
+PARAM_ROLE_QUERY = OpenApiParameter(
+    name='role',
+    type=OpenApiTypes.STR,
+    location=OpenApiParameter.QUERY,
+    required=True,
+    enum=[
+        Roles.MEMBER,
+        Roles.CLAN_LEADER,
+        Roles.ASSISTANT_MALE,
+        Roles.ASSISTANT_FEMALE,
+        Roles.HEAD_ROVER,
+        Roles.SECRETARY,
+        Roles.EQUIPMENT_MANAGER,
+        Roles.VETERAN,
+        Roles.GROUP_LEADER_MALE,
+        Roles.GROUP_LEADER_FEMALE,
+        Roles.GROUP_ASSISTANT_MALE,
+        Roles.GROUP_ASSISTANT_FEMALE,
+    ],
+    description='الدور الجديد للعضو',
+)
+
+PARAM_MEMBER_STATUS_QUERY = OpenApiParameter(
+    name='status',
+    type=OpenApiTypes.STR,
+    location=OpenApiParameter.QUERY,
+    required=False,
+    enum=['منتظر', 'مقبول', 'مرفوض'],
+    description='فلترة حسب حالة العضو',
+)
+
+PARAM_MEMBER_ROLE_FILTER = OpenApiParameter(
+    name='role',
+    type=OpenApiTypes.STR,
+    location=OpenApiParameter.QUERY,
+    required=False,
+    enum=[
+        Roles.MEMBER,
+        Roles.CLAN_LEADER,
+        Roles.ASSISTANT_MALE,
+        Roles.ASSISTANT_FEMALE,
+        Roles.HEAD_ROVER,
+        Roles.SECRETARY,
+        Roles.EQUIPMENT_MANAGER,
+        Roles.VETERAN,
+        Roles.GROUP_LEADER_MALE,
+        Roles.GROUP_LEADER_FEMALE,
+        Roles.GROUP_ASSISTANT_MALE,
+        Roles.GROUP_ASSISTANT_FEMALE,
+    ],
+    description='فلترة حسب دور العضو',
+)
 
 
 @extend_schema(tags=["Dept Manager Scouts"])
@@ -87,21 +170,59 @@ class DeptManagerScoutViewSet(AdminActionMixin, ViewSet):
             student_id=student_id,
         )
 
+    @staticmethod
+    def _get_param(request, key):
+        """Read from query_params first (Swagger), then data (API clients)"""
+        return request.query_params.get(key) or request.data.get(key)
+
     # ==========================================
     # Read-Only Monitoring (5)
     # ==========================================
 
-    @extend_schema(tags=["Dept Manager Scouts"])
+    @extend_schema(
+        tags=["Dept Manager Scouts"],
+        parameters=[
+            OpenApiParameter(
+                name='status',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                enum=['active', 'inactive'],
+                description='فلترة حسب حالة العشيرة',
+            ),
+            OpenApiParameter(
+                name='meets_minimum',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                enum=['true', 'false'],
+                description='فلترة حسب الحد الأدنى للأعضاء',
+            ),
+            OpenApiParameter(
+                name='structure_complete',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                enum=['true', 'false'],
+                description='فلترة حسب اكتمال الهيكل الإداري',
+            ),
+        ],
+    )
     @action(detail=False, methods=['get'])
     @require_permission('read')
     def clans(self, request):
         """List all clans with summary and filters"""
-        clans = get_all_clans(request.query_params)
+        result = self._safe(
+            lambda: get_all_clans(request.query_params)
+        )
+        if isinstance(result, Response):
+            return result
+        clans = result
+
         serializer = ClanOverviewSerializer(clans, many=True)
         all_data = serializer.data
 
         summary = build_clans_summary(all_data)
-
         filtered_data = filter_serialized_clans(
             all_data, request.query_params
         )
@@ -117,7 +238,10 @@ class DeptManagerScoutViewSet(AdminActionMixin, ViewSet):
             status=status.HTTP_200_OK
         )
 
-    @extend_schema(tags=["Dept Manager Scouts"])
+    @extend_schema(
+        tags=["Dept Manager Scouts"],
+        parameters=[PARAM_CLAN_ID_QUERY],
+    )
     @action(detail=False, methods=['get'])
     @require_permission('read')
     def clan_detail(self, request):
@@ -143,7 +267,14 @@ class DeptManagerScoutViewSet(AdminActionMixin, ViewSet):
             status=status.HTTP_200_OK
         )
 
-    @extend_schema(tags=["Dept Manager Scouts"])
+    @extend_schema(
+        tags=["Dept Manager Scouts"],
+        parameters=[
+            PARAM_CLAN_ID_QUERY,
+            PARAM_MEMBER_STATUS_QUERY,
+            PARAM_MEMBER_ROLE_FILTER,
+        ],
+    )
     @action(detail=False, methods=['get'])
     @require_permission('read')
     def clan_members(self, request):
@@ -167,7 +298,10 @@ class DeptManagerScoutViewSet(AdminActionMixin, ViewSet):
             status=status.HTTP_200_OK
         )
 
-    @extend_schema(tags=["Dept Manager Scouts"])
+    @extend_schema(
+        tags=["Dept Manager Scouts"],
+        parameters=[PARAM_CLAN_ID_QUERY],
+    )
     @action(detail=False, methods=['get'])
     @require_permission('read')
     def clan_groups(self, request):
@@ -191,7 +325,10 @@ class DeptManagerScoutViewSet(AdminActionMixin, ViewSet):
             status=status.HTTP_200_OK
         )
 
-    @extend_schema(tags=["Dept Manager Scouts"])
+    @extend_schema(
+        tags=["Dept Manager Scouts"],
+        parameters=[PARAM_CLAN_ID_QUERY],
+    )
     @action(detail=False, methods=['get'])
     @require_permission('read')
     def clan_structure(self, request):
@@ -217,15 +354,22 @@ class DeptManagerScoutViewSet(AdminActionMixin, ViewSet):
     # Administrative Interventions (3)
     # ==========================================
 
-    @extend_schema(tags=["Dept Manager Scouts"])
+    @extend_schema(
+        tags=["Dept Manager Scouts"],
+        parameters=[
+            PARAM_CLAN_ID_QUERY,
+            PARAM_CLAN_STATUS_QUERY,
+        ],
+        request=None,
+    )
     @action(detail=False, methods=['post'])
     @require_permission('update')
     def change_clan_status(self, request):
         """Activate or deactivate a clan"""
 
         def _load():
-            clan = get_clan_or_error(request.data.get('clan_id'))
-            new_status = request.data.get('status')
+            clan = get_clan_or_error(self._get_param(request, 'clan_id'))
+            new_status = self._get_param(request, 'status')
             validate_clan_status(new_status)
             return clan, new_status
 
@@ -256,15 +400,25 @@ class DeptManagerScoutViewSet(AdminActionMixin, ViewSet):
             status=status.HTTP_200_OK
         )
 
-    @extend_schema(tags=["Dept Manager Scouts"])
+    @extend_schema(
+        tags=["Dept Manager Scouts"],
+        parameters=[
+            PARAM_CLAN_ID_QUERY,
+            PARAM_MEMBER_ID_QUERY,
+            PARAM_ROLE_QUERY,
+        ],
+        request=None,
+    )
     @action(detail=False, methods=['post'])
     @require_permission('update')
     def change_member_role(self, request):
-        """Change a member's role (intervention)"""
+        """Change a member's role (intervention) — fully atomic"""
 
         def _load():
-            clan = get_clan_or_error(request.data.get('clan_id'))
-            member_id = require_field(request, 'member_id')
+            clan = get_clan_or_error(self._get_param(request, 'clan_id'))
+            member_id = self._get_param(request, 'member_id')
+            if not member_id:
+                raise ScoutValidationError("يجب تحديد member_id")
             member = get_accepted_member_or_error(member_id, clan)
             return clan, member
 
@@ -273,8 +427,17 @@ class DeptManagerScoutViewSet(AdminActionMixin, ViewSet):
             return result
         clan, member = result
 
+        new_role = self._get_param(request, 'role')
+        if not new_role:
+            return Response(
+                error_response("يجب تحديد الدور الجديد"),
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Gender validation via serializer
         serializer = ScoutChangeRoleSerializer(
-            data=request.data, context={'member': member}
+            data={'role': new_role},
+            context={'member': member}
         )
         if not serializer.is_valid():
             return Response(
@@ -286,22 +449,19 @@ class DeptManagerScoutViewSet(AdminActionMixin, ViewSet):
             )
 
         new_role = serializer.validated_data['role']
-
-        validation = self._safe(
-            lambda: validate_role_change(member, new_role, clan)
-        )
-        if isinstance(validation, Response):
-            return validation
-
         old_role = member.role
 
         def business_fn(_, __):
-            svc_change_member_role(member, new_role)
+            svc_change_member_role(member, new_role, clan)
 
-        self._log(
-            request, SCOUT_LOG_ACTIONS['change_role'],
-            business_fn, member.student_id
+        result = self._safe(
+            lambda: self._log(
+                request, SCOUT_LOG_ACTIONS['change_role'],
+                business_fn, member.student_id
+            )
         )
+        if isinstance(result, Response):
+            return result
 
         return Response(
             success_response(
@@ -316,15 +476,24 @@ class DeptManagerScoutViewSet(AdminActionMixin, ViewSet):
             status=status.HTTP_200_OK
         )
 
-    @extend_schema(tags=["Dept Manager Scouts"])
+    @extend_schema(
+        tags=["Dept Manager Scouts"],
+        parameters=[
+            PARAM_CLAN_ID_QUERY,
+            PARAM_MEMBER_ID_QUERY,
+        ],
+        request=None,
+    )
     @action(detail=False, methods=['post'])
     @require_permission('delete')
     def remove_member(self, request):
-        """Remove a member from a clan (permanent delete)"""
+        """Remove a member from a clan (permanent delete — locked)"""
 
         def _load():
-            clan = get_clan_or_error(request.data.get('clan_id'))
-            member_id = require_field(request, 'member_id')
+            clan = get_clan_or_error(self._get_param(request, 'clan_id'))
+            member_id = self._get_param(request, 'member_id')
+            if not member_id:
+                raise ScoutValidationError("يجب تحديد member_id")
             member = get_member_or_error(member_id, clan)
             return member
 

@@ -4,6 +4,61 @@ from rest_framework import status as http_status
 from ..models import Clans, ClanGroups, ScoutMembers
 
 
+# ============================================
+# Shared Role Constants (single source of truth)
+# ============================================
+
+class Roles:
+    """All scout roles — change here, changes everywhere"""
+    MEMBER = 'MEMBER'
+
+    CLAN_LEADER = 'CLAN_LEADER'
+    ASSISTANT_MALE = 'ASSISTANT_MALE'
+    ASSISTANT_FEMALE = 'ASSISTANT_FEMALE'
+    HEAD_ROVER = 'HEAD_ROVER'
+    SECRETARY = 'SECRETARY'
+    EQUIPMENT_MANAGER = 'EQUIPMENT_MANAGER'
+    VETERAN = 'VETERAN'
+
+    GROUP_LEADER_MALE = 'GROUP_LEADER_MALE'
+    GROUP_LEADER_FEMALE = 'GROUP_LEADER_FEMALE'
+    GROUP_ASSISTANT_MALE = 'GROUP_ASSISTANT_MALE'
+    GROUP_ASSISTANT_FEMALE = 'GROUP_ASSISTANT_FEMALE'
+
+    CLAN_LEVEL = [
+        CLAN_LEADER, ASSISTANT_MALE, ASSISTANT_FEMALE,
+        HEAD_ROVER, SECRETARY, EQUIPMENT_MANAGER, VETERAN,
+    ]
+
+    GROUP_LEVEL = [
+        GROUP_LEADER_MALE, GROUP_LEADER_FEMALE,
+        GROUP_ASSISTANT_MALE, GROUP_ASSISTANT_FEMALE,
+    ]
+
+    ALL_LEADERSHIP = CLAN_LEVEL + GROUP_LEVEL
+
+    MALE_ONLY = [ASSISTANT_MALE, GROUP_LEADER_MALE, GROUP_ASSISTANT_MALE]
+    FEMALE_ONLY = [ASSISTANT_FEMALE, GROUP_LEADER_FEMALE, GROUP_ASSISTANT_FEMALE]
+
+
+class Status:
+    """All member statuses"""
+    PENDING = 'منتظر'
+    ACCEPTED = 'مقبول'
+    REJECTED = 'مرفوض'
+
+
+class ClanStatus:
+    """All clan statuses"""
+    ACTIVE = 'active'
+    INACTIVE = 'inactive'
+    VALID = [ACTIVE, INACTIVE]
+
+
+# ============================================
+# Exceptions
+# ============================================
+
 class ScoutValidationError(Exception):
     def __init__(self, message, status_code=http_status.HTTP_400_BAD_REQUEST):
         self.message = message
@@ -52,7 +107,7 @@ def get_member_or_error(member_id, clan):
 
 def get_accepted_member_or_error(member_id, clan):
     member = get_member_or_error(member_id, clan)
-    if member.status != 'مقبول':
+    if member.status != Status.ACCEPTED:
         raise ScoutValidationError(
             f"العضو غير مقبول — الحالة الحالية: {member.status}"
         )
@@ -60,13 +115,13 @@ def get_accepted_member_or_error(member_id, clan):
 
 
 def require_field(request, field_name, source='data'):
-    """Get required field from request.data or request.query_params"""
+    """Get required field — rejects None AND empty strings"""
     if source == 'query':
         value = request.query_params.get(field_name)
     else:
         value = request.data.get(field_name)
 
-    if value is None:
+    if not value and value != 0:
         raise ScoutValidationError(f"يجب تحديد {field_name}")
     return value
 
@@ -76,18 +131,25 @@ def require_field(request, field_name, source='data'):
 # ============================================
 
 def get_all_clans(query_params):
-    """Get all clans with optional status filter"""
+    """Get all clans with DB-level filters"""
     clans = Clans.objects.select_related('faculty').all().order_by('name')
 
     filter_status = query_params.get('status')
     if filter_status:
+        if filter_status not in ClanStatus.VALID:
+            raise ScoutValidationError(
+                f"حالة العشيرة يجب أن تكون '{ClanStatus.ACTIVE}' أو '{ClanStatus.INACTIVE}'"
+            )
         clans = clans.filter(status=filter_status)
 
     return clans
 
 
 def filter_serialized_clans(data, query_params):
-    """Apply post-serialization filters (meets_minimum, structure_complete)"""
+    """
+    Post-serialization filters for computed fields.
+    (these require aggregation — can't easily do in DB with select_related)
+    """
     meets_min = query_params.get('meets_minimum')
     if meets_min == 'true':
         data = [c for c in data if c['accepted_count'] >= c['min_members']]
@@ -108,7 +170,7 @@ def build_clans_summary(all_clans_data):
     return {
         'total_clans': len(all_clans_data),
         'active_clans': len(
-            [c for c in all_clans_data if c['status'] == 'active']
+            [c for c in all_clans_data if c['status'] == ClanStatus.ACTIVE]
         ),
         'total_members': sum(
             c['members_count'] for c in all_clans_data
@@ -123,7 +185,7 @@ def build_clans_summary(all_clans_data):
 
 
 # ============================================
-# Clan Members & Groups (Read)
+# Clan Members & Groups 
 # ============================================
 
 def get_filtered_members(clan, query_params):
@@ -153,71 +215,69 @@ def get_clan_groups(clan):
 # ============================================
 
 def validate_clan_status(new_status):
-    if new_status not in ['active', 'inactive']:
+    if new_status not in ClanStatus.VALID:
         raise ScoutValidationError(
-            "حالة العشيرة يجب أن تكون 'active' أو 'inactive'"
+            f"حالة العشيرة يجب أن تكون '{ClanStatus.ACTIVE}' أو '{ClanStatus.INACTIVE}'"
         )
 
 
 def change_clan_status(clan, new_status):
+    """Change clan status — fully atomic with lock"""
     with transaction.atomic():
+        locked_clan = Clans.objects.select_for_update().get(
+            clan_id=clan.clan_id
+        )
+        locked_clan.status = new_status
+        locked_clan.updated_at = timezone.now()
+        locked_clan.save()
         clan.status = new_status
-        clan.updated_at = timezone.now()
-        clan.save()
 
 
-def validate_role_change(member, new_role, clan):
-    """Full role change validation (gender + uniqueness + single leadership)"""
-    if new_role == 'MEMBER':
+def _validate_role_change_locked(member, new_role, clan):
+    if new_role == Roles.MEMBER:
         return
 
-    # Gender validation
-    MALE_ONLY = ['ASSISTANT_MALE', 'GROUP_LEADER_MALE', 'GROUP_ASSISTANT_MALE']
-    FEMALE_ONLY = ['ASSISTANT_FEMALE', 'GROUP_LEADER_FEMALE', 'GROUP_ASSISTANT_FEMALE']
-
-    if member.student.gender == 'M' and new_role in FEMALE_ONLY:
+    if member.student.gender == 'M' and new_role in Roles.FEMALE_ONLY:
         raise ScoutValidationError(
             "لا يمكن تعيين طالب ذكر في منصب مخصص للإناث"
         )
-    if member.student.gender == 'F' and new_role in MALE_ONLY:
+    if member.student.gender == 'F' and new_role in Roles.MALE_ONLY:
         raise ScoutValidationError(
             "لا يمكن تعيين طالبة أنثى في منصب مخصص للذكور"
         )
 
-    # Group-level role requires group
-    GROUP_ROLES = [
-        'GROUP_LEADER_MALE', 'GROUP_LEADER_FEMALE',
-        'GROUP_ASSISTANT_MALE', 'GROUP_ASSISTANT_FEMALE',
-    ]
-    CLAN_ROLES = [
-        'CLAN_LEADER', 'ASSISTANT_MALE', 'ASSISTANT_FEMALE',
-        'HEAD_ROVER', 'SECRETARY', 'EQUIPMENT_MANAGER', 'VETERAN',
-    ]
-
-    if new_role in GROUP_ROLES and not member.group:
+    if new_role in Roles.GROUP_LEVEL and not member.group:
         raise ScoutValidationError(
             "لا يمكن تعيين دور رهط لعضو غير موزع على رهط"
         )
 
-    # Uniqueness check
-    conflict_qs = ScoutMembers.objects.filter(
-        clan=clan, role=new_role, status='مقبول'
-    ).exclude(scout_member_id=member.scout_member_id)
+    conflict_qs = ScoutMembers.objects.select_for_update().filter(
+        clan=clan,
+        role=new_role,
+        status=Status.ACCEPTED
+    ).exclude(
+        scout_member_id=member.scout_member_id
+    )
 
-    if new_role in GROUP_ROLES:
+    if new_role in Roles.GROUP_LEVEL:
         conflict_qs = conflict_qs.filter(group=member.group)
 
-    holder = conflict_qs.select_related('student').first()
-    if holder:
+    conflict = conflict_qs.first()
+    if conflict:
+        conflict_name = ScoutMembers.objects.select_related(
+            'student'
+        ).get(
+            scout_member_id=conflict.scout_member_id
+        ).student.name
         raise ScoutValidationError(
-            f"هذا المنصب مشغول بالفعل بواسطة {holder.student.name}"
+            f"هذا المنصب مشغول بالفعل بواسطة {conflict_name}"
         )
 
-    # Single leadership check
-    has_other_leadership = ScoutMembers.objects.filter(
-        student=member.student, clan=clan, status='مقبول'
-    ).exclude(
-        role='MEMBER'
+    has_other_leadership = ScoutMembers.objects.select_for_update().filter(
+        student=member.student,
+        clan=clan,
+        status=Status.ACCEPTED,
+        role__in=Roles.ALL_LEADERSHIP
     ).exclude(
         scout_member_id=member.scout_member_id
     ).exists()
@@ -228,11 +288,26 @@ def validate_role_change(member, new_role, clan):
         )
 
 
-def change_member_role(member, new_role):
+def change_member_role(member, new_role, clan):
     with transaction.atomic():
+        locked_member = ScoutMembers.objects.select_for_update().get(
+            scout_member_id=member.scout_member_id
+        )
+
+        locked_member.student = member.student
+        locked_member.group = member.group
+
+        if locked_member.status != Status.ACCEPTED:
+            raise ScoutValidationError(
+                f"العضو لم يعد مقبولاً — الحالة الحالية: {locked_member.status}"
+            )
+        _validate_role_change_locked(locked_member, new_role, clan)
+
+        locked_member.role = new_role
+        locked_member.updated_at = timezone.now()
+        locked_member.save()
+
         member.role = new_role
-        member.updated_at = timezone.now()
-        member.save()
 
 
 def remove_member(member):
@@ -242,5 +317,8 @@ def remove_member(member):
         'student_id': member.student_id,
     }
     with transaction.atomic():
-        member.delete()
+        locked = ScoutMembers.objects.select_for_update().get(
+            scout_member_id=member.scout_member_id
+        )
+        locked.delete()
     return info
