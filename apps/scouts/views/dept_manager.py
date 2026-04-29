@@ -484,7 +484,7 @@ class DeptManagerScoutViewSet(AdminActionMixin, ViewSet):
         ],
         request=None,
     )
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=['delete'])
     @require_permission('delete')
     def remove_member(self, request):
         """Remove a member from a clan (permanent delete — locked)"""

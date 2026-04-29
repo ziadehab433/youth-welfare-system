@@ -336,7 +336,7 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
         request=GroupDeleteRequestSerializer,
         tags=["Scouts - Faculty Admin"],
     )
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=['delete'])
     @require_permission('delete')
     def delete_group(self, request):
         """Delete a group — members become unassigned"""
@@ -647,7 +647,7 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
         request=RemoveMemberRequestSerializer,
         tags=["Scouts - Faculty Admin"],
     )
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=['delete'])
     @require_permission('delete')
     def remove_member(self, request):
         """Remove (kick) a member — permanent delete"""
