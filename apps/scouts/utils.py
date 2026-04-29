@@ -3,6 +3,26 @@ from .models import Clans, ClanGroups, ScoutMembers
 
 
 # ============================================
+# Role & Status Constants (single source of truth)
+# ============================================
+
+UNIQUE_CLAN_ROLES = [r[0] for r in ScoutMembers.CLAN_LEVEL_ROLES]
+
+UNIQUE_GROUP_ROLES = [r[0] for r in ScoutMembers.GROUP_LEVEL_ROLES]
+
+ALL_LEADERSHIP_ROLES = UNIQUE_CLAN_ROLES + UNIQUE_GROUP_ROLES
+
+MEMBER_ROLE = 'عضو'
+
+STATUS_ACCEPTED = 'مقبول'
+STATUS_PENDING = 'منتظر'
+STATUS_REJECTED = 'مرفوض'
+
+CLAN_STATUS_ACTIVE = 'نشط'
+CLAN_STATUS_INACTIVE = 'غير نشط'
+
+
+# ============================================
 # Permission Checks
 # ============================================
 
@@ -78,12 +98,12 @@ def validate_member_belongs_to_clan(member, clan):
 
 
 def validate_member_is_pending(member):
-    if member.status != 'منتظر':
+    if member.status != STATUS_PENDING:
         raise ValidationError("لا يمكن مراجعة هذا الطلب لأنه تمت مراجعته مسبقاً")
 
 
 def validate_member_is_accepted(member):
-    if member.status != 'مقبول':
+    if member.status != STATUS_ACCEPTED:
         raise ValidationError("يجب قبول العضو أولاً قبل القيام بهذا الإجراء")
 
 
@@ -91,39 +111,19 @@ def validate_member_is_accepted(member):
 # Role Validation
 # ============================================
 
-UNIQUE_CLAN_ROLES = [
-    'CLAN_LEADER',
-    'ASSISTANT_MALE',
-    'ASSISTANT_FEMALE',
-    'HEAD_ROVER',
-    'SECRETARY',
-    'EQUIPMENT_MANAGER',
-    'VETERAN',
-]
-
-UNIQUE_GROUP_ROLES = [
-    'GROUP_LEADER_MALE',
-    'GROUP_LEADER_FEMALE',
-    'GROUP_ASSISTANT_MALE',
-    'GROUP_ASSISTANT_FEMALE',
-]
-
-ALL_LEADERSHIP_ROLES = UNIQUE_CLAN_ROLES + UNIQUE_GROUP_ROLES
-
-
 def validate_unique_role(clan, role, group=None, exclude_member_id=None):
     """
     Ensure no duplicate leadership roles:
     - Clan-level roles: one per clan
     - Group-level roles: one per group
     """
-    if role == 'MEMBER':
+    if role == MEMBER_ROLE:
         return
 
     query = ScoutMembers.objects.filter(
         clan=clan,
         role=role,
-        status='مقبول'
+        status=STATUS_ACCEPTED
     )
 
     if exclude_member_id:
@@ -132,7 +132,7 @@ def validate_unique_role(clan, role, group=None, exclude_member_id=None):
     if role in UNIQUE_CLAN_ROLES:
         if query.exists():
             raise ValidationError(
-                f"يوجد عضو آخر يشغل منصب {dict(ScoutMembers.ROLE_CHOICES).get(role)} بالفعل"
+                f"يوجد عضو آخر يشغل منصب {role} بالفعل"
             )
 
     if role in UNIQUE_GROUP_ROLES:
@@ -142,19 +142,19 @@ def validate_unique_role(clan, role, group=None, exclude_member_id=None):
             )
         if query.filter(group=group).exists():
             raise ValidationError(
-                f"يوجد عضو آخر يشغل منصب {dict(ScoutMembers.ROLE_CHOICES).get(role)} في هذا الرهط بالفعل"
+                f"يوجد عضو آخر يشغل منصب {role} في هذا الرهط بالفعل"
             )
 
 
 def validate_single_leadership_role(member, new_role, clan):
     """Ensure a member doesn't hold multiple leadership roles"""
-    if new_role == 'MEMBER':
+    if new_role == MEMBER_ROLE:
         return
 
     existing_leadership = ScoutMembers.objects.filter(
         student=member.student,
         clan=clan,
-        status='مقبول',
+        status=STATUS_ACCEPTED,
         role__in=ALL_LEADERSHIP_ROLES
     ).exclude(
         scout_member_id=member.scout_member_id
@@ -175,12 +175,12 @@ def get_clan_stats(clan):
 
     return {
         'total_members': members.count(),
-        'accepted_count': members.filter(status='مقبول').count(),
-        'pending_count': members.filter(status='منتظر').count(),
-        'rejected_count': members.filter(status='مرفوض').count(),
+        'accepted_count': members.filter(status=STATUS_ACCEPTED).count(),
+        'pending_count': members.filter(status=STATUS_PENDING).count(),
+        'rejected_count': members.filter(status=STATUS_REJECTED).count(),
         'groups_count': clan.groups.count(),
         'unassigned_count': members.filter(
-            status='مقبول',
+            status=STATUS_ACCEPTED,
             group__isnull=True
         ).count(),
     }
@@ -188,9 +188,9 @@ def get_clan_stats(clan):
 
 def get_clan_structure(clan):
     leaders = clan.members.filter(
-        status='مقبول'
+        status=STATUS_ACCEPTED
     ).exclude(
-        role='MEMBER'
+        role=MEMBER_ROLE
     ).select_related('student', 'group')
 
     structure = {

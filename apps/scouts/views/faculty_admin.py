@@ -2,25 +2,19 @@ from rest_framework.viewsets import ViewSet
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status
-from drf_spectacular.utils import extend_schema
-from ..models import Clans
+from drf_spectacular.utils import extend_schema, OpenApiParameter
+from drf_spectacular.types import OpenApiTypes
+from ..models import Clans, ScoutMembers
 from ..serializers import (
     ClanSerializer,
     ClanCreateSerializer,
     ClanDetailSerializer,
     GroupSerializer,
     GroupCreateSerializer,
-    GroupUpdateRequestSerializer,
-    GroupDeleteRequestSerializer,
     ScoutMemberListSerializer,
     ScoutReviewSerializer,
     ScoutChangeRoleSerializer,
     ScoutAddByNidSerializer,
-    ReviewMemberRequestSerializer,
-    AssignGroupRequestSerializer,
-    ChangeRoleRequestSerializer,
-    TransferMemberRequestSerializer,
-    RemoveMemberRequestSerializer,
 )
 from ..utils import (
     get_clan_stats,
@@ -29,6 +23,9 @@ from ..utils import (
     error_response,
     SCOUT_LOG_ACTIONS,
     SCOUT_TARGET_TYPE,
+    STATUS_ACCEPTED,
+    STATUS_REJECTED,
+    MEMBER_ROLE,
 )
 from ..services.faculty_services import (
     ScoutValidationError,
@@ -46,7 +43,7 @@ from ..services.faculty_services import (
     review_member as svc_review_member,
     assign_member_to_group,
     validate_role_change,
-    change_member_role,
+    change_member_role as svc_change_member_role,
     transfer_member as svc_transfer_member,
     remove_member as svc_remove_member,
     add_student_by_nid,
@@ -59,19 +56,62 @@ from apps.accounts.mixins import AdminActionMixin
 
 
 # ============================================
-# Success Messages
+# Messages
 # ============================================
 MSG = {
     'clan_fetched': "تم جلب بيانات العشيرة بنجاح",
     'clan_created': "تم إنشاء العشيرة بنجاح",
     'clan_updated': "تم تعديل بيانات العشيرة بنجاح",
+    'clan_exists': "هذه الكلية لديها عشيرة بالفعل",
     'structure_fetched': "تم جلب الهيكل الإداري بنجاح",
     'groups_fetched': "تم جلب الرهوط بنجاح",
     'group_created': "تم إنشاء الرهط بنجاح",
     'group_updated': "تم تعديل الرهط بنجاح",
     'group_deleted': "تم حذف الرهط بنجاح",
     'members_fetched': "تم جلب قائمة الأعضاء بنجاح",
+    'invalid_data': "بيانات غير صحيحة",
+    'already_in_group': "العضو موجود بالفعل في هذا الرهط",
 }
+
+# ============================================
+# Shared OpenAPI Parameters
+# ============================================
+ALL_ROLES_ENUM = [r[0] for r in ScoutMembers.ROLE_CHOICES]
+
+PARAM_MEMBER_STATUS_FILTER = OpenApiParameter(
+    name='status',
+    type=OpenApiTypes.STR,
+    location=OpenApiParameter.QUERY,
+    required=False,
+    enum=['منتظر', 'مقبول', 'مرفوض'],
+    description='فلترة حسب حالة العضو',
+)
+
+PARAM_MEMBER_ROLE_FILTER = OpenApiParameter(
+    name='role',
+    type=OpenApiTypes.STR,
+    location=OpenApiParameter.QUERY,
+    required=False,
+    enum=ALL_ROLES_ENUM,
+    description='فلترة حسب دور العضو',
+)
+
+PARAM_GROUP_ID_FILTER = OpenApiParameter(
+    name='group_id',
+    type=OpenApiTypes.INT,
+    location=OpenApiParameter.QUERY,
+    required=False,
+    description='فلترة حسب الرهط',
+)
+
+PARAM_UNASSIGNED_FILTER = OpenApiParameter(
+    name='unassigned',
+    type=OpenApiTypes.STR,
+    location=OpenApiParameter.QUERY,
+    required=False,
+    enum=['true', 'false'],
+    description='عرض الأعضاء الغير موزعين فقط',
+)
 
 
 @extend_schema(tags=["Scouts - Faculty Admin"])
@@ -92,7 +132,6 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
         return Response(error_response(e.message), status=e.status_code)
 
     def _safe(self, fn):
-        """Execute fn, return result or error Response"""
         try:
             return fn()
         except ScoutValidationError as e:
@@ -108,7 +147,6 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
         )
 
     def _member_data(self, member, **extra):
-        """Standard member response data"""
         data = {
             'member_id': member.scout_member_id,
             'student_name': member.student.name,
@@ -154,7 +192,7 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
 
         if Clans.objects.filter(faculty_id=admin.faculty_id).exists():
             return Response(
-                error_response("This faculty already has a clan"),
+                error_response(MSG['clan_exists']),
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -164,7 +202,7 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
         serializer = ClanCreateSerializer(data=data)
         if not serializer.is_valid():
             return Response(
-                error_response("Invalid clan data", errors=serializer.errors),
+                error_response(MSG['invalid_data'], errors=serializer.errors),
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -182,23 +220,54 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
         )
 
     @extend_schema(
-        request=ClanSerializer,
         tags=["Scouts - Faculty Admin"],
+        parameters=[
+            OpenApiParameter(
+                name='name',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description='اسم العشيرة الجديد',
+            ),
+            OpenApiParameter(
+                name='description',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description='وصف العشيرة الجديد',
+            ),
+        ],
+        request=None,
     )
     @action(detail=False, methods=['put'])
     @require_permission('update')
     def update_clan(self, request):
-        """Update clan info (name, description)"""
+        """Update clan info (name, description only)"""
         admin = self.current_admin
         result = self._safe(lambda: get_clan_or_error(admin))
         if isinstance(result, Response):
             return result
         clan = result
 
-        serializer = ClanSerializer(clan, data=request.data, partial=True)
+        def _get(key):
+            return request.query_params.get(key) or request.data.get(key)
+
+        update_data = {}
+        for key in ['name', 'description']:
+            val = _get(key)
+            if val is not None:
+                update_data[key] = val
+
+        if not update_data:
+            return Response(
+                error_response("يجب تحديد حقل واحد على الأقل للتعديل"),
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        serializer = ClanSerializer(clan, data=update_data, partial=True)
         if not serializer.is_valid():
             return Response(
-                error_response("Invalid update data", errors=serializer.errors),
+                error_response(MSG['invalid_data'], errors=serializer.errors),
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -211,7 +280,6 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
             success_response(MSG['clan_updated'], data=serializer.data),
             status=status.HTTP_200_OK
         )
-
     @extend_schema(tags=["Scouts - Faculty Admin"])
     @action(detail=False, methods=['get'])
     @require_permission('read')
@@ -276,7 +344,7 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
         serializer = GroupCreateSerializer(data=data)
         if not serializer.is_valid():
             return Response(
-                error_response("Invalid group data", errors=serializer.errors),
+                error_response(MSG['invalid_data'], errors=serializer.errors),
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -296,8 +364,31 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
         )
 
     @extend_schema(
-        request=GroupUpdateRequestSerializer,
         tags=["Scouts - Faculty Admin"],
+        parameters=[
+            OpenApiParameter(
+                name='group_id',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description='رقم الرهط',
+            ),
+            OpenApiParameter(
+                name='name',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description='اسم الرهط الجديد',
+            ),
+            OpenApiParameter(
+                name='display_order',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description='ترتيب العرض الجديد',
+            ),
+        ],
+        request=None,
     )
     @action(detail=False, methods=['put'])
     @require_permission('update')
@@ -307,7 +398,8 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
 
         def _load():
             clan = get_clan_or_error(admin)
-            group = get_group_or_error(request.data.get('group_id'), clan)
+            group_id = request.query_params.get('group_id') or request.data.get('group_id')
+            group = get_group_or_error(group_id, clan)
             return clan, group
 
         result = self._safe(_load)
@@ -315,10 +407,16 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
             return result
         clan, group = result
 
-        serializer = GroupSerializer(group, data=request.data, partial=True)
+        update_data = {}
+        for key in ['name', 'display_order']:
+            val = request.query_params.get(key) or request.data.get(key)
+            if val is not None:
+                update_data[key] = val
+
+        serializer = GroupSerializer(group, data=update_data, partial=True)
         if not serializer.is_valid():
             return Response(
-                error_response("Invalid update data", errors=serializer.errors),
+                error_response(MSG['invalid_data'], errors=serializer.errors),
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -333,8 +431,17 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
         )
 
     @extend_schema(
-        request=GroupDeleteRequestSerializer,
         tags=["Scouts - Faculty Admin"],
+        parameters=[
+            OpenApiParameter(
+                name='group_id',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description='رقم الرهط المراد حذفه',
+            ),
+        ],
+        request=None,
     )
     @action(detail=False, methods=['delete'])
     @require_permission('delete')
@@ -344,7 +451,8 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
 
         def _load():
             clan = get_clan_or_error(admin)
-            group = get_group_or_error(request.data.get('group_id'), clan)
+            group_id = request.query_params.get('group_id') or request.data.get('group_id')
+            group = get_group_or_error(group_id, clan)
             return clan, group
 
         result = self._safe(_load)
@@ -365,7 +473,7 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
                 MSG['group_deleted'],
                 data={
                     'affected_members': affected,
-                    'message': f"{affected} members became unassigned"
+                    'message': f"تم إلغاء توزيع {affected} عضو"
                 }
             ),
             status=status.HTTP_200_OK
@@ -375,7 +483,15 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
     # Member Management
     # ==========================================
 
-    @extend_schema(tags=["Scouts - Faculty Admin"])
+    @extend_schema(
+        tags=["Scouts - Faculty Admin"],
+        parameters=[
+            PARAM_MEMBER_STATUS_FILTER,
+            PARAM_MEMBER_ROLE_FILTER,
+            PARAM_GROUP_ID_FILTER,
+            PARAM_UNASSIGNED_FILTER,
+        ],
+    )
     @action(detail=False, methods=['get'])
     @require_permission('read')
     def members(self, request):
@@ -402,8 +518,32 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
         )
 
     @extend_schema(
-        request=ReviewMemberRequestSerializer,
         tags=["Scouts - Faculty Admin"],
+        parameters=[
+            OpenApiParameter(
+                name='member_id',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description='رقم العضو',
+            ),
+            OpenApiParameter(
+                name='action',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                enum=['قبول', 'رفض'],
+                description='قبول أو رفض',
+            ),
+            OpenApiParameter(
+                name='rejection_reason',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description='سبب الرفض (مطلوب عند الرفض)',
+            ),
+        ],
+        request=None,
     )
     @action(detail=False, methods=['post'])
     @require_permission('update')
@@ -411,9 +551,14 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
         """Approve or reject a pending join request"""
         admin = self.current_admin
 
+        def _get(key):
+            return request.query_params.get(key) or request.data.get(key)
+
         def _load():
             clan = get_clan_or_error(admin)
-            member_id = require_field(request, 'member_id')
+            member_id = _get('member_id')
+            if not member_id:
+                raise ScoutValidationError("يجب تحديد member_id")
             member = get_member_or_error(member_id, clan)
             return member
 
@@ -422,15 +567,27 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
             return result
         member = result
 
-        serializer = ScoutReviewSerializer(data=request.data)
-        if not serializer.is_valid():
+        raw_action = _get('action')
+        action_map = {
+            'قبول': 'approve',
+            'رفض': 'reject',
+            'approve': 'approve',
+            'reject': 'reject',
+        }
+        action_type = action_map.get(raw_action)
+        if not action_type:
             return Response(
-                error_response("Invalid review data", errors=serializer.errors),
+                error_response("يجب اختيار 'قبول' أو 'رفض'"),
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        action_type = serializer.validated_data['action']
-        rejection_reason = serializer.validated_data.get('rejection_reason')
+        rejection_reason = _get('rejection_reason') or ''
+
+        if action_type == 'reject' and not rejection_reason.strip():
+            return Response(
+                error_response("يجب كتابة سبب الرفض"),
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         def business_fn(admin_obj, _):
             svc_review_member(
@@ -454,7 +611,7 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
             return Response(
                 success_response(
                     f"تم قبول {member.student.name} في العشيرة بنجاح",
-                    data=self._member_data(member, status='مقبول')
+                    data=self._member_data(member, status=STATUS_ACCEPTED)
                 ),
                 status=status.HTTP_200_OK
             )
@@ -463,15 +620,31 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
             success_response(
                 f"تم رفض طلب {member.student.name}",
                 data=self._member_data(
-                    member, status='مرفوض', reason=rejection_reason
+                    member, status=STATUS_REJECTED, reason=rejection_reason
                 )
             ),
             status=status.HTTP_200_OK
         )
 
     @extend_schema(
-        request=AssignGroupRequestSerializer,
         tags=["Scouts - Faculty Admin"],
+        parameters=[
+            OpenApiParameter(
+                name='member_id',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description='رقم العضو',
+            ),
+            OpenApiParameter(
+                name='group_id',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description='رقم الرهط',
+            ),
+        ],
+        request=None,
     )
     @action(detail=False, methods=['post'])
     @require_permission('update')
@@ -479,10 +652,17 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
         """Assign an accepted member to a group"""
         admin = self.current_admin
 
+        def _get(key):
+            return request.query_params.get(key) or request.data.get(key)
+
         def _load():
             clan = get_clan_or_error(admin)
-            member_id = require_field(request, 'member_id')
-            group_id = require_field(request, 'group_id')
+            member_id = _get('member_id')
+            group_id = _get('group_id')
+            if not member_id:
+                raise ScoutValidationError("يجب تحديد member_id")
+            if not group_id:
+                raise ScoutValidationError("يجب تحديد group_id")
             member = get_accepted_member_or_error(member_id, clan)
             group = get_group_or_error(group_id, clan)
             return member, group
@@ -513,8 +693,25 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
         )
 
     @extend_schema(
-        request=ChangeRoleRequestSerializer,
         tags=["Scouts - Faculty Admin"],
+        parameters=[
+            OpenApiParameter(
+                name='member_id',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description='رقم العضو',
+            ),
+            OpenApiParameter(
+                name='role',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                enum=ALL_ROLES_ENUM,
+                description='الدور الجديد',
+            ),
+        ],
+        request=None,
     )
     @action(detail=False, methods=['post'])
     @require_permission('update')
@@ -522,9 +719,14 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
         """Change an accepted member's role"""
         admin = self.current_admin
 
+        def _get(key):
+            return request.query_params.get(key) or request.data.get(key)
+
         def _load():
             clan = get_clan_or_error(admin)
-            member_id = require_field(request, 'member_id')
+            member_id = _get('member_id')
+            if not member_id:
+                raise ScoutValidationError("يجب تحديد member_id")
             member = get_accepted_member_or_error(member_id, clan)
             return clan, member
 
@@ -533,14 +735,19 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
             return result
         clan, member = result
 
+        new_role = _get('role')
+        if not new_role:
+            return Response(
+                error_response("يجب تحديد الدور الجديد"),
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         serializer = ScoutChangeRoleSerializer(
-            data=request.data, context={'member': member}
+            data={'role': new_role}, context={'member': member}
         )
         if not serializer.is_valid():
             return Response(
-                error_response(
-                    "Invalid role change data", errors=serializer.errors
-                ),
+                error_response(MSG['invalid_data'], errors=serializer.errors),
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -555,7 +762,7 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
         old_role = member.role
 
         def business_fn(_, __):
-            change_member_role(member, new_role)
+            svc_change_member_role(member, new_role)
 
         self._log(
             request, SCOUT_LOG_ACTIONS['change_role'],
@@ -573,19 +780,42 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
         )
 
     @extend_schema(
-        request=TransferMemberRequestSerializer,
         tags=["Scouts - Faculty Admin"],
+        parameters=[
+            OpenApiParameter(
+                name='member_id',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description='رقم العضو',
+            ),
+            OpenApiParameter(
+                name='group_id',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description='رقم الرهط الجديد',
+            ),
+        ],
+        request=None,
     )
     @action(detail=False, methods=['post'])
     @require_permission('update')
     def transfer_member(self, request):
-        """Transfer member between groups — group leaders reset to MEMBER"""
+        """Transfer member between groups — group leaders reset to عضو"""
         admin = self.current_admin
+
+        def _get(key):
+            return request.query_params.get(key) or request.data.get(key)
 
         def _load():
             clan = get_clan_or_error(admin)
-            member_id = require_field(request, 'member_id')
-            group_id = require_field(request, 'group_id')
+            member_id = _get('member_id')
+            group_id = _get('group_id')
+            if not member_id:
+                raise ScoutValidationError("يجب تحديد member_id")
+            if not group_id:
+                raise ScoutValidationError("يجب تحديد group_id")
             member = get_accepted_member_or_error(member_id, clan)
             new_group = get_group_or_error(group_id, clan)
             return member, new_group
@@ -597,7 +827,7 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
 
         if member.group_id and member.group_id == new_group.group_id:
             return Response(
-                error_response("Member is already in this group"),
+                error_response(MSG['already_in_group']),
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -627,25 +857,30 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
             response_data.update({
                 'role_reset': True,
                 'old_role': transfer_info['old_role'],
-                'new_role': 'MEMBER',
-                'note': (
-                    f"Role reset from {transfer_info['old_role']} "
-                    f"to MEMBER due to transfer"
-                ),
+                'new_role': MEMBER_ROLE,
+                'note': f"تم إعادة الدور من {transfer_info['old_role']} إلى {MEMBER_ROLE} بسبب النقل",
             })
 
         return Response(
             success_response(
-                f"تم نقل {member.student.name} "
-                f"من {old_group_name} إلى {new_group.name}",
+                f"تم نقل {member.student.name} من {old_group_name} إلى {new_group.name}",
                 data=response_data
             ),
             status=status.HTTP_200_OK
         )
 
     @extend_schema(
-        request=RemoveMemberRequestSerializer,
         tags=["Scouts - Faculty Admin"],
+        parameters=[
+            OpenApiParameter(
+                name='member_id',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description='رقم العضو المراد إزالته',
+            ),
+        ],
+        request=None,
     )
     @action(detail=False, methods=['delete'])
     @require_permission('delete')
@@ -653,9 +888,14 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
         """Remove (kick) a member — permanent delete"""
         admin = self.current_admin
 
+        def _get(key):
+            return request.query_params.get(key) or request.data.get(key)
+
         def _load():
             clan = get_clan_or_error(admin)
-            member_id = require_field(request, 'member_id')
+            member_id = _get('member_id')
+            if not member_id:
+                raise ScoutValidationError("يجب تحديد member_id")
             return get_member_or_error(member_id, clan)
 
         result = self._safe(_load)
@@ -687,18 +927,32 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
         )
 
     @extend_schema(
-        request=ScoutAddByNidSerializer,
         tags=["Scouts - Faculty Admin"],
+        parameters=[
+            OpenApiParameter(
+                name='nid',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description='الرقم القومي للطالب',
+            ),
+        ],
+        request=None,
     )
     @action(detail=False, methods=['post'])
     @require_permission('create')
     def add_by_nid(self, request):
-        """Add student directly by national ID — enters as accepted MEMBER"""
+        """Add student directly by national ID — enters as accepted عضو"""
         admin = self.current_admin
+
+        def _get(key):
+            return request.query_params.get(key) or request.data.get(key)
 
         def _load():
             clan = get_clan_or_error(admin)
-            nid = require_field(request, 'nid')
+            nid = _get('nid')
+            if not nid:
+                raise ScoutValidationError("يجب تحديد الرقم القومي")
             student, existing = add_student_by_nid(nid, clan)
             return clan, student, existing
 
@@ -707,8 +961,7 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
             return result
         clan, student, existing = result
 
-        # Re-activate rejected
-        if existing and existing.status == 'مرفوض':
+        if existing and existing.status == STATUS_REJECTED:
             def business_fn(admin_obj, _):
                 reactivate_rejected_member(existing, admin_obj.admin_id)
 
@@ -722,14 +975,13 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
                     f"تم إعادة قبول {student.name} في العشيرة",
                     data={
                         'student_name': student.name,
-                        'status': 'مقبول',
+                        'status': STATUS_ACCEPTED,
                         'was_rejected': True,
                     }
                 ),
                 status=status.HTTP_201_CREATED
             )
 
-        # New member
         def business_fn(admin_obj, _):
             create_member_directly(student, clan, admin_obj.admin_id)
 
@@ -743,7 +995,7 @@ class FacultyAdminScoutViewSet(AdminActionMixin, ViewSet):
                 f"تم إضافة {student.name} إلى العشيرة كعضو مقبول",
                 data={
                     'student_name': student.name,
-                    'status': 'مقبول',
+                    'status': STATUS_ACCEPTED,
                     'was_rejected': False,
                 }
             ),

@@ -30,12 +30,10 @@ class ClanSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['clan_id', 'created_at']
 
-    def get_members_count(self, obj):
-        """Count only accepted members"""
+    def get_members_count(self, obj) -> int:
         return obj.members.filter(status='مقبول').count()
 
-    def get_groups_count(self, obj):
-        """Count all groups in the clan"""
+    def get_groups_count(self, obj) -> int:
         return obj.groups.count()
 
 
@@ -50,7 +48,6 @@ class ClanCreateSerializer(serializers.ModelSerializer):
         ]
 
     def validate_faculty(self, value):
-        """Ensure one clan per faculty"""
         if Clans.objects.filter(faculty=value).exists():
             raise serializers.ValidationError(
                 "هذه الكلية لديها عشيرة بالفعل"
@@ -96,19 +93,21 @@ class ClanDetailSerializer(serializers.ModelSerializer):
             'created_at',
         ]
 
-    def get_members_count(self, obj):
+    def get_members_count(self, obj) -> int:
         return obj.members.filter(status='مقبول').count()
 
-    def get_groups(self, obj):
+    def get_groups(self, obj) -> list:
         groups = obj.groups.all().order_by('display_order')
         return GroupDetailSerializer(groups, many=True).data
 
-    def get_structure(self, obj):
+    def get_structure(self, obj) -> dict:
         """Return the full administrative structure"""
+        clan_level_roles = [r[0] for r in ScoutMembers.CLAN_LEVEL_ROLES]
+
         leaders = obj.members.filter(
             status='مقبول'
         ).exclude(
-            role='MEMBER'
+            role='عضو'
         ).select_related('student', 'group')
 
         structure = {
@@ -124,10 +123,7 @@ class ClanDetailSerializer(serializers.ModelSerializer):
                 'group': member.group.name if member.group else None,
             }
 
-            if member.role in [
-                'CLAN_LEADER', 'ASSISTANT_MALE', 'ASSISTANT_FEMALE',
-                'HEAD_ROVER', 'SECRETARY', 'EQUIPMENT_MANAGER', 'VETERAN'
-            ]:
+            if member.role in clan_level_roles:
                 structure['clan_level'][member.role] = role_data
             else:
                 group_name = member.group.name if member.group else 'غير محدد'
@@ -180,25 +176,24 @@ class ClanOverviewSerializer(serializers.ModelSerializer):
             'created_at',
         ]
 
-    def get_members_count(self, obj):
+    def get_members_count(self, obj) -> int:
         return obj.members.count()
 
-    def get_accepted_count(self, obj):
+    def get_accepted_count(self, obj) -> int:
         return obj.members.filter(status='مقبول').count()
 
-    def get_pending_count(self, obj):
+    def get_pending_count(self, obj) -> int:
         return obj.members.filter(status='منتظر').count()
 
-    def get_groups_count(self, obj):
+    def get_groups_count(self, obj) -> int:
         return obj.groups.count()
 
-    def get_is_structure_complete(self, obj):
-        """Check if all required leadership positions are filled"""
+    def get_is_structure_complete(self, obj) -> bool:
         required_roles = [
-            'CLAN_LEADER',
-            'ASSISTANT_MALE',
-            'ASSISTANT_FEMALE',
-            'HEAD_ROVER',
+            'قائد العشيرة',
+            'مساعد قائد',
+            'مساعدة قائد',
+            'رائد أكبر',
         ]
         existing = obj.members.filter(
             status='مقبول',
@@ -211,6 +206,7 @@ class ClanOverviewSerializer(serializers.ModelSerializer):
 # ============================================
 # Group Serializers
 # ============================================
+
 class GroupSerializer(serializers.ModelSerializer):
     members_count = serializers.SerializerMethodField()
 
@@ -226,16 +222,15 @@ class GroupSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['group_id', 'created_at']
 
-    def get_members_count(self, obj):
+    def get_members_count(self, obj) -> int:
         return obj.group_members.filter(status='مقبول').count()
 
 
 class GroupDetailSerializer(serializers.ModelSerializer):
-    """Group with leadership details (male + female)"""
     members_count = serializers.SerializerMethodField()
     leaders = serializers.SerializerMethodField()
 
-    class Meta:                            
+    class Meta:
         model = ClanGroups
         fields = [
             'group_id',
@@ -252,20 +247,15 @@ class GroupDetailSerializer(serializers.ModelSerializer):
             'leaders',
         ]
 
-    def get_members_count(self, obj):
-        return obj.group_members.filter(status='مقبول').count() 
+    def get_members_count(self, obj) -> int:
+        return obj.group_members.filter(status='مقبول').count()
 
-    def get_leaders(self, obj):
-        """Get group leaders (male + female) and assistants"""
-        leadership_roles = [
-            'GROUP_LEADER_MALE',
-            'GROUP_LEADER_FEMALE',
-            'GROUP_ASSISTANT_MALE',
-            'GROUP_ASSISTANT_FEMALE',
-        ]
-        leaders = obj.group_members.filter( 
+    def get_leaders(self, obj) -> dict:
+        group_level_roles = [r[0] for r in ScoutMembers.GROUP_LEVEL_ROLES]
+
+        leaders = obj.group_members.filter(
             status='مقبول',
-            role__in=leadership_roles
+            role__in=group_level_roles
         ).select_related('student')
 
         result = {}
@@ -275,6 +265,8 @@ class GroupDetailSerializer(serializers.ModelSerializer):
                 'name': leader.student.name,
             }
         return result
+
+
 class GroupCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = ClanGroups
@@ -288,17 +280,18 @@ class GroupCreateSerializer(serializers.ModelSerializer):
 # ============================================
 # Scout Member Serializers
 # ============================================
+
 class ScoutJoinSerializer(serializers.ModelSerializer):
     class Meta:
         model = ScoutMembers
         fields = ['clan']
 
     def validate(self, data):
-        student = self.context['request'].user  
+        student = self.context['request'].user
         clan = data['clan']
 
         existing = ScoutMembers.objects.filter(
-            student_id=student.student_id,  
+            student_id=student.student_id,
             clan=clan
         ).first()
 
@@ -312,7 +305,7 @@ class ScoutJoinSerializer(serializers.ModelSerializer):
                     "أنت عضو بالفعل في العشيرة"
                 )
 
-        if clan.faculty_id != student.faculty_id:  
+        if clan.faculty_id != student.faculty_id:
             raise serializers.ValidationError(
                 "لا يمكنك الانضمام إلى عشيرة كلية أخرى"
             )
@@ -367,7 +360,6 @@ class ScoutReviewSerializer(serializers.Serializer):
     )
 
     def validate(self, data):
-        """Rejection requires a reason"""
         if data['action'] == 'reject' and not data.get('rejection_reason'):
             raise serializers.ValidationError(
                 "يجب كتابة سبب الرفض"
@@ -379,7 +371,6 @@ class ScoutAssignGroupSerializer(serializers.Serializer):
     group_id = serializers.IntegerField()
 
     def validate_group_id(self, value):
-        """Ensure the group exists"""
         if not ClanGroups.objects.filter(group_id=value).exists():
             raise serializers.ValidationError(
                 "الرهط غير موجود"
@@ -393,30 +384,24 @@ class ScoutChangeRoleSerializer(serializers.Serializer):
     )
 
     def validate_role(self, value):
-        """
-        Validate role change:
-        - Leadership roles require accepted status
-        - Gender must match gendered roles
-        """
         member = self.context.get('member')
         if not member:
             return value
 
-        if value != 'MEMBER' and member.status != 'مقبول':
+        if value != 'عضو' and member.status != 'مقبول':
             raise serializers.ValidationError(
                 "يجب قبول العضو أولاً قبل تعيينه في منصب قيادي"
             )
 
-        if member.student.gender == 'M' and value in [
-            'GROUP_LEADER_FEMALE', 'GROUP_ASSISTANT_FEMALE', 'ASSISTANT_FEMALE'
-        ]:
+        female_only = ScoutMembers.FEMALE_ONLY_ROLES
+        male_only = ScoutMembers.MALE_ONLY_ROLES
+
+        if member.student.gender == 'M' and value in female_only:
             raise serializers.ValidationError(
                 "لا يمكن تعيين طالب ذكر في منصب مخصص للإناث"
             )
 
-        if member.student.gender == 'F' and value in [
-            'GROUP_LEADER_MALE', 'GROUP_ASSISTANT_MALE', 'ASSISTANT_MALE'
-        ]:
+        if member.student.gender == 'F' and value in male_only:
             raise serializers.ValidationError(
                 "لا يمكن تعيين طالبة أنثى في منصب مخصص للذكور"
             )
@@ -428,8 +413,7 @@ class ScoutAddByNidSerializer(serializers.Serializer):
     nid = serializers.CharField(required=True)
 
     def validate_nid(self, value):
-        """Ensure the student exists"""
-        from youth_welfare.models import Students
+        from apps.accounts.models import Students
         if not Students.objects.filter(nid=value).exists():
             raise serializers.ValidationError(
                 "لا يوجد طالب بهذا الرقم القومي"
@@ -492,54 +476,3 @@ class ScoutMemberListSerializer(serializers.ModelSerializer):
             'joined_at',
             'created_at',
         ]
-
-
-# ============================================
-# Swagger Request Serializers (Schema Only)
-# ============================================
-
-class GroupUpdateRequestSerializer(serializers.Serializer):
-    """For Swagger documentation only"""
-    group_id = serializers.IntegerField()
-    name = serializers.CharField(required=False)
-    display_order = serializers.IntegerField(required=False)
-
-
-class GroupDeleteRequestSerializer(serializers.Serializer):
-    """For Swagger documentation only"""
-    group_id = serializers.IntegerField()
-
-
-class ReviewMemberRequestSerializer(serializers.Serializer):
-    """For Swagger documentation only"""
-    member_id = serializers.IntegerField()
-    action = serializers.ChoiceField(choices=['approve', 'reject'])
-    rejection_reason = serializers.CharField(
-        required=False,
-        allow_blank=True
-    )
-
-
-class AssignGroupRequestSerializer(serializers.Serializer):
-    """For Swagger documentation only"""
-    member_id = serializers.IntegerField()
-    group_id = serializers.IntegerField()
-
-
-class ChangeRoleRequestSerializer(serializers.Serializer):
-    """For Swagger documentation only"""
-    member_id = serializers.IntegerField()
-    role = serializers.ChoiceField(
-        choices=ScoutMembers.ROLE_CHOICES
-    )
-
-
-class TransferMemberRequestSerializer(serializers.Serializer):
-    """For Swagger documentation only"""
-    member_id = serializers.IntegerField()
-    group_id = serializers.IntegerField()
-
-
-class RemoveMemberRequestSerializer(serializers.Serializer):
-    """For Swagger documentation only"""
-    member_id = serializers.IntegerField()

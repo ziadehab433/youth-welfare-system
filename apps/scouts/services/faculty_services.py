@@ -3,18 +3,32 @@ from django.db import transaction
 from rest_framework import status as http_status
 from ..models import Clans, ClanGroups, ScoutMembers
 from apps.accounts.models import Students
-GROUP_LEVEL_ROLES = [
-    'GROUP_LEADER_MALE',
-    'GROUP_LEADER_FEMALE',
-    'GROUP_ASSISTANT_MALE',
-    'GROUP_ASSISTANT_FEMALE',
-]
+
+
+# ============================================
+# Constants
+# ============================================
+STATUS_PENDING = 'منتظر'
+STATUS_ACCEPTED = 'مقبول'
+STATUS_REJECTED = 'مرفوض'
+
+MEMBER_ROLE = 'عضو'
+
+GROUP_LEVEL_ROLES = [r[0] for r in ScoutMembers.GROUP_LEVEL_ROLES]
+CLAN_LEVEL_ROLES = [r[0] for r in ScoutMembers.CLAN_LEVEL_ROLES]
+ALL_LEADERSHIP_ROLES = CLAN_LEVEL_ROLES + GROUP_LEVEL_ROLES
+
 
 class ScoutValidationError(Exception):
     def __init__(self, message, status_code=http_status.HTTP_400_BAD_REQUEST):
         self.message = message
         self.status_code = status_code
         super().__init__(message)
+
+
+# ============================================
+# Lookups
+# ============================================
 
 def get_clan_or_error(admin):
     clan = Clans.objects.filter(faculty_id=admin.faculty_id).first()
@@ -25,9 +39,10 @@ def get_clan_or_error(admin):
         )
     return clan
 
+
 def get_member_or_error(member_id, clan):
     if member_id is None:
-        raise ScoutValidationError("member_id is required")
+        raise ScoutValidationError("يجب تحديد رقم العضو")
 
     member = ScoutMembers.objects.select_related(
         'student', 'group'
@@ -46,7 +61,7 @@ def get_member_or_error(member_id, clan):
 
 def get_accepted_member_or_error(member_id, clan):
     member = get_member_or_error(member_id, clan)
-    if member.status != 'مقبول':
+    if member.status != STATUS_ACCEPTED:
         raise ScoutValidationError(
             f"العضو غير مقبول — الحالة الحالية: {member.status}"
         )
@@ -55,7 +70,7 @@ def get_accepted_member_or_error(member_id, clan):
 
 def get_group_or_error(group_id, clan):
     if group_id is None:
-        raise ScoutValidationError("group_id is required")
+        raise ScoutValidationError("يجب تحديد رقم الرهط")
 
     group = ClanGroups.objects.filter(
         group_id=group_id,
@@ -71,15 +86,17 @@ def get_group_or_error(group_id, clan):
 
 
 def require_field(request, field_name):
+    """Get required field — rejects None AND empty strings"""
     value = request.data.get(field_name)
-    if value is None:
-        raise ScoutValidationError(f"{field_name} is required")
+    if not value and value != 0:
+        raise ScoutValidationError(f"يجب تحديد {field_name}")
     return value
 
 
 # ============================================
 # Clan Operations
 # ============================================
+
 def create_clan(serializer, admin_obj):
     with transaction.atomic():
         return serializer.save(
@@ -96,6 +113,7 @@ def update_clan(serializer):
 # ============================================
 # Group Operations
 # ============================================
+
 def create_group(serializer):
     with transaction.atomic():
         return serializer.save(created_at=timezone.now())
@@ -119,6 +137,7 @@ def delete_group(group):
 # ============================================
 # Member Operations
 # ============================================
+
 def get_filtered_members(clan, query_params):
     members = clan.members.select_related('student', 'group').all()
 
@@ -135,14 +154,14 @@ def get_filtered_members(clan, query_params):
         members = members.filter(group_id=filter_group)
 
     if query_params.get('unassigned') == 'true':
-        members = members.filter(group__isnull=True, status='مقبول')
+        members = members.filter(group__isnull=True, status=STATUS_ACCEPTED)
 
     total = members.count()
     return members.order_by('-created_at'), total
 
 
 def review_member(member, action_type, rejection_reason, admin_id):
-    if member.status != 'منتظر':
+    if member.status != STATUS_PENDING:
         raise ScoutValidationError(
             f"لا يمكن مراجعة هذا الطلب — الحالة الحالية: {member.status}"
         )
@@ -150,10 +169,10 @@ def review_member(member, action_type, rejection_reason, admin_id):
     with transaction.atomic():
         now = timezone.now()
         if action_type == 'approve':
-            member.status = 'مقبول'
+            member.status = STATUS_ACCEPTED
             member.joined_at = now
         else:
-            member.status = 'مرفوض'
+            member.status = STATUS_REJECTED
             member.rejection_reason = rejection_reason
 
         member.reviewed_by_id = admin_id
@@ -170,7 +189,7 @@ def assign_member_to_group(member, group):
 
 
 def validate_role_change(member, new_role, clan):
-    if new_role == 'MEMBER':
+    if new_role == MEMBER_ROLE:
         return
 
     if new_role in GROUP_LEVEL_ROLES and not member.group:
@@ -179,8 +198,12 @@ def validate_role_change(member, new_role, clan):
         )
 
     conflict_qs = ScoutMembers.objects.select_related('student').filter(
-        clan=clan, role=new_role, status='مقبول'
-    ).exclude(scout_member_id=member.scout_member_id)
+        clan=clan,
+        role=new_role,
+        status=STATUS_ACCEPTED
+    ).exclude(
+        scout_member_id=member.scout_member_id
+    )
 
     if new_role in GROUP_LEVEL_ROLES:
         conflict_qs = conflict_qs.filter(group=member.group)
@@ -192,8 +215,11 @@ def validate_role_change(member, new_role, clan):
         )
 
     has_leadership = ScoutMembers.objects.filter(
-        student=member.student, clan=clan, status='مقبول'
-    ).exclude(role='MEMBER').exclude(
+        student=member.student,
+        clan=clan,
+        status=STATUS_ACCEPTED,
+        role__in=ALL_LEADERSHIP_ROLES
+    ).exclude(
         scout_member_id=member.scout_member_id
     ).exists()
 
@@ -216,7 +242,7 @@ def transfer_member(member, new_group):
 
     with transaction.atomic():
         if member.role in GROUP_LEVEL_ROLES:
-            member.role = 'MEMBER'
+            member.role = MEMBER_ROLE
             role_was_reset = True
         member.group = new_group
         member.updated_at = timezone.now()
@@ -237,7 +263,6 @@ def remove_member(member):
 
 
 def add_student_by_nid(nid, clan):
-
     student = Students.objects.filter(nid=nid).first()
     if not student:
         raise ScoutValidationError(
@@ -256,11 +281,11 @@ def add_student_by_nid(nid, clan):
     ).first()
 
     if existing:
-        if existing.status == 'مقبول':
+        if existing.status == STATUS_ACCEPTED:
             raise ScoutValidationError(
                 f"{student.name} عضو بالفعل في العشيرة"
             )
-        if existing.status == 'منتظر':
+        if existing.status == STATUS_PENDING:
             raise ScoutValidationError(
                 f"{student.name} لديه طلب انضمام قيد المراجعة"
             )
@@ -271,8 +296,8 @@ def add_student_by_nid(nid, clan):
 def reactivate_rejected_member(existing, admin_id):
     with transaction.atomic():
         now = timezone.now()
-        existing.status = 'مقبول'
-        existing.role = 'MEMBER'
+        existing.status = STATUS_ACCEPTED
+        existing.role = MEMBER_ROLE
         existing.group = None
         existing.rejection_reason = None
         existing.reviewed_by_id = admin_id
@@ -288,8 +313,8 @@ def create_member_directly(student, clan, admin_id):
         ScoutMembers.objects.create(
             student=student,
             clan=clan,
-            role='MEMBER',
-            status='مقبول',
+            role=MEMBER_ROLE,
+            status=STATUS_ACCEPTED,
             reviewed_by_id=admin_id,
             reviewed_at=now,
             joined_at=now,

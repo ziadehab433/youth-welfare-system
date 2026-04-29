@@ -5,25 +5,25 @@ from ..models import Clans, ClanGroups, ScoutMembers
 
 
 # ============================================
-# Shared Role Constants (single source of truth)
+# Shared Constants
 # ============================================
 
 class Roles:
-    """All scout roles — change here, changes everywhere"""
-    MEMBER = 'MEMBER'
+    """All scout roles — reads from Model"""
+    MEMBER = 'عضو'
 
-    CLAN_LEADER = 'CLAN_LEADER'
-    ASSISTANT_MALE = 'ASSISTANT_MALE'
-    ASSISTANT_FEMALE = 'ASSISTANT_FEMALE'
-    HEAD_ROVER = 'HEAD_ROVER'
-    SECRETARY = 'SECRETARY'
-    EQUIPMENT_MANAGER = 'EQUIPMENT_MANAGER'
-    VETERAN = 'VETERAN'
+    CLAN_LEADER = 'قائد العشيرة'
+    ASSISTANT_MALE = 'مساعد قائد'
+    ASSISTANT_FEMALE = 'مساعدة قائد'
+    HEAD_ROVER = 'رائد أكبر'
+    SECRETARY = 'سكرتير'
+    EQUIPMENT_MANAGER = 'مسؤول عهدة'
+    VETERAN = 'قائد السواعد'
 
-    GROUP_LEADER_MALE = 'GROUP_LEADER_MALE'
-    GROUP_LEADER_FEMALE = 'GROUP_LEADER_FEMALE'
-    GROUP_ASSISTANT_MALE = 'GROUP_ASSISTANT_MALE'
-    GROUP_ASSISTANT_FEMALE = 'GROUP_ASSISTANT_FEMALE'
+    GROUP_LEADER_MALE = 'رائد رهط'
+    GROUP_LEADER_FEMALE = 'رائدة رهط'
+    GROUP_ASSISTANT_MALE = 'مساعد رائد'
+    GROUP_ASSISTANT_FEMALE = 'مساعدة رائد'
 
     CLAN_LEVEL = [
         CLAN_LEADER, ASSISTANT_MALE, ASSISTANT_FEMALE,
@@ -50,8 +50,8 @@ class Status:
 
 class ClanStatus:
     """All clan statuses"""
-    ACTIVE = 'active'
-    INACTIVE = 'inactive'
+    ACTIVE = 'نشط'
+    INACTIVE = 'غير نشط'
     VALID = [ACTIVE, INACTIVE]
 
 
@@ -185,7 +185,7 @@ def build_clans_summary(all_clans_data):
 
 
 # ============================================
-# Clan Members & Groups 
+# Clan Members & Groups
 # ============================================
 
 def get_filtered_members(clan, query_params):

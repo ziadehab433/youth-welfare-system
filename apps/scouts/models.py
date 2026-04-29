@@ -6,8 +6,8 @@ from apps.solidarity.models import Faculties
 class Clans(models.Model):
 
     STATUS_CHOICES = [
-        ('active', 'Active'),
-        ('inactive', 'Inactive'),
+        ('نشط', 'نشط'),
+        ('غير نشط', 'غير نشط'),
     ]
 
     clan_id = models.AutoField(primary_key=True)
@@ -33,7 +33,7 @@ class Clans(models.Model):
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
-        default='active'
+        default='نشط'
     )
 
     min_members = models.IntegerField(default=50)
@@ -78,38 +78,38 @@ class ClanGroups(models.Model):
 class ScoutMembers(models.Model):
 
     CLAN_LEVEL_ROLES = [
-        ('CLAN_LEADER', 'Clan Leader'),
-        ('ASSISTANT_MALE', 'Assistant Male'),
-        ('ASSISTANT_FEMALE', 'Assistant Female'),
-        ('HEAD_ROVER', 'Head Rover'),
-        ('SECRETARY', 'Secretary'),
-        ('EQUIPMENT_MANAGER', 'Equipment Manager'),
-        ('VETERAN', 'Veteran'),
+        ('قائد العشيرة', 'قائد العشيرة'),
+        ('مساعد قائد', 'مساعد قائد'),
+        ('مساعدة قائد', 'مساعدة قائد'),
+        ('رائد أكبر', 'رائد أكبر'),
+        ('سكرتير', 'سكرتير'),
+        ('مسؤول عهدة', 'مسؤول عهدة'),
+        ('قائد السواعد', 'قائد السواعد'),
     ]
 
     GROUP_LEVEL_ROLES = [
-        ('GROUP_LEADER_MALE', 'Group Leader Male'),
-        ('GROUP_LEADER_FEMALE', 'Group Leader Female'),
-        ('GROUP_ASSISTANT_MALE', 'Group Assistant Male'),
-        ('GROUP_ASSISTANT_FEMALE', 'Group Assistant Female'),
+        ('رائد رهط', 'رائد رهط'),
+        ('رائدة رهط', 'رائدة رهط'),
+        ('مساعد رائد', 'مساعد رائد'),
+        ('مساعدة رائد', 'مساعدة رائد'),
     ]
 
     MEMBER_ROLE = [
-        ('MEMBER', 'Member'),
+        ('عضو', 'عضو'),
     ]
 
     ROLE_CHOICES = CLAN_LEVEL_ROLES + GROUP_LEVEL_ROLES + MEMBER_ROLE
 
     MALE_ONLY_ROLES = [
-        'ASSISTANT_MALE',
-        'GROUP_LEADER_MALE',
-        'GROUP_ASSISTANT_MALE',
+        'مساعد قائد',
+        'رائد رهط',
+        'مساعد رائد',
     ]
 
     FEMALE_ONLY_ROLES = [
-        'ASSISTANT_FEMALE',
-        'GROUP_LEADER_FEMALE',
-        'GROUP_ASSISTANT_FEMALE',
+        'مساعدة قائد',
+        'رائدة رهط',
+        'مساعدة رائد',
     ]
 
     STATUS_CHOICES = [
@@ -146,7 +146,7 @@ class ScoutMembers(models.Model):
     role = models.CharField(
         max_length=30,
         choices=ROLE_CHOICES,
-        default='MEMBER'
+        default='عضو'
     )
 
     status = models.CharField(
@@ -193,7 +193,7 @@ class ScoutMembers(models.Model):
 
     @property
     def is_leader(self):
-        return self.role != 'MEMBER'
+        return self.role != 'عضو'
 
     @property
     def is_clan_level_leader(self):

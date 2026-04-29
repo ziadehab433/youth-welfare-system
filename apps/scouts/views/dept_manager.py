@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
+from ..models import ScoutMembers
 from ..serializers import (
     ClanOverviewSerializer,
     ClanDetailSerializer,
@@ -22,10 +23,10 @@ from ..utils import (
 from ..services.dept_manager_services import (
     ScoutValidationError,
     Roles,
+    ClanStatus,
     get_clan_or_error,
     get_member_or_error,
     get_accepted_member_or_error,
-    require_field,
     get_all_clans,
     filter_serialized_clans,
     build_clans_summary,
@@ -59,6 +60,8 @@ MSG = {
 # ============================================
 # Shared OpenAPI Parameters
 # ============================================
+ALL_ROLES_ENUM = [r[0] for r in ScoutMembers.ROLE_CHOICES]
+
 PARAM_CLAN_ID_QUERY = OpenApiParameter(
     name='clan_id',
     type=OpenApiTypes.INT,
@@ -80,7 +83,7 @@ PARAM_CLAN_STATUS_QUERY = OpenApiParameter(
     type=OpenApiTypes.STR,
     location=OpenApiParameter.QUERY,
     required=True,
-    enum=['active', 'inactive'],
+    enum=[ClanStatus.ACTIVE, ClanStatus.INACTIVE],
     description='الحالة الجديدة للعشيرة',
 )
 
@@ -89,20 +92,7 @@ PARAM_ROLE_QUERY = OpenApiParameter(
     type=OpenApiTypes.STR,
     location=OpenApiParameter.QUERY,
     required=True,
-    enum=[
-        Roles.MEMBER,
-        Roles.CLAN_LEADER,
-        Roles.ASSISTANT_MALE,
-        Roles.ASSISTANT_FEMALE,
-        Roles.HEAD_ROVER,
-        Roles.SECRETARY,
-        Roles.EQUIPMENT_MANAGER,
-        Roles.VETERAN,
-        Roles.GROUP_LEADER_MALE,
-        Roles.GROUP_LEADER_FEMALE,
-        Roles.GROUP_ASSISTANT_MALE,
-        Roles.GROUP_ASSISTANT_FEMALE,
-    ],
+    enum=ALL_ROLES_ENUM,
     description='الدور الجديد للعضو',
 )
 
@@ -120,20 +110,7 @@ PARAM_MEMBER_ROLE_FILTER = OpenApiParameter(
     type=OpenApiTypes.STR,
     location=OpenApiParameter.QUERY,
     required=False,
-    enum=[
-        Roles.MEMBER,
-        Roles.CLAN_LEADER,
-        Roles.ASSISTANT_MALE,
-        Roles.ASSISTANT_FEMALE,
-        Roles.HEAD_ROVER,
-        Roles.SECRETARY,
-        Roles.EQUIPMENT_MANAGER,
-        Roles.VETERAN,
-        Roles.GROUP_LEADER_MALE,
-        Roles.GROUP_LEADER_FEMALE,
-        Roles.GROUP_ASSISTANT_MALE,
-        Roles.GROUP_ASSISTANT_FEMALE,
-    ],
+    enum=ALL_ROLES_ENUM,
     description='فلترة حسب دور العضو',
 )
 
@@ -187,7 +164,7 @@ class DeptManagerScoutViewSet(AdminActionMixin, ViewSet):
                 type=OpenApiTypes.STR,
                 location=OpenApiParameter.QUERY,
                 required=False,
-                enum=['active', 'inactive'],
+                enum=[ClanStatus.ACTIVE, ClanStatus.INACTIVE],
                 description='فلترة حسب حالة العشيرة',
             ),
             OpenApiParameter(
@@ -418,7 +395,7 @@ class DeptManagerScoutViewSet(AdminActionMixin, ViewSet):
             clan = get_clan_or_error(self._get_param(request, 'clan_id'))
             member_id = self._get_param(request, 'member_id')
             if not member_id:
-                raise ScoutValidationError("يجب تحديد member_id")
+                raise ScoutValidationError("يجب تحديد رقم العضو")
             member = get_accepted_member_or_error(member_id, clan)
             return clan, member
 
@@ -434,7 +411,6 @@ class DeptManagerScoutViewSet(AdminActionMixin, ViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Gender validation via serializer
         serializer = ScoutChangeRoleSerializer(
             data={'role': new_role},
             context={'member': member}
@@ -493,7 +469,7 @@ class DeptManagerScoutViewSet(AdminActionMixin, ViewSet):
             clan = get_clan_or_error(self._get_param(request, 'clan_id'))
             member_id = self._get_param(request, 'member_id')
             if not member_id:
-                raise ScoutValidationError("يجب تحديد member_id")
+                raise ScoutValidationError("يجب تحديد رقم العضو")
             member = get_member_or_error(member_id, clan)
             return member
 

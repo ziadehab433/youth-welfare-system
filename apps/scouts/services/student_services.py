@@ -5,18 +5,17 @@ from ..models import Clans, ScoutMembers
 
 
 # ============================================
-# Constants 
+# Constants
 # ============================================
 STATUS_PENDING = 'منتظر'
 STATUS_ACCEPTED = 'مقبول'
 STATUS_REJECTED = 'مرفوض'
 
-GROUP_LEADERSHIP_ROLES = [
-    'GROUP_LEADER_MALE',
-    'GROUP_LEADER_FEMALE',
-    'GROUP_ASSISTANT_MALE',
-    'GROUP_ASSISTANT_FEMALE',
-]
+CLAN_STATUS_ACTIVE = 'نشط'
+
+MEMBER_ROLE = 'عضو'
+
+GROUP_LEADERSHIP_ROLES = [r[0] for r in ScoutMembers.GROUP_LEVEL_ROLES]
 
 
 class ScoutValidationError(Exception):
@@ -34,7 +33,7 @@ def get_student_clan(faculty_id):
     """Get active clan for the student's faculty — returns None if not found"""
     return Clans.objects.filter(
         faculty_id=faculty_id,
-        status='active'
+        status=CLAN_STATUS_ACTIVE
     ).first()
 
 
@@ -42,7 +41,7 @@ def get_student_clan_or_error(faculty_id):
     """Get active clan for student's faculty — raises error if not found"""
     clan = Clans.objects.filter(
         faculty_id=faculty_id,
-        status='active'
+        status=CLAN_STATUS_ACTIVE
     ).first()
 
     if not clan:
@@ -84,21 +83,21 @@ def get_accepted_membership(student_id):
 
 
 # ============================================
-# Join  
+# Join
 # ============================================
 
 def join_clan(student_id, clan):
     with transaction.atomic():
         existing = ScoutMembers.objects.select_for_update().filter(
             student_id=student_id,
-            clan=clan  
+            clan=clan
         ).first()
 
         if not existing:
             ScoutMembers.objects.create(
                 student_id=student_id,
                 clan=clan,
-                role='MEMBER',
+                role=MEMBER_ROLE,
                 status=STATUS_PENDING,
                 created_at=timezone.now(),
             )
@@ -116,7 +115,7 @@ def join_clan(student_id, clan):
 
         if existing.status == STATUS_REJECTED:
             existing.status = STATUS_PENDING
-            existing.role = 'MEMBER'
+            existing.role = MEMBER_ROLE
             existing.group = None
             existing.rejection_reason = None
             existing.reviewed_by = None
@@ -130,12 +129,13 @@ def join_clan(student_id, clan):
             "حالة العضوية غير معروفة"
         )
 
+
 # ============================================
-# Dashboard 
+# Dashboard
 # ============================================
 
 def get_dashboard_data(membership):
-    """Build the full dashboard response data — optimized queries"""
+    """Build the full dashboard response data — single query optimized"""
     dashboard = {
         'membership': {
             'role': membership.role,
@@ -155,10 +155,12 @@ def get_dashboard_data(membership):
     if not membership.group:
         return dashboard
 
+    # Group info
     dashboard['group'] = {
         'group_id': membership.group.group_id,
         'name': membership.group.name,
     }
+
     group_mates = ScoutMembers.objects.select_related(
         'student'
     ).filter(
@@ -167,6 +169,7 @@ def get_dashboard_data(membership):
     ).exclude(
         scout_member_id=membership.scout_member_id
     )
+
     leaders = {}
     members = []
 
