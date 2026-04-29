@@ -30,3 +30,102 @@ CREATE INDEX idx_refresh_tokens_expires
 
 -- Optional: Periodic cleanup of old tokens (run via cron or pg_cron)
 -- DELETE FROM refresh_tokens WHERE is_revoked = TRUE OR expires_at < NOW();
+
+
+--------------------------------------------------------------
+-------------------------------------------------------------
+
+--------------------------------scouts------------------------------
+
+
+CREATE TABLE clans (
+    clan_id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+
+    faculty_id INTEGER UNIQUE,
+    created_by INTEGER,
+
+    status VARCHAR(20) DEFAULT 'نشط',
+
+    min_members INTEGER DEFAULT 50,
+
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+
+    CONSTRAINT fk_clan_faculty
+        FOREIGN KEY (faculty_id)
+        REFERENCES faculties(faculty_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_clan_admin
+        FOREIGN KEY (created_by)
+        REFERENCES admins(admin_id)
+        ON DELETE SET NULL
+);
+
+CREATE TABLE clan_groups (
+    group_id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+
+    clan_id INTEGER NOT NULL,
+
+    display_order INTEGER DEFAULT 1,
+
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+
+    CONSTRAINT fk_group_clan
+        FOREIGN KEY (clan_id)
+        REFERENCES clans(clan_id)
+        ON DELETE CASCADE
+);
+
+
+CREATE TABLE scout_members (
+    scout_member_id SERIAL PRIMARY KEY,
+
+    student_id INTEGER NOT NULL,
+    clan_id INTEGER NOT NULL,
+    group_id INTEGER,
+
+    role VARCHAR(30) DEFAULT 'MEMBER',
+
+    status VARCHAR(20) DEFAULT 'منتظر',
+
+    reviewed_by INTEGER,
+
+    rejection_reason TEXT,
+    reviewed_at TIMESTAMP,
+    joined_at TIMESTAMP,
+
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+
+    CONSTRAINT fk_member_student
+        FOREIGN KEY (student_id)
+        REFERENCES students(student_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_member_clan
+        FOREIGN KEY (clan_id)
+        REFERENCES clans(clan_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_member_group
+        FOREIGN KEY (group_id)
+        REFERENCES clan_groups(group_id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_member_admin
+        FOREIGN KEY (reviewed_by)
+        REFERENCES admins(admin_id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT unique_student_clan
+        UNIQUE (student_id, clan_id)
+);
+
+ALTER TYPE target_type ADD VALUE 'جوالة';
+
+---------------------------------------------------------------------
