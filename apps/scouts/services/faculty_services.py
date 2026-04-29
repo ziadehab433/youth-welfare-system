@@ -135,7 +135,7 @@ def delete_group(group):
 
 
 # ============================================
-# Member Operations
+# Member Operations (All Locked)
 # ============================================
 
 def get_filtered_members(clan, query_params):
@@ -161,31 +161,43 @@ def get_filtered_members(clan, query_params):
 
 
 def review_member(member, action_type, rejection_reason, admin_id):
-    if member.status != STATUS_PENDING:
-        raise ScoutValidationError(
-            f"لا يمكن مراجعة هذا الطلب — الحالة الحالية: {member.status}"
+    with transaction.atomic():
+        locked_member = ScoutMembers.objects.select_for_update().get(
+            scout_member_id=member.scout_member_id
         )
 
-    with transaction.atomic():
-        now = timezone.now()
-        if action_type == 'approve':
-            member.status = STATUS_ACCEPTED
-            member.joined_at = now
-        else:
-            member.status = STATUS_REJECTED
-            member.rejection_reason = rejection_reason
+        if locked_member.status != STATUS_PENDING:
+            raise ScoutValidationError(
+                f"لا يمكن مراجعة هذا الطلب — الحالة الحالية: {locked_member.status}"
+            )
 
-        member.reviewed_by_id = admin_id
-        member.reviewed_at = now
-        member.updated_at = now
-        member.save()
+        now = timezone.now()
+        locked_member.reviewed_by_id = admin_id
+        locked_member.reviewed_at = now
+        locked_member.updated_at = now
+
+        if action_type == 'approve':
+            locked_member.status = STATUS_ACCEPTED
+            locked_member.joined_at = now
+        else:
+            locked_member.status = STATUS_REJECTED
+            locked_member.rejection_reason = rejection_reason
+
+        locked_member.save()
+        member.status = locked_member.status
+        member.rejection_reason = locked_member.rejection_reason
+        member.joined_at = locked_member.joined_at
 
 
 def assign_member_to_group(member, group):
     with transaction.atomic():
+        locked = ScoutMembers.objects.select_for_update().get(
+            scout_member_id=member.scout_member_id
+        )
+        locked.group = group
+        locked.updated_at = timezone.now()
+        locked.save()
         member.group = group
-        member.updated_at = timezone.now()
-        member.save()
 
 
 def validate_role_change(member, new_role, clan):
@@ -231,9 +243,22 @@ def validate_role_change(member, new_role, clan):
 
 def change_member_role(member, new_role):
     with transaction.atomic():
+        locked = ScoutMembers.objects.select_for_update().get(
+            scout_member_id=member.scout_member_id
+        )
+
+        if locked.status != STATUS_ACCEPTED:
+            raise ScoutValidationError(
+                f"العضو لم يعد مقبولاً — الحالة الحالية: {locked.status}"
+            )
+
+        validate_role_change(locked, new_role, locked.clan)
+
+        locked.role = new_role
+        locked.updated_at = timezone.now()
+        locked.save()
+
         member.role = new_role
-        member.updated_at = timezone.now()
-        member.save()
 
 
 def transfer_member(member, new_group):
@@ -241,12 +266,19 @@ def transfer_member(member, new_group):
     role_was_reset = False
 
     with transaction.atomic():
-        if member.role in GROUP_LEVEL_ROLES:
-            member.role = MEMBER_ROLE
+        locked = ScoutMembers.objects.select_for_update().get(
+            scout_member_id=member.scout_member_id
+        )
+
+        if locked.role in GROUP_LEVEL_ROLES:
+            locked.role = MEMBER_ROLE
             role_was_reset = True
+        locked.group = new_group
+        locked.updated_at = timezone.now()
+        locked.save()
+
+        member.role = locked.role
         member.group = new_group
-        member.updated_at = timezone.now()
-        member.save()
 
     return role_was_reset, old_role
 
@@ -258,7 +290,10 @@ def remove_member(member):
         'student_id': member.student_id,
     }
     with transaction.atomic():
-        member.delete()
+        locked = ScoutMembers.objects.select_for_update().get(
+            scout_member_id=member.scout_member_id
+        )
+        locked.delete()
     return info
 
 
@@ -295,16 +330,26 @@ def add_student_by_nid(nid, clan):
 
 def reactivate_rejected_member(existing, admin_id):
     with transaction.atomic():
+        locked = ScoutMembers.objects.select_for_update().get(
+            scout_member_id=existing.scout_member_id
+        )
         now = timezone.now()
-        existing.status = STATUS_ACCEPTED
-        existing.role = MEMBER_ROLE
+        locked.status = STATUS_ACCEPTED
+        locked.role = MEMBER_ROLE
+        locked.group = None
+        locked.rejection_reason = None
+        locked.reviewed_by_id = admin_id
+        locked.reviewed_at = now
+        locked.joined_at = now
+        locked.updated_at = now
+        locked.save()
+        existing.status = locked.status
+        existing.role = locked.role
         existing.group = None
-        existing.rejection_reason = None
-        existing.reviewed_by_id = admin_id
-        existing.reviewed_at = now
-        existing.joined_at = now
-        existing.updated_at = now
-        existing.save()
+        existing.rejection_reason = locked.rejection_reason
+        existing.reviewed_by_id = locked.reviewed_by_id
+        existing.reviewed_at = locked.reviewed_at
+        existing.joined_at = locked.joined_at
 
 
 def create_member_directly(student, clan, admin_id):
