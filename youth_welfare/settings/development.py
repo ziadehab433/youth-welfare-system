@@ -2,44 +2,42 @@
 
 from .base import *
 
-# ── Dev-specific overrides ────────────────────────────────────
 ALLOWED_HOSTS = ['*']
 
-FRONTEND_URL = 'http://localhost:3000' 
+FRONTEND_URL = 'http://localhost:3000'
 
-CORS_ALLOW_ALL_ORIGINS = True
+# ── CORS ──────────────────────────────────────────────
+# In dev, you CANNOT use CORS_ALLOW_ALL_ORIGINS=True with credentials.
+# You must whitelist origins explicitly.
+CORS_ALLOW_ALL_ORIGINS   = False                        # ← CHANGED
+CORS_ALLOWED_ORIGINS     = [
+    'http://localhost:3000',       # Next.js frontend
+    'http://localhost:8000',       # Swagger UI (localhost)
+    'http://127.0.0.1:8000',      # Swagger UI (127.0.0.1)  ← THIS FIXES IT
+]
+CORS_ALLOW_CREDENTIALS   = True                         # ← CRITICAL for cookies
+
+# ── Cookie Auth ───────────────────────────────────────
+AUTH_COOKIE_SECURE = False   # HTTP in dev — no SSL
+
+# ── CSRF ──────────────────────────────────────────────
+CSRF_COOKIE_SECURE  = False
+SESSION_COOKIE_SECURE = False
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:3000',
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+]
 
 USE_X_ACCEL_REDIRECT = False
 
-CSRF_COOKIE_SECURE = False
-SESSION_COOKIE_SECURE = False
-
-SECURE_CONTENT_SECURITY_POLICY = {
-    "default-src": ("'self'",),
-    "script-src": (
-        "'self'", "'unsafe-inline'",
-        "https://cdn.jsdelivr.net",
-        "https://cdnjs.cloudflare.com",
-    ),
-    "style-src": (
-        "'self'", "'unsafe-inline'",
-        "https://cdn.jsdelivr.net",
-        "https://cdnjs.cloudflare.com",
-    ),
-    "img-src":  ("'self'", "data:", "https:"),
-    "font-src": ("'self'", "https://cdn.jsdelivr.net"),
-}
-
-CSRF_TRUSTED_ORIGINS = config(
-    'CSRF_TRUSTED_ORIGINS',
-    default='http://localhost:3000',
-    cast=lambda v: [s.strip() for s in v.split(',')]
-)
+# ... keep the rest of your development.py as-is ...
 
 SPECTACULAR_SETTINGS['SERVERS'] = [
     {'url': 'http://localhost:8000',  'description': 'Local Dev'},
     {'url': 'http://127.0.0.1:8000', 'description': 'Local Dev (127)'},
 ]
+
 
 # ── Override logging for dev (simple console only) ────────────
 LOGGING = {

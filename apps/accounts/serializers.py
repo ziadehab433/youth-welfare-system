@@ -304,3 +304,50 @@ class GoogleOAuthSignUpSerializer(serializers.Serializer):
             raise serializers.ValidationError("Faculty does not exist.")
         return value
 
+
+
+
+# ===========================
+# Auth Schema Serializers
+# (Used ONLY by Swagger / drf-spectacular for documentation)
+# These do NOT affect any logic — they just tell Swagger
+# what request/response fields to display.
+# ===========================
+
+class LoginRequestSerializer(serializers.Serializer):
+    """Swagger schema for POST /api/auth/login/ request body."""
+    email    = serializers.EmailField(help_text="User email (student or admin)")
+    password = serializers.CharField(help_text="User password")
+
+
+class LoginResponseSerializer(serializers.Serializer):
+    """Swagger schema for POST /api/auth/login/ response."""
+    detail       = serializers.CharField(help_text="Login successful.")
+    user_type    = serializers.CharField(help_text="'student' or 'admin'")
+    name         = serializers.CharField()
+    # Admin-specific (only present when user_type='admin')
+    admin_id     = serializers.IntegerField(required=False)
+    role         = serializers.CharField(required=False)
+    dept_ids     = serializers.ListField(
+        child=serializers.IntegerField(), required=False
+    )
+    departments  = serializers.ListField(required=False)
+    # Student-specific (only present when user_type='student')
+    student_id   = serializers.IntegerField(required=False)
+    faculty_id   = serializers.IntegerField(required=False, allow_null=True)
+    faculty_name = serializers.CharField(required=False, allow_null=True)
+
+
+class RefreshResponseSerializer(serializers.Serializer):
+    """Swagger schema for POST /api/auth/token/refresh/ response."""
+    detail = serializers.CharField(help_text="Token refreshed.")
+
+
+class LogoutResponseSerializer(serializers.Serializer):
+    """Swagger schema for POST /api/auth/logout/ response."""
+    detail = serializers.CharField(help_text="Logged out successfully.")
+
+
+class CSRFResponseSerializer(serializers.Serializer):
+    """Swagger schema for GET /api/auth/csrf/ response."""
+    detail = serializers.CharField(help_text="CSRF cookie set.")

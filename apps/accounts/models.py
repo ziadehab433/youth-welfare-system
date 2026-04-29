@@ -282,3 +282,31 @@ class Students(models.Model):
         
     def __str__(self):
         return f"{self.name} ({self.email})"
+
+
+# ============================================================
+# Refresh Token Model (DB-First — managed = False)
+# ============================================================
+
+class RefreshToken(models.Model):
+    """
+    Stores hashed refresh tokens for secure session management.
+    Supports multiple sessions per user (phone + laptop, etc.)
+    Table created via raw SQL (DB-first approach).
+    """
+    id          = models.AutoField(primary_key=True)
+    user_id     = models.IntegerField()
+    user_type   = models.CharField(max_length=10)  # 'student' or 'admin'
+    token_hash  = models.CharField(max_length=255)
+    created_at  = models.DateTimeField(auto_now_add=True)
+    expires_at  = models.DateTimeField()
+    is_revoked  = models.BooleanField(default=False)
+    ip_address  = models.CharField(max_length=45, blank=True, null=True)
+    device_info = models.CharField(max_length=255, blank=True, null=True)
+
+    class Meta:
+        managed  = False          # DB-first — Django won't create/alter this table
+        db_table = 'refresh_tokens'
+
+    def __str__(self):
+        return f"RefreshToken(user_type={self.user_type}, user_id={self.user_id}, revoked={self.is_revoked})"
