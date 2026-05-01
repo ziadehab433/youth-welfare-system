@@ -274,7 +274,7 @@ class EventTeamMembers(models.Model):
             models.Index(fields=['participation'], name='idx_evt_team_mem_prtcps'),
             models.Index(fields=['status'], name='idx_evt_team_mem_status'),
             models.Index(fields=['team', 'status'], name='idx_evt_team_mem_team_status'),
-            models.Index(fields=['student', 'status'], name='idx_evt_team_mem_student_status'),
+            models.Index(fields=['student', 'status'], name='idx_evt_mem_st_status'),
         ]
         constraints = [
             models.UniqueConstraint(

@@ -153,12 +153,11 @@ def get_filtered_members(clan, query_params):
     if filter_group:
         members = members.filter(group_id=filter_group)
 
-    if query_params.get('unassigned') == 'true':
+    if (query_params.get('unassigned') or '').lower() == 'true':
         members = members.filter(group__isnull=True, status=STATUS_ACCEPTED)
 
     total = members.count()
     return members.order_by('-created_at'), total
-
 
 def review_member(member, action_type, rejection_reason, admin_id):
     with transaction.atomic():
