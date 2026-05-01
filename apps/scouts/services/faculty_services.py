@@ -155,7 +155,8 @@ def get_filtered_members(clan, query_params):
 
     if (query_params.get('unassigned') or '').lower() == 'true':
         members = members.filter(group__isnull=True, status=STATUS_ACCEPTED)
-
+    elif (query_params.get('unassigned') or '').lower() == 'false':
+        members = members.filter(group__isnull=False, status=STATUS_ACCEPTED)
     total = members.count()
     return members.order_by('-created_at'), total
 
