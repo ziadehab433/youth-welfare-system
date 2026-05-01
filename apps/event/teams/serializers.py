@@ -119,6 +119,29 @@ class RejectTeamSerializer(serializers.Serializer):
     )
 
 
+class AssignTeamResultSerializer(serializers.Serializer):
+    rank = serializers.IntegerField(
+        required=False,
+        allow_null=True,
+        min_value=1,
+    )
+
+    is_winner = serializers.BooleanField(
+        required=False,
+    )
+
+    def validate(self, attrs):
+        rank = attrs.get('rank', None)
+        is_winner = attrs.get('is_winner', None)
+
+        if rank is None and is_winner is None:
+            raise serializers.ValidationError(
+                'At least one of rank or is_winner must be provided.'
+            )
+
+        return attrs
+
+
 class TeamMemberSerializer(serializers.ModelSerializer):
     student_id = serializers.IntegerField(source='student.student_id', read_only=True)
     student_name = serializers.CharField(source='student.name', read_only=True)
@@ -165,6 +188,12 @@ class EventTeamDetailSerializer(serializers.ModelSerializer):
         allow_null=True,
     )
 
+    result_assigned_by_name = serializers.CharField(
+        source='result_assigned_by.name',
+        read_only=True,
+        allow_null=True,
+    )
+
     members_count = serializers.SerializerMethodField()
     members = serializers.SerializerMethodField()
 
@@ -188,6 +217,11 @@ class EventTeamDetailSerializer(serializers.ModelSerializer):
             'rejection_reason',
             'created_by_admin',
             'created_by_admin_name',
+            'rank',
+            'is_winner',
+            'result_assigned_by',
+            'result_assigned_by_name',
+            'result_assigned_at',
             'created_at',
             'updated_at',
             'members_count',
@@ -195,14 +229,15 @@ class EventTeamDetailSerializer(serializers.ModelSerializer):
         ]
 
     def get_members_count(self, obj):
+        annotated_count = getattr(obj, 'active_members_count', None)
+
+        if annotated_count is not None:
+            return annotated_count
+
         return obj.members.filter(
             status=EventTeamMembers.MemberStatus.ACTIVE
         ).count()
 
     def get_members(self, obj):
-        members = obj.members.select_related(
-            'student',
-            'participation',
-        ).all()
-
+        members = obj.members.all()
         return TeamMemberSerializer(members, many=True).data

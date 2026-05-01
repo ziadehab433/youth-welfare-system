@@ -140,6 +140,31 @@ class EventTeams(models.Model):
         db_column='created_by_admin',
     )
 
+    rank = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text='Team rank in the event. Example: 1, 2, 3.',
+    )
+
+    is_winner = models.BooleanField(
+        default=False,
+        help_text='True if this team is the winner of the event.',
+    )
+
+    result_assigned_by = models.ForeignKey(
+        AdminsUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_team_results',
+        db_column='result_assigned_by',
+    )
+
+    result_assigned_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -159,13 +184,29 @@ class EventTeams(models.Model):
             models.Index(fields=['event'], name='idx_evt_teams_event'),
             models.Index(fields=['status'], name='idx_evt_teams_status'),
             models.Index(fields=['captain'], name='idx_evt_teams_captain'),
-            models.Index(fields=['join_code'], name='idx_evt_teams_code'),
+            models.Index(fields=['rank'], name='idx_evt_teams_rank'),
+            models.Index(fields=['is_winner'], name='idx_evt_teams_winner'),
             models.Index(fields=['event', 'status'], name='idx_evt_teams_event_status'),
+            models.Index(fields=['event', 'rank'], name='idx_evt_teams_event_rank'),
         ]
         constraints = [
             models.UniqueConstraint(
                 fields=['event', 'name'],
                 name='uniq_evt_team_name_per_event',
+            ),
+            models.UniqueConstraint(
+                fields=['event'],
+                condition=Q(is_winner=True),
+                name='uniq_evt_one_winner_per_event',
+            ),
+            models.UniqueConstraint(
+                fields=['event', 'rank'],
+                condition=Q(rank__isnull=False),
+                name='uniq_evt_team_rank_per_event',
+            ),
+            models.CheckConstraint(
+                check=Q(rank__isnull=True) | Q(rank__gte=1),
+                name='chk_evt_team_rank_gte_1',
             ),
         ]
 

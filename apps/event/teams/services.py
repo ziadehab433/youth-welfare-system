@@ -30,10 +30,11 @@ class TeamService:
     @staticmethod
     def get_event_for_update_or_404(event_id):
         try:
-            return Events.objects.select_for_update().get(pk=event_id)
+            return Events.objects.select_for_update().only(
+                'event_id', 'faculty_id', 'dept_id'
+            ).get(pk=event_id)
         except Events.DoesNotExist:
             raise NotFound('Event not found.')
-
     @staticmethod
     def get_team_or_404(team_id):
         try:
@@ -47,6 +48,7 @@ class TeamService:
                     'approved_by',
                     'rejected_by',
                     'created_by_admin',
+                    'result_assigned_by',
                 )
                 .prefetch_related(
                     'members',
@@ -61,11 +63,7 @@ class TeamService:
     @staticmethod
     def get_team_for_update_or_404(team_id):
         try:
-            return (
-                EventTeams.objects
-                .select_for_update()
-                .get(pk=team_id)
-            )
+            return EventTeams.objects.select_for_update().get(pk=team_id)
         except EventTeams.DoesNotExist:
             raise NotFound('Team not found.')
 
@@ -282,15 +280,24 @@ class TeamService:
     @transaction.atomic
     def join_team_by_code(student, join_code):
         try:
-            team = (
-                EventTeams.objects
-                .select_for_update()
-                .get(join_code=join_code)
-            )
+            team_lookup = EventTeams.objects.only(
+                'team_id',
+                'event_id',
+            ).get(join_code=join_code)
         except EventTeams.DoesNotExist:
             raise NotFound('Invalid team code.')
 
-        event = team.event
+        event = TeamService.get_event_for_update_or_404(team_lookup.event_id)
+
+        try:
+            team = (
+                EventTeams.objects
+                .select_for_update()
+                .select_related('event')
+                .get(pk=team_lookup.team_id)
+            )
+        except EventTeams.DoesNotExist:
+            raise NotFound('Team not found.')
 
         TeamService.validate_event_joinable(event)
         settings = TeamService.get_team_settings(event)
@@ -513,6 +520,9 @@ class TeamService:
         if event.status != 'مقبول':
             raise ValidationError('Event must be approved before approving teams.')
 
+        if event.end_date < timezone.now().date():
+            raise ValidationError('Cannot approve team after event has ended.')
+
         if team.status == EventTeams.TeamStatus.APPROVED:
             raise ValidationError('Team is already approved.')
 
@@ -629,4 +639,100 @@ class TeamService:
             'team_name': team.name,
             'rejected_members': len(participation_ids),
             'reason': reason,
+        }
+
+    @staticmethod
+    @transaction.atomic
+    def assign_team_result(admin, event_id, team_id, rank=None, is_winner=None):
+        event = TeamService.get_event_for_update_or_404(event_id)
+
+        try:
+            team = EventTeams.objects.select_for_update().get(
+                pk=team_id,
+                event=event,
+            )
+        except EventTeams.DoesNotExist:
+            raise NotFound('Team not found.')
+
+        TeamService.validate_admin_can_manage_event(admin, event)
+
+        if team.status != EventTeams.TeamStatus.APPROVED:
+            raise ValidationError('Only approved teams can receive results.')
+
+        if rank is None and is_winner is None:
+            raise ValidationError('At least one of rank or is_winner must be provided.')
+
+        if is_winner is True and rank is None:
+            rank = 1
+
+        if rank == 1:
+            is_winner = True
+
+        now = timezone.now()
+
+        if is_winner is True:
+            old_winner_teams = (
+                EventTeams.objects
+                .select_for_update()
+                .filter(
+                    event=event,
+                    is_winner=True,
+                )
+                .exclude(pk=team.pk)
+            )
+
+            old_winner_participation_ids = EventTeamMembers.objects.filter(
+                team__in=old_winner_teams,
+                status=EventTeamMembers.MemberStatus.ACTIVE,
+                participation__isnull=False,
+            ).values_list('participation_id', flat=True)
+
+            old_winner_teams.update(
+                is_winner=False,
+                rank=None,
+                result_assigned_by=admin,
+                result_assigned_at=now,
+            )
+
+            Prtcps.objects.filter(
+                id__in=old_winner_participation_ids,
+            ).update(rank=None)
+
+        if rank is not None:
+            rank_exists = EventTeams.objects.select_for_update().filter(
+                event=event,
+                rank=rank,
+            ).exclude(pk=team.pk).exists()
+
+            if rank_exists:
+                raise ValidationError(f'Rank {rank} is already assigned to another team.')
+
+        team.rank = rank
+        team.is_winner = bool(is_winner)
+        team.result_assigned_by = admin
+        team.result_assigned_at = now
+        team.save(update_fields=[
+            'rank',
+            'is_winner',
+            'result_assigned_by',
+            'result_assigned_at',
+            'updated_at',
+        ])
+
+        participation_ids = EventTeamMembers.objects.filter(
+            team=team,
+            status=EventTeamMembers.MemberStatus.ACTIVE,
+            participation__isnull=False,
+        ).values_list('participation_id', flat=True)
+
+        Prtcps.objects.filter(
+            id__in=participation_ids,
+        ).update(rank=rank)
+
+        return {
+            'message': 'Team result assigned successfully.',
+            'team_id': team.team_id,
+            'team_name': team.name,
+            'rank': team.rank,
+            'is_winner': team.is_winner,
         }

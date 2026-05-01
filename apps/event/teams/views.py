@@ -1,14 +1,17 @@
+from django.db.models import Count, F, Q
 from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
+from apps.accounts.mixins import AdminActionMixin
 from apps.accounts.permissions import IsRole
 from apps.accounts.utils import get_current_admin, get_current_student
 from apps.event.teams.models import EventTeamMembers, EventTeams, EventTeamSettings
 from apps.event.teams.serializers import (
     AdminCreateTeamSerializer,
+    AssignTeamResultSerializer,
     CreateTeamSerializer,
     EventTeamDetailSerializer,
     EventTeamSettingsCreateUpdateSerializer,
@@ -133,11 +136,20 @@ class StudentTeamViewSet(viewsets.GenericViewSet):
                 'approved_by',
                 'rejected_by',
                 'created_by_admin',
+                'result_assigned_by',
             )
             .prefetch_related(
                 'members',
                 'members__student',
                 'members__participation',
+            )
+            .annotate(
+                active_members_count=Count(
+                    'members',
+                    filter=Q(
+                        members__status=EventTeamMembers.MemberStatus.ACTIVE
+                    ),
+                )
             )
             .distinct()
             .order_by('-created_at')
@@ -247,8 +259,19 @@ class StudentTeamViewSet(viewsets.GenericViewSet):
         responses={200: dict},
         description='Admin removes an active member from a pending team.',
     ),
+    assign_team_result=extend_schema(
+        tags=['Teams - Admin'],
+        request=AssignTeamResultSerializer,
+        responses={200: dict},
+        description='Assign simple team result/winner for an event.',
+    ),
+    get_event_team_ranking=extend_schema(
+        tags=['Teams - Admin'],
+        responses={200: EventTeamDetailSerializer(many=True)},
+        description='Get simple team ranking for an event.',
+    ),
 )
-class AdminTeamViewSet(viewsets.GenericViewSet):
+class AdminTeamViewSet(AdminActionMixin, viewsets.GenericViewSet):
     permission_classes = [IsRole]
     allowed_roles = [
         'مسؤول كلية',
@@ -257,6 +280,11 @@ class AdminTeamViewSet(viewsets.GenericViewSet):
         'مدير عام',
         'مشرف النظام',
     ]
+
+    @staticmethod
+    def _validate_team_belongs_to_event(team, event):
+        if int(team.event_id) != int(event.event_id):
+            raise ValidationError('Team does not belong to this event.')
 
     @action(
         detail=False,
@@ -277,35 +305,47 @@ class AdminTeamViewSet(viewsets.GenericViewSet):
                 status=status.HTTP_200_OK,
             )
 
-        settings_obj, created = EventTeamSettings.objects.get_or_create(
-            event=event,
-            defaults={
-                'created_by': admin,
-                'enabled': True,
-            },
-        )
+        existing_settings = EventTeamSettings.objects.filter(event=event).first()
 
         serializer = EventTeamSettingsCreateUpdateSerializer(
-            settings_obj,
+            existing_settings,
             data=request.data,
             partial=True,
         )
         serializer.is_valid(raise_exception=True)
 
-        serializer.save(
-            created_by=settings_obj.created_by or admin,
-        )
+        def business_operation(admin, ip_address):
+            settings_obj, created = EventTeamSettings.objects.get_or_create(
+                event=event,
+                defaults={
+                    'created_by': admin,
+                    'enabled': True,
+                },
+            )
 
-        settings_obj.refresh_from_db()
+            for field, value in serializer.validated_data.items():
+                setattr(settings_obj, field, value)
 
-        return Response(
-            {
+            if not settings_obj.created_by_id:
+                settings_obj.created_by = admin
+
+            settings_obj.save()
+
+            return {
                 'message': 'Team settings saved successfully.',
                 'created': created,
                 'settings': EventTeamSettingsSerializer(settings_obj).data,
-            },
-            status=status.HTTP_200_OK,
+            }
+
+        result = self.execute_admin_action(
+            request=request,
+            action_name=f"حفظ إعدادات الفرق للنشاط: {event.title}",
+            target_type='نشاط',
+            business_operation=business_operation,
+            event_id=event.event_id,
         )
+
+        return Response(result, status=status.HTTP_200_OK)
 
     @action(
         detail=False,
@@ -327,11 +367,20 @@ class AdminTeamViewSet(viewsets.GenericViewSet):
                 'approved_by',
                 'rejected_by',
                 'created_by_admin',
+                'result_assigned_by',
             )
             .prefetch_related(
                 'members',
                 'members__student',
                 'members__participation',
+            )
+            .annotate(
+                active_members_count=Count(
+                    'members',
+                    filter=Q(
+                        members__status=EventTeamMembers.MemberStatus.ACTIVE
+                    ),
+                )
             )
             .order_by('-created_at')
         )
@@ -368,26 +417,40 @@ class AdminTeamViewSet(viewsets.GenericViewSet):
     def admin_create_team(self, request, event_id=None):
         admin = get_current_admin(request)
 
+        event = TeamService.get_event_or_404(event_id)
+        TeamService.validate_admin_can_manage_event(admin, event)
+
         serializer = AdminCreateTeamSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        team = TeamService.create_team_from_participants(
-            admin=admin,
-            event_id=event_id,
-            name=serializer.validated_data['name'],
-            captain_id=serializer.validated_data['captain_id'],
-            student_ids=serializer.validated_data['student_ids'],
-        )
+        def business_operation(admin, ip_address):
+            team = TeamService.create_team_from_participants(
+                admin=admin,
+                event_id=event_id,
+                name=serializer.validated_data['name'],
+                captain_id=serializer.validated_data['captain_id'],
+                student_ids=serializer.validated_data['student_ids'],
+            )
 
-        team = TeamService.get_team_or_404(team.team_id)
+            team = TeamService.get_team_or_404(team.team_id)
 
-        return Response(
-            {
+            return {
                 'message': 'Team created successfully by admin.',
                 'team': EventTeamDetailSerializer(team).data,
-            },
-            status=status.HTTP_201_CREATED,
+            }
+
+        result = self.execute_admin_action(
+            request=request,
+            action_name=(
+                f"إنشاء فريق يدويًا للنشاط: {event.title} "
+                f"- اسم الفريق: {serializer.validated_data['name']}"
+            ),
+            target_type='نشاط',
+            business_operation=business_operation,
+            event_id=event.event_id,
         )
+
+        return Response(result, status=status.HTTP_201_CREATED)
 
     @action(
         detail=False,
@@ -397,10 +460,28 @@ class AdminTeamViewSet(viewsets.GenericViewSet):
     def approve_team(self, request, event_id=None, team_id=None):
         admin = get_current_admin(request)
 
-        result = TeamService.approve_team(
-            admin=admin,
-            event_id=event_id,
-            team_id=team_id,
+        event = TeamService.get_event_or_404(event_id)
+        TeamService.validate_admin_can_manage_event(admin, event)
+
+        team = TeamService.get_team_or_404(team_id)
+        self._validate_team_belongs_to_event(team, event)
+
+        def business_operation(admin, ip_address):
+            return TeamService.approve_team(
+                admin=admin,
+                event_id=event_id,
+                team_id=team_id,
+            )
+
+        result = self.execute_admin_action(
+            request=request,
+            action_name=(
+                f"اعتماد فريق: {team.name} "
+                f"في النشاط: {event.title}"
+            ),
+            target_type='نشاط',
+            business_operation=business_operation,
+            event_id=event.event_id,
         )
 
         return Response(result, status=status.HTTP_200_OK)
@@ -413,14 +494,32 @@ class AdminTeamViewSet(viewsets.GenericViewSet):
     def reject_team(self, request, event_id=None, team_id=None):
         admin = get_current_admin(request)
 
+        event = TeamService.get_event_or_404(event_id)
+        TeamService.validate_admin_can_manage_event(admin, event)
+
+        team = TeamService.get_team_or_404(team_id)
+        self._validate_team_belongs_to_event(team, event)
+
         serializer = RejectTeamSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        result = TeamService.reject_team(
-            admin=admin,
-            event_id=event_id,
-            team_id=team_id,
-            reason=serializer.validated_data.get('reason'),
+        def business_operation(admin, ip_address):
+            return TeamService.reject_team(
+                admin=admin,
+                event_id=event_id,
+                team_id=team_id,
+                reason=serializer.validated_data.get('reason'),
+            )
+
+        result = self.execute_admin_action(
+            request=request,
+            action_name=(
+                f"رفض فريق: {team.name} "
+                f"في النشاط: {event.title}"
+            ),
+            target_type='نشاط',
+            business_operation=business_operation,
+            event_id=event.event_id,
         )
 
         return Response(result, status=status.HTTP_200_OK)
@@ -436,11 +535,120 @@ class AdminTeamViewSet(viewsets.GenericViewSet):
         team = TeamService.get_team_or_404(team_id)
         TeamService.validate_admin_can_manage_event(admin, team.event)
 
-        result = TeamService.remove_member(
-            actor=admin,
-            team_id=team_id,
+        def business_operation(admin, ip_address):
+            return TeamService.remove_member(
+                actor=admin,
+                team_id=team_id,
+                student_id=student_id,
+                is_admin=True,
+            )
+
+        result = self.execute_admin_action(
+            request=request,
+            action_name=(
+                f"حذف الطالب رقم {student_id} من فريق: {team.name} "
+                f"في النشاط: {team.event.title}"
+            ),
+            target_type='نشاط',
+            business_operation=business_operation,
+            event_id=team.event.event_id,
             student_id=student_id,
-            is_admin=True,
         )
 
         return Response(result, status=status.HTTP_200_OK)
+
+    @action(
+        detail=False,
+        methods=['patch'],
+        url_path=r'events/(?P<event_id>\d+)/teams/(?P<team_id>\d+)/result',
+    )
+    def assign_team_result(self, request, event_id=None, team_id=None):
+        admin = get_current_admin(request)
+
+        event = TeamService.get_event_or_404(event_id)
+        TeamService.validate_admin_can_manage_event(admin, event)
+
+        team = TeamService.get_team_or_404(team_id)
+        self._validate_team_belongs_to_event(team, event)
+
+        serializer = AssignTeamResultSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        def business_operation(admin, ip_address):
+            return TeamService.assign_team_result(
+                admin=admin,
+                event_id=event_id,
+                team_id=team_id,
+                rank=serializer.validated_data.get('rank'),
+                is_winner=serializer.validated_data.get('is_winner'),
+            )
+
+        result = self.execute_admin_action(
+            request=request,
+            action_name=(
+                f"تسجيل نتيجة فريق: {team.name} "
+                f"في النشاط: {event.title} "
+                f"- الترتيب: {serializer.validated_data.get('rank')} "
+                f"- فائز: {serializer.validated_data.get('is_winner')}"
+            ),
+            target_type='نشاط',
+            business_operation=business_operation,
+            event_id=event.event_id,
+        )
+
+        return Response(result, status=status.HTTP_200_OK)
+
+    @action(
+        detail=False,
+        methods=['get'],
+        url_path=r'events/(?P<event_id>\d+)/ranking',
+    )
+    def get_event_team_ranking(self, request, event_id=None):
+        admin = get_current_admin(request)
+
+        event = TeamService.get_event_or_404(event_id)
+        TeamService.validate_admin_can_manage_event(admin, event)
+
+        teams = (
+            EventTeams.objects
+            .filter(
+                event=event,
+                status=EventTeams.TeamStatus.APPROVED,
+            )
+            .select_related(
+                'event',
+                'captain',
+                'approved_by',
+                'rejected_by',
+                'created_by_admin',
+                'result_assigned_by',
+            )
+            .prefetch_related(
+                'members',
+                'members__student',
+                'members__participation',
+            )
+            .annotate(
+                active_members_count=Count(
+                    'members',
+                    filter=Q(
+                        members__status=EventTeamMembers.MemberStatus.ACTIVE
+                    ),
+                )
+            )
+            .order_by(
+                '-is_winner',
+                F('rank').asc(nulls_last=True),
+                'created_at',
+            )
+        )
+
+        return Response(
+            {
+                'event_id': event.event_id,
+                'event_title': event.title,
+                'count': teams.count(),
+                'ranking': EventTeamDetailSerializer(teams, many=True).data,
+            },
+            status=status.HTTP_200_OK,
+        )
