@@ -84,7 +84,7 @@ class StudentTeamViewSet(viewsets.GenericViewSet):
 
         return Response(
             {
-                'message': 'Team created successfully.',
+                'message': 'تم إنشاء الفريق بنجاح.',
                 'team': EventTeamDetailSerializer(team).data,
             },
             status=status.HTTP_201_CREATED,
@@ -110,7 +110,7 @@ class StudentTeamViewSet(viewsets.GenericViewSet):
 
         return Response(
             {
-                'message': 'Joined team successfully.',
+                'message': 'تم الانضمام إلى الفريق بنجاح.',
                 'team': EventTeamDetailSerializer(team).data,
             },
             status=status.HTTP_201_CREATED,
@@ -180,7 +180,7 @@ class StudentTeamViewSet(viewsets.GenericViewSet):
         ).exists()
 
         if not is_member:
-            raise PermissionDenied('You are not a member of this team.')
+            raise PermissionDenied('أنت لست عضوًا في هذا الفريق.')
 
         return Response(
             EventTeamDetailSerializer(team).data,
@@ -284,7 +284,7 @@ class AdminTeamViewSet(AdminActionMixin, viewsets.GenericViewSet):
     @staticmethod
     def _validate_team_belongs_to_event(team, event):
         if int(team.event_id) != int(event.event_id):
-            raise ValidationError('Team does not belong to this event.')
+            raise ValidationError('الفريق لا ينتمي إلى هذا النشاط.')
 
     @action(
         detail=False,
@@ -332,7 +332,7 @@ class AdminTeamViewSet(AdminActionMixin, viewsets.GenericViewSet):
             settings_obj.save()
 
             return {
-                'message': 'Team settings saved successfully.',
+                'message': 'تم حفظ إعدادات الفرق بنجاح.',
                 'created': created,
                 'settings': EventTeamSettingsSerializer(settings_obj).data,
             }
@@ -435,7 +435,7 @@ class AdminTeamViewSet(AdminActionMixin, viewsets.GenericViewSet):
             team = TeamService.get_team_or_404(team.team_id)
 
             return {
-                'message': 'Team created successfully by admin.',
+                'message': 'تم إنشاء الفريق بواسطة المسؤول بنجاح.',
                 'team': EventTeamDetailSerializer(team).data,
             }
 

@@ -216,14 +216,14 @@ class EventTeams(models.Model):
 
 class EventTeamMembers(models.Model):
     class MemberRole(models.TextChoices):
-        CAPTAIN = 'captain', 'Captain'
-        MEMBER = 'member', 'Member'
-        SUBSTITUTE = 'substitute', 'Substitute'
+        CAPTAIN = 'قائد', 'قائد'
+        MEMBER = 'عضو', 'عضو'
+        SUBSTITUTE = 'بديل', 'بديل'
 
     class MemberStatus(models.TextChoices):
-        ACTIVE = 'active', 'Active'
-        LEFT = 'left', 'Left'
-        REMOVED = 'removed', 'Removed'
+        ACTIVE = 'نشط', 'نشط'
+        LEFT = 'انسحب', 'انسحب'
+        REMOVED = 'تمت إزالته', 'تمت إزالته'
 
     member_id = models.AutoField(primary_key=True)
 

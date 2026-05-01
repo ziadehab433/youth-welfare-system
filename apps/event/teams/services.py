@@ -25,7 +25,7 @@ class TeamService:
                 'dept',
             ).get(pk=event_id)
         except Events.DoesNotExist:
-            raise NotFound('Event not found.')
+            raise NotFound('لم يتم العثور على النشاط.')
 
     @staticmethod
     def get_event_for_update_or_404(event_id):
@@ -34,7 +34,8 @@ class TeamService:
                 'event_id', 'faculty_id', 'dept_id'
             ).get(pk=event_id)
         except Events.DoesNotExist:
-            raise NotFound('Event not found.')
+            raise NotFound('لم يتم العثور على النشاط.')
+
     @staticmethod
     def get_team_or_404(team_id):
         try:
@@ -58,24 +59,24 @@ class TeamService:
                 .get(pk=team_id)
             )
         except EventTeams.DoesNotExist:
-            raise NotFound('Team not found.')
+            raise NotFound('لم يتم العثور على الفريق.')
 
     @staticmethod
     def get_team_for_update_or_404(team_id):
         try:
             return EventTeams.objects.select_for_update().get(pk=team_id)
         except EventTeams.DoesNotExist:
-            raise NotFound('Team not found.')
+            raise NotFound('لم يتم العثور على الفريق.')
 
     @staticmethod
     def get_team_settings(event):
         try:
             settings = event.team_settings
         except EventTeamSettings.DoesNotExist:
-            raise ValidationError('Team system is not enabled for this event.')
+            raise ValidationError('نظام الفرق غير مفعّل لهذا النشاط.')
 
         if not settings.enabled:
-            raise ValidationError('Team system is disabled for this event.')
+            raise ValidationError('نظام الفرق معطّل لهذا النشاط.')
 
         return settings
 
@@ -84,16 +85,16 @@ class TeamService:
         today = timezone.now().date()
 
         if not getattr(event, 'active', False):
-            raise ValidationError('Event is not active.')
+            raise ValidationError('النشاط غير نشط.')
 
         if event.status != 'مقبول':
-            raise ValidationError('Event is not approved.')
+            raise ValidationError('النشاط غير معتمد.')
 
         if event.st_date <= today:
-            raise ValidationError('Cannot join an event that has already started.')
+            raise ValidationError('لا يمكن الانضمام إلى نشاط بدأ بالفعل.')
 
         if event.end_date < today:
-            raise ValidationError('Cannot join an event that has already ended.')
+            raise ValidationError('لا يمكن الانضمام إلى نشاط انتهى بالفعل.')
 
     @staticmethod
     def validate_student_eligible_for_event(student, event):
@@ -113,7 +114,7 @@ class TeamService:
         )
 
         if not (is_same_faculty or is_selected_faculty or is_global_event):
-            raise PermissionDenied('Student is not eligible for this event.')
+            raise PermissionDenied('الطالب غير مؤهل للمشاركة في هذا النشاط.')
 
     @staticmethod
     def validate_admin_can_manage_event(admin, event):
@@ -132,7 +133,7 @@ class TeamService:
         if admin.role == 'مدير عام' and event.faculty_id is None:
             return
 
-        raise PermissionDenied('You do not have permission to manage this event.')
+        raise PermissionDenied('ليس لديك صلاحية لإدارة هذا النشاط.')
 
     @staticmethod
     def active_team_membership_exists(event, student):
@@ -153,7 +154,7 @@ class TeamService:
     @staticmethod
     def validate_team_pending(team):
         if team.status != EventTeams.TeamStatus.PENDING:
-            raise ValidationError('Only pending teams can be modified.')
+            raise ValidationError('لا يمكن تعديل الفريق إلا إذا كان في حالة الانتظار.')
 
     @staticmethod
     def validate_team_size(team, settings):
@@ -161,14 +162,14 @@ class TeamService:
 
         if active_count < settings.min_members:
             raise ValidationError(
-                f'Team has {active_count} active member(s). '
-                f'Minimum required is {settings.min_members}.'
+                f'عدد الأعضاء النشطين في الفريق هو {active_count}. '
+                f'الحد الأدنى المطلوب هو {settings.min_members}.'
             )
 
         if active_count > settings.max_members:
             raise ValidationError(
-                f'Team has {active_count} active member(s). '
-                f'Maximum allowed is {settings.max_members}.'
+                f'عدد الأعضاء النشطين في الفريق هو {active_count}. '
+                f'الحد الأقصى المسموح به هو {settings.max_members}.'
             )
 
         return active_count
@@ -184,7 +185,7 @@ class TeamService:
         ).count()
 
         if approved_teams_count >= settings.max_teams:
-            raise ValidationError('Maximum approved teams limit has been reached.')
+            raise ValidationError('تم الوصول إلى الحد الأقصى لعدد الفرق المعتمدة.')
 
     @staticmethod
     def validate_event_capacity_for_team_approval(event, team):
@@ -216,8 +217,8 @@ class TeamService:
         if approved_count + needed_slots > event.s_limit:
             remaining = max(event.s_limit - approved_count, 0)
             raise ValidationError(
-                f'Event does not have enough remaining capacity. '
-                f'Remaining slots: {remaining}, team needs: {needed_slots}.'
+                f'لا توجد سعة كافية متبقية في النشاط. '
+                f'المقاعد المتبقية: {remaining}، وعدد المقاعد المطلوبة للفريق: {needed_slots}.'
             )
 
     @staticmethod
@@ -237,7 +238,7 @@ class TeamService:
             )
 
         if participation.status == TeamService.PARTICIPANT_REJECTED:
-            raise ValidationError('Student was previously rejected from this event.')
+            raise ValidationError('تم رفض الطالب مسبقًا من هذا النشاط.')
 
         return participation
 
@@ -251,10 +252,10 @@ class TeamService:
         TeamService.validate_student_eligible_for_event(student, event)
 
         if TeamService.active_team_membership_exists(event, student):
-            raise ValidationError('Student is already in a team for this event.')
+            raise ValidationError('الطالب موجود بالفعل في فريق لهذا النشاط.')
 
         if EventTeams.objects.filter(event=event, name=name).exists():
-            raise ValidationError('A team with this name already exists for this event.')
+            raise ValidationError('يوجد فريق بهذا الاسم بالفعل في هذا النشاط.')
 
         participation = TeamService.get_or_create_participation(event, student)
 
@@ -285,7 +286,7 @@ class TeamService:
                 'event_id',
             ).get(join_code=join_code)
         except EventTeams.DoesNotExist:
-            raise NotFound('Invalid team code.')
+            raise NotFound('id الفريق غير صحيح.')
 
         event = TeamService.get_event_for_update_or_404(team_lookup.event_id)
 
@@ -297,7 +298,7 @@ class TeamService:
                 .get(pk=team_lookup.team_id)
             )
         except EventTeams.DoesNotExist:
-            raise NotFound('Team not found.')
+            raise NotFound('لم يتم العثور على الفريق.')
 
         TeamService.validate_event_joinable(event)
         settings = TeamService.get_team_settings(event)
@@ -305,12 +306,12 @@ class TeamService:
         TeamService.validate_team_pending(team)
 
         if TeamService.active_team_membership_exists(event, student):
-            raise ValidationError('Student is already in a team for this event.')
+            raise ValidationError('الطالب موجود بالفعل في فريق لهذا النشاط.')
 
         current_count = TeamService.get_active_member_count(team)
 
         if current_count >= settings.max_members:
-            raise ValidationError('Team is already full.')
+            raise ValidationError('الفريق مكتمل بالفعل.')
 
         participation = TeamService.get_or_create_participation(event, student)
 
@@ -323,7 +324,7 @@ class TeamService:
                 status=EventTeamMembers.MemberStatus.ACTIVE,
             )
         except IntegrityError:
-            raise ValidationError('Student is already a member of this team.')
+            raise ValidationError('الطالب عضو بالفعل في هذا الفريق.')
 
         return member
 
@@ -333,13 +334,13 @@ class TeamService:
         team = TeamService.get_team_for_update_or_404(team_id)
 
         if team.status == EventTeams.TeamStatus.APPROVED:
-            raise ValidationError('Cannot leave an approved team.')
+            raise ValidationError('لا يمكن مغادرة فريق معتمد.')
 
         if team.status in [
             EventTeams.TeamStatus.REJECTED,
             EventTeams.TeamStatus.CANCELLED,
         ]:
-            raise ValidationError('Cannot leave a closed team.')
+            raise ValidationError('لا يمكن مغادرة فريق مغلق.')
 
         try:
             membership = EventTeamMembers.objects.select_for_update().get(
@@ -348,14 +349,14 @@ class TeamService:
                 status=EventTeamMembers.MemberStatus.ACTIVE,
             )
         except EventTeamMembers.DoesNotExist:
-            raise NotFound('You are not an active member of this team.')
+            raise NotFound('أنت لست عضوًا نشطًا في هذا الفريق.')
 
         if membership.role == EventTeamMembers.MemberRole.CAPTAIN:
             active_count = TeamService.get_active_member_count(team)
 
             if active_count > 1:
                 raise ValidationError(
-                    'Captain cannot leave while other active members exist.'
+                    'لا يمكن لقائد الفريق المغادرة أثناء وجود أعضاء نشطين آخرين.'
                 )
 
             membership.status = EventTeamMembers.MemberStatus.LEFT
@@ -365,7 +366,7 @@ class TeamService:
             team.save(update_fields=['status', 'updated_at'])
 
             return {
-                'message': 'Team cancelled because captain left.',
+                'message': 'تم إلغاء الفريق لأن قائد الفريق غادر.',
                 'team_id': team.team_id,
             }
 
@@ -373,7 +374,7 @@ class TeamService:
         membership.save(update_fields=['status'])
 
         return {
-            'message': 'Left team successfully.',
+            'message': 'تم مغادرة الفريق بنجاح.',
             'team_id': team.team_id,
         }
 
@@ -383,20 +384,20 @@ class TeamService:
         team = TeamService.get_team_for_update_or_404(team_id)
 
         if team.status == EventTeams.TeamStatus.APPROVED:
-            raise ValidationError('Cannot remove members from an approved team.')
+            raise ValidationError('لا يمكن إزالة أعضاء من فريق معتمد.')
 
         if team.status in [
             EventTeams.TeamStatus.REJECTED,
             EventTeams.TeamStatus.CANCELLED,
         ]:
-            raise ValidationError('Cannot remove members from a closed team.')
+            raise ValidationError('لا يمكن إزالة أعضاء من فريق مغلق.')
 
         if not is_admin:
             if team.captain_id != actor.student_id:
-                raise PermissionDenied('Only the team captain can remove members.')
+                raise PermissionDenied('يمكن لقائد الفريق فقط إزالة الأعضاء.')
 
             if int(student_id) == actor.student_id:
-                raise ValidationError('Captain cannot remove themselves.')
+                raise ValidationError('لا يمكن لقائد الفريق إزالة نفسه.')
 
         try:
             membership = EventTeamMembers.objects.select_for_update().get(
@@ -405,16 +406,16 @@ class TeamService:
                 status=EventTeamMembers.MemberStatus.ACTIVE,
             )
         except EventTeamMembers.DoesNotExist:
-            raise NotFound('Active member not found in this team.')
+            raise NotFound('لم يتم العثور على عضو نشط في هذا الفريق.')
 
         if membership.role == EventTeamMembers.MemberRole.CAPTAIN:
-            raise ValidationError('Cannot remove the team captain.')
+            raise ValidationError('لا يمكن إزالة قائد الفريق.')
 
         membership.status = EventTeamMembers.MemberStatus.REMOVED
         membership.save(update_fields=['status'])
 
         return {
-            'message': 'Member removed successfully.',
+            'message': 'تم إزالة العضو بنجاح.',
             'team_id': team.team_id,
             'student_id': int(student_id),
         }
@@ -428,28 +429,28 @@ class TeamService:
         settings = TeamService.get_team_settings(event)
 
         if event.status != 'مقبول':
-            raise ValidationError('Team can only be created for an approved event.')
+            raise ValidationError('لا يمكن إنشاء الفريق إلا لنشاط معتمد.')
 
         if event.end_date < timezone.now().date():
-            raise ValidationError('Cannot create a team for an ended event.')
+            raise ValidationError('لا يمكن إنشاء فريق لنشاط منتهٍ.')
 
         if not student_ids:
-            raise ValidationError('student_ids cannot be empty.')
+            raise ValidationError('لا يمكن أن تكون قائمة معرفات الطلاب فارغة.')
 
         student_ids = list(dict.fromkeys([int(student_id) for student_id in student_ids]))
         captain_id = int(captain_id)
 
         if captain_id not in student_ids:
-            raise ValidationError('Captain must be included in student_ids.')
+            raise ValidationError('يجب أن يكون قائد الفريق ضمن قائمة الطلاب.')
 
         if len(student_ids) < settings.min_members:
-            raise ValidationError(f'Minimum team size is {settings.min_members}.')
+            raise ValidationError(f'الحد الأدنى لحجم الفريق هو {settings.min_members}.')
 
         if len(student_ids) > settings.max_members:
-            raise ValidationError(f'Maximum team size is {settings.max_members}.')
+            raise ValidationError(f'الحد الأقصى لحجم الفريق هو {settings.max_members}.')
 
         if EventTeams.objects.filter(event=event, name=name).exists():
-            raise ValidationError('A team with this name already exists for this event.')
+            raise ValidationError('يوجد فريق بهذا الاسم بالفعل في هذا النشاط.')
 
         students = list(
             Students.objects
@@ -461,14 +462,14 @@ class TeamService:
         missing_ids = set(student_ids) - found_ids
 
         if missing_ids:
-            raise ValidationError(f'Some students do not exist: {sorted(missing_ids)}.')
+            raise ValidationError(f'بعض الطلاب غير موجودين: {sorted(missing_ids)}.')
 
         for student in students:
             TeamService.validate_student_eligible_for_event(student, event)
 
             if TeamService.active_team_membership_exists(event, student):
                 raise ValidationError(
-                    f'Student {student.student_id} is already in another team for this event.'
+                    f'الطالب رقم {student.student_id} موجود بالفعل في فريق آخر لهذا النشاط.'
                 )
 
         captain = next(
@@ -513,24 +514,24 @@ class TeamService:
                 event=event,
             )
         except EventTeams.DoesNotExist:
-            raise NotFound('Team not found.')
+            raise NotFound('لم يتم العثور على الفريق.')
 
         TeamService.validate_admin_can_manage_event(admin, event)
 
         if event.status != 'مقبول':
-            raise ValidationError('Event must be approved before approving teams.')
+            raise ValidationError('يجب اعتماد النشاط قبل اعتماد الفرق.')
 
         if event.end_date < timezone.now().date():
-            raise ValidationError('Cannot approve team after event has ended.')
+            raise ValidationError('لا يمكن اعتماد الفريق بعد انتهاء النشاط.')
 
         if team.status == EventTeams.TeamStatus.APPROVED:
-            raise ValidationError('Team is already approved.')
+            raise ValidationError('الفريق معتمد بالفعل.')
 
         if team.status in [
             EventTeams.TeamStatus.REJECTED,
             EventTeams.TeamStatus.CANCELLED,
         ]:
-            raise ValidationError('Cannot approve a rejected or cancelled team.')
+            raise ValidationError('لا يمكن اعتماد فريق مرفوض أو ملغي.')
 
         settings = TeamService.get_team_settings(event)
 
@@ -548,14 +549,14 @@ class TeamService:
         ).count()
 
         if linked_participation_count != active_count:
-            raise ValidationError('Some team members do not have linked participant records.')
+            raise ValidationError('بعض أعضاء الفريق لا يملكون سجلات مشاركة مرتبطة.')
 
         participation_ids = list(
             active_members.values_list('participation_id', flat=True)
         )
 
         if not participation_ids:
-            raise ValidationError('Team has no linked participant records.')
+            raise ValidationError('الفريق لا يحتوي على سجلات مشاركة مرتبطة.')
 
         Prtcps.objects.filter(
             id__in=participation_ids,
@@ -578,7 +579,7 @@ class TeamService:
         ])
 
         return {
-            'message': 'Team approved successfully.',
+            'message': 'تم اعتماد الفريق بنجاح.',
             'team_id': team.team_id,
             'team_name': team.name,
             'approved_members': active_count,
@@ -595,18 +596,18 @@ class TeamService:
                 event=event,
             )
         except EventTeams.DoesNotExist:
-            raise NotFound('Team not found.')
+            raise NotFound('لم يتم العثور على الفريق.')
 
         TeamService.validate_admin_can_manage_event(admin, event)
 
         if team.status == EventTeams.TeamStatus.APPROVED:
-            raise ValidationError('Cannot reject an already approved team.')
+            raise ValidationError('لا يمكن رفض فريق معتمد بالفعل.')
 
         if team.status == EventTeams.TeamStatus.REJECTED:
-            raise ValidationError('Team is already rejected.')
+            raise ValidationError('الفريق مرفوض بالفعل.')
 
         if team.status == EventTeams.TeamStatus.CANCELLED:
-            raise ValidationError('Cannot reject a cancelled team.')
+            raise ValidationError('لا يمكن رفض فريق ملغي.')
 
         participation_ids = list(
             EventTeamMembers.objects.filter(
@@ -634,7 +635,7 @@ class TeamService:
         ])
 
         return {
-            'message': 'Team rejected successfully.',
+            'message': 'تم رفض الفريق بنجاح.',
             'team_id': team.team_id,
             'team_name': team.name,
             'rejected_members': len(participation_ids),
@@ -652,15 +653,15 @@ class TeamService:
                 event=event,
             )
         except EventTeams.DoesNotExist:
-            raise NotFound('Team not found.')
+            raise NotFound('لم يتم العثور على الفريق.')
 
         TeamService.validate_admin_can_manage_event(admin, event)
 
         if team.status != EventTeams.TeamStatus.APPROVED:
-            raise ValidationError('Only approved teams can receive results.')
+            raise ValidationError('يمكن تسجيل النتائج للفرق المعتمدة فقط.')
 
         if rank is None and is_winner is None:
-            raise ValidationError('At least one of rank or is_winner must be provided.')
+            raise ValidationError('يجب إرسال الترتيب أو تحديد حالة الفوز على الأقل.')
 
         if is_winner is True and rank is None:
             rank = 1
@@ -705,7 +706,7 @@ class TeamService:
             ).exclude(pk=team.pk).exists()
 
             if rank_exists:
-                raise ValidationError(f'Rank {rank} is already assigned to another team.')
+                raise ValidationError(f'الترتيب {rank} مخصص بالفعل لفريق آخر.')
 
         team.rank = rank
         team.is_winner = bool(is_winner)
@@ -730,7 +731,7 @@ class TeamService:
         ).update(rank=rank)
 
         return {
-            'message': 'Team result assigned successfully.',
+            'message': 'تم تسجيل نتائج الفريق بنجاح.',
             'team_id': team.team_id,
             'team_name': team.name,
             'rank': team.rank,

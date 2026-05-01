@@ -56,23 +56,23 @@ class EventTeamSettingsCreateUpdateSerializer(serializers.ModelSerializer):
 
         if min_members is not None and min_members < 1:
             raise serializers.ValidationError({
-                'min_members': 'min_members must be greater than or equal to 1.'
+                'min_members': 'يجب أن يكون الحد الأدنى لعدد الأعضاء أكبر من أو يساوي 1.'
             })
 
         if max_members is not None and max_members < 1:
             raise serializers.ValidationError({
-                'max_members': 'max_members must be greater than or equal to 1.'
+                'max_members': 'يجب أن يكون الحد الأقصى لعدد الأعضاء أكبر من أو يساوي 1.'
             })
 
         if min_members is not None and max_members is not None:
             if max_members < min_members:
                 raise serializers.ValidationError({
-                    'max_members': 'max_members must be greater than or equal to min_members.'
+                    'max_members': 'يجب أن يكون الحد الأقصى لعدد الأعضاء أكبر من أو يساوي الحد الأدنى.'
                 })
 
         if max_teams is not None and max_teams < 1:
             raise serializers.ValidationError({
-                'max_teams': 'max_teams must be greater than or equal to 1.'
+                'max_teams': 'يجب أن يكون الحد الأقصى لعدد الفرق أكبر من أو يساوي 1.'
             })
 
         return attrs
@@ -96,7 +96,7 @@ class AdminCreateTeamSerializer(serializers.Serializer):
 
     def validate_student_ids(self, value):
         if len(value) != len(set(value)):
-            raise serializers.ValidationError('Duplicate student IDs are not allowed.')
+            raise serializers.ValidationError('لا يسمح بتكرار معرفات الطلاب.')
         return value
 
     def validate(self, attrs):
@@ -105,7 +105,7 @@ class AdminCreateTeamSerializer(serializers.Serializer):
 
         if captain_id not in student_ids:
             raise serializers.ValidationError({
-                'captain_id': 'Captain must be included in student_ids.'
+                'captain_id': 'يجب أن يكون قائد الفريق ضمن قائمة الطلاب.'
             })
 
         return attrs
@@ -136,7 +136,7 @@ class AssignTeamResultSerializer(serializers.Serializer):
 
         if rank is None and is_winner is None:
             raise serializers.ValidationError(
-                'At least one of rank or is_winner must be provided.'
+                'يجب إرسال الترتيب أو تحديد حالة الفوز على الأقل.'
             )
 
         return attrs
