@@ -1,13 +1,21 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
+
 <head>
     <meta charset="UTF-8">
     <title>تقرير تنفيذ نشاط طلابي - {{ event_title }}</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
-        
-        * { box-sizing: border-box; }
-        
+        @font-face {
+            font-family: 'Cairo';
+            src: url("data:font/truetype;charset=utf-8;base64,{{ font_base64|default:'' }}") format("truetype");
+            font-weight: 400;
+            font-style: normal;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             font-family: 'Cairo', sans-serif;
             background: #fff;
@@ -26,6 +34,7 @@
             width: 100%;
             padding: 5mm;
         }
+
         .college-header {
             display: flex;
             justify-content: space-between;
@@ -44,14 +53,16 @@
 
         .left-logo {
             text-align: left;
-            margin-top: -20px; 
+            margin-top: -20px;
         }
+
         .left-logo img {
-            max-height: 140px; 
+            max-height: 140px;
             width: auto;
             border-radius: 5px;
             object-fit: contain;
         }
+
         .main-title {
             text-align: center;
             font-weight: bold;
@@ -60,6 +71,7 @@
             text-decoration: underline;
             line-height: 1.5;
         }
+
         .data-section {
             margin-bottom: 20px;
         }
@@ -105,7 +117,7 @@
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 15px;
-            height: 280px; 
+            height: 280px;
         }
 
         .photo-box {
@@ -124,91 +136,92 @@
             height: 100%;
             object-fit: cover;
         }
-        
     </style>
 </head>
+
 <body>
+    <div class="sheet">
+        <div class="college-header">
+            <div class="right-info">
+                <strong>{{ university_name }}</strong><br>
+                {{ faculty_name }}<br>
+                {{ office_name }}
+            </div>
 
-<div class="sheet">
-    <div class="college-header">
-        <div class="right-info">
-            <strong>{{ university_name }}</strong><br>
-            {{ faculty_name }}<br>
-            {{ office_name }}
-        </div>
-        <div class="left-logo">
-            {% if logo_base64 %}
+            <div class="left-logo">
+                {% if logo_base64 %}
                 <img src="data:image/png;base64,{{ logo_base64 }}" alt="شعار الجامعة">
-            {% else %}
+                {% else %}
                 <div style="width: 120px; height: 80px; border: 1px dashed #ccc; display: flex; align-items: center; justify-content: center;">LOGO</div>
-            {% endif %}
-        </div>
-    </div>
-
-    <div class="main-title">تقرير تنفيذ نشاط طلابي</div>
-
-    <div class="data-section">
-        <div class="data-item">
-            <span class="item-label">1- اسم الفاعلية</span>
-            <span class="item-value">{{ event_title }}</span>
+                {% endif %}
+            </div>
         </div>
 
-        <div class="data-item">
-            <span class="item-label">2- موضوع الفاعلية وأهدافها</span>
-            <span class="item-value">{{ preparation_stage }}</span>
+        <div class="main-title">تقرير تنفيذ نشاط طلابي</div>
+
+        <div class="data-section">
+            <div class="data-item">
+                <span class="item-label">1- اسم الفاعلية</span>
+                <span class="item-value">{{ event_title }}</span>
+            </div>
+
+            <div class="data-item">
+                <span class="item-label">2- موضوع الفاعلية وأهدافها</span>
+                <span class="item-value">{{ preparation_stage }}</span>
+            </div>
+
+            <div class="data-item">
+                <span class="item-label">3- مكان التنفيذ</span>
+                <span class="item-value">{{ location }}</span>
+            </div>
+
+            <div class="data-item">
+                <span class="item-label">4- تاريخ الفاعلية</span>
+                <span class="item-value">{{ start_date }}{% if end_date and end_date != start_date %} حتى {{ end_date }}{% endif %}</span>
+            </div>
+
+            <div class="data-item">
+                <span class="item-label">5- الجدول الزمني</span>
+                <span class="item-value">{{ event_date }}</span>
+            </div>
+
+            <div class="data-item">
+                <span class="item-label">6- عدد الأيام</span>
+                <span class="item-value">{{ duration_days }} يوم</span>
+            </div>
+
+            <div class="data-item">
+                <span class="item-label">7- عدد الطلاب المستفيدين</span>
+                <span class="item-value">{{ total_participants }} طالب وطالبة</span>
+            </div>
+
+            <div class="data-item">
+                <span class="item-label">8- نوع النشاط</span>
+                <span class="item-value">{{ event_type }}</span>
+            </div>
         </div>
 
-        <div class="data-item">
-            <span class="item-label">3- مكان التنفيذ</span>
-            <span class="item-value">{{ location }}</span>
-        </div>
+        <div class="photo-gallery">
+            <div class="gallery-title">9- صور للأنشطة التي تم تنفيذها:</div>
 
-        <div class="data-item">
-            <span class="item-label">4- تاريخ الفاعلية</span>
-            <span class="item-value">{{ start_date }}{% if end_date and end_date != start_date %} حتى {{ end_date }}{% endif %}</span>
-        </div>
-
-        <div class="data-item">
-            <span class="item-label">5- الجدول الزمني</span>
-            <span class="item-value">{{ event_date }}</span>
-        </div>
-
-        <div class="data-item">
-            <span class="item-label">6- عدد الأيام</span>
-            <span class="item-value">{{ duration_days }} يوم</span>
-        </div>
-
-        <div class="data-item">
-            <span class="item-label">7- عدد الطلاب المستفيدين</span>
-            <span class="item-value">{{ total_participants }} طالب وطالبة</span>
-        </div>
-
-        <div class="data-item">
-            <span class="item-label">8- نوع النشاط</span>
-            <span class="item-value">{{ event_type }}</span>
-        </div>
-    </div>
-
-    <div class="photo-gallery">
-        <div class="gallery-title">9- صور للأنشطة التي تم تنفيذها:</div>
-        <div class="photos-grid">
-            <div class="photo-box">
-                {% if image1_base64 %}
+            <div class="photos-grid">
+                <div class="photo-box">
+                    {% if image1_base64 %}
                     <img src="data:image/jpeg;base64,{{ image1_base64 }}" alt="صورة النشاط 1">
-                {% else %}
+                    {% else %}
                     <div style="color: #ccc;">لا توجد صورة</div>
-                {% endif %}
-            </div>
-            <div class="photo-box">
-                {% if image2_base64 %}
+                    {% endif %}
+                </div>
+
+                <div class="photo-box">
+                    {% if image2_base64 %}
                     <img src="data:image/jpeg;base64,{{ image2_base64 }}" alt="صورة النشاط 2">
-                {% else %}
+                    {% else %}
                     <div style="color: #ccc;">لا توجد صورة</div>
-                {% endif %}
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
-</div>
-
 </body>
 </html>

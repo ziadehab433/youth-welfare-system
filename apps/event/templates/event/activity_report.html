@@ -4,10 +4,17 @@
     <meta charset="UTF-8">
     <title>تقرير خطة الأنشطة - {{ plan.name }}</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
-        
-        * { box-sizing: border-box; }
-        
+        @font-face {
+            font-family: 'Cairo';
+            src: url("data:font/truetype;charset=utf-8;base64,{{ font_base64|default:'' }}") format("truetype");
+            font-weight: 400;
+            font-style: normal;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             font-family: 'Cairo', 'Traditional Arabic', 'Tahoma', serif;
             background: #fff;
@@ -23,7 +30,8 @@
 
         .sheet {
             width: 100%;
-        } 
+        }
+
         .college-header {
             display: flex;
             justify-content: space-between;
@@ -63,7 +71,8 @@
             border: 2px solid black;
             table-layout: fixed;
         }
-        th, td {
+        th,
+        td {
             border: 1px solid black;
             text-align: center;
             vertical-align: middle;
@@ -79,15 +88,35 @@
             font-size: 12px;
             height: 8mm;
         }
-        
-        .w-id { width: 8mm; }
-        .v-side { width: 12mm; }
-        .w-name { width: auto; }
-        .w-place { width: 28mm; }
-        .w-time { width: 32mm; }
-        .w-cost { width: 22mm; }
-        .w-count { width: 13mm; }
-        
+
+        .w-id {
+            width: 8mm;
+        }
+
+        .v-side {
+            width: 12mm;
+        }
+
+        .w-name {
+            width: auto;
+        }
+
+        .w-place {
+            width: 28mm;
+        }
+
+        .w-time {
+            width: 32mm;
+        }
+
+        .w-cost {
+            width: 22mm;
+        }
+
+        .w-count {
+            width: 13mm;
+        }
+
         .text-right {
             text-align: right;
             padding-right: 8px;
@@ -134,55 +163,54 @@
             margin: 25px 0 5px;
             border-top: 1px solid black;
         }
-        
         .no-break {
             page-break-inside: avoid;
         }
     </style>
 </head>
 <body>
-<div class="sheet">
-    <div class="college-header">
-        <div class="right-info">
-            <strong>{{ university_name }}</strong><br>
-            {{ faculty_name }}<br>
-            {{ office_name }}
+    <div class="sheet">
+        <div class="college-header">
+            <div class="right-info">
+                <strong>{{ university_name }}</strong><br>
+                {{ faculty_name }}<br>
+                {{ office_name }}
+            </div>
+
+            <div class="left-logo">
+                {% if logo_base64 %}
+                <img src="data:image/png;base64,{{ logo_base64 }}" alt="شعار الكلية">
+                {% else %}
+                <div style="width: 120px; height: 80px; border: 1px dashed #ccc; display: flex; align-items: center; justify-content: center;">LOGO</div>
+                {% endif %}
+            </div>
         </div>
-        <div class="left-logo">
-            {% if logo_base64 %}
-            <img src="data:image/png;base64,{{ logo_base64 }}" 
-                alt="شعار الكلية">
-            {% else %}
-            <img src="/static/logo.png" 
-                alt="شعار الكلية" 
-                onerror="this.onerror=null; this.src='{{ base_url }}static/logo.png';"
-                style="max-height: 110px; width: auto;">
-            {% endif %}
+
+        <div class="title">
+            {{ plan.report_title|default:"خطة الأنشطة الطلابية" }}<br>
+            للترم {{ plan.term }} للعام الجامعي {{ plan.academic_year|default:"2024/2025" }}
         </div>
-    </div>  
-    <div class="title">
-        {{ plan.report_title|default:"خطة الأنشطة الطلابية" }}<br>
-        للترم {{ plan.term }} للعام الجامعي {{ plan.academic_year|default:"2024/2025" }}
-    </div>
-    <table>
-        <thead>
-            <tr>
-                <th rowspan="2" class="w-id">م</th>
-                <th rowspan="2" class="v-side">نوع النشاط</th>
-                <th rowspan="2" class="w-name">اسم المشروع</th>
-                <th rowspan="2" class="w-place">مكان التنفيذ</th>
-                <th rowspan="2" class="w-time">التاريخ</th>
-                <th rowspan="2" class="w-cost">التكلفة</th>
-                <th colspan="3">عدد المشاركين</th>
-            </tr>
-            <tr>
-                <th class="sub-th w-count">طالب</th>
-                <th class="sub-th w-count">طالبة</th>
-                <th class="sub-th w-count">الإجمالي</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for type, events_list in grouped_data.items %}
+
+        <table>
+            <thead>
+                <tr>
+                    <th rowspan="2" class="w-id">م</th>
+                    <th rowspan="2" class="v-side">نوع النشاط</th>
+                    <th rowspan="2" class="w-name">اسم المشروع</th>
+                    <th rowspan="2" class="w-place">مكان التنفيذ</th>
+                    <th rowspan="2" class="w-time">التاريخ</th>
+                    <th rowspan="2" class="w-cost">التكلفة</th>
+                    <th colspan="3">عدد المشاركين</th>
+                </tr>
+                <tr>
+                    <th class="sub-th w-count">طالب</th>
+                    <th class="sub-th w-count">طالبة</th>
+                    <th class="sub-th w-count">الإجمالي</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for type, events_list in grouped_data.items %}
                 {% for event in events_list %}
                 <tr>
                     <td>{{ forloop.parentloop.counter0|add:forloop.counter }}</td>
@@ -202,49 +230,53 @@
                     <td>{{ event.total_p|default:"0" }}</td>
                 </tr>
                 {% endfor %}
-            {% empty %}
+                {% empty %}
                 <tr>
                     <td colspan="9" style="text-align: center; padding: 25px;">
                         لا توجد أنشطة مضافة لهذه الخطة حتى الآن.
                     </td>
                 </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    <div class="summary-box no-break">
-        <table style="width: 60%; margin: 0 auto; border: none;">
-            <tr>
-                <td style="border: none; text-align: left; font-weight: bold;">الإجمالي الكلي للتكلفة التقديرية:</td>
-                <td style="border: none; text-align: right; font-weight: bold; color: #2c3e50;">{{ total_cost }} جنيه مصري لا غير</td>
-            </tr>
-            <tr>
-                <td style="border: none; text-align: left;">إجمالي عدد الطلاب:</td>
-                <td style="border: none; text-align: right;">{{ total_males }}</td>
-            </tr>
-            <tr>
-                <td style="border: none; text-align: left;">إجمالي عدد الطالبات:</td>
-                <td style="border: none; text-align: right;">{{ total_females }}</td>
-            </tr>
-            <tr>
-                <td style="border: none; text-align: left;">إجمالي المشاركين:</td>
-                <td style="border: none; text-align: right;">{{ total_participants }}</td>
-            </tr>
+                {% endfor %}
+            </tbody>
         </table>
+
+        <div class="summary-box no-break">
+            <table style="width: 60%; margin: 0 auto; border: none;">
+                <tr>
+                    <td style="border: none; text-align: left; font-weight: bold;">الإجمالي الكلي للتكلفة التقديرية:</td>
+                    <td style="border: none; text-align: right; font-weight: bold; color: #2c3e50;">{{ total_cost }} جنيه مصري لا غير</td>
+                </tr>
+                <tr>
+                    <td style="border: none; text-align: left;">إجمالي عدد الطلاب:</td>
+                    <td style="border: none; text-align: right;">{{ total_males }}</td>
+                </tr>
+                <tr>
+                    <td style="border: none; text-align: left;">إجمالي عدد الطالبات:</td>
+                    <td style="border: none; text-align: right;">{{ total_females }}</td>
+                </tr>
+                <tr>
+                    <td style="border: none; text-align: left;">إجمالي المشاركين:</td>
+                    <td style="border: none; text-align: right;">{{ total_participants }}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="footer-sigs no-break">
+            <div class="sig-item">
+                {{ signature_1_title }}
+                <div class="sig-line"></div>
+            </div>
+
+            <div class="sig-item">
+                {{ signature_2_title }}
+                <div class="sig-line"></div>
+            </div>
+
+            <div class="sig-item">
+                {{ signature_3_title }}
+                <div class="sig-line"></div>
+            </div>
+        </div>
     </div>
-    <div class="footer-sigs no-break">
-        <div class="sig-item">
-            {{ signature_1_title }}
-            <div class="sig-line"></div>
-        </div>
-        <div class="sig-item">
-            {{ signature_2_title }}
-            <div class="sig-line"></div>
-        </div>
-        <div class="sig-item">
-            {{ signature_3_title }}
-            <div class="sig-line"></div>
-        </div>
-    </div>
-</div>
 </body>
 </html>
