@@ -119,7 +119,7 @@ PARAM_MEMBER_ROLE_FILTER = OpenApiParameter(
 class DeptManagerScoutViewSet(AdminActionMixin, ViewSet):
     """Dept manager scout management endpoints."""
     permission_classes = [IsRole]
-    allowed_roles = ['مدير ادارة']
+    allowed_roles = ['مشرف النظام','مدير ادارة']
 
     # ==========================================
     # Helpers
