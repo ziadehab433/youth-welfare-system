@@ -190,7 +190,7 @@ class EventDocs(models.Model):
         return None
 
     class Meta:
-        managed = True
+        managed = False
         db_table = 'event_docs'
         indexes = [
             models.Index(fields=['event'], name='idx_event_docs_event'),

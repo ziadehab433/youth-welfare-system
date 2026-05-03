@@ -6,6 +6,7 @@ from django.db.models import OuterRef, Subquery, Q
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from apps.event.models import Events, Prtcps, EventDocs
+from apps.scouts.models import ScoutMembers  
 from apps.accounts.utils import get_current_student, get_client_ip, log_data_access
 from apps.accounts.permissions import require_permission, IsRole
 from .serializers import (
@@ -103,7 +104,33 @@ class StudentEventViewSet(viewsets.ViewSet):
                     'status': 'error',
                     'message': 'You are not eligible to join this event based on your faculty'
                 }, status=status.HTTP_403_FORBIDDEN)
-            
+
+            if event.dept_id == 7:
+
+                is_scout = ScoutMembers.objects.filter(
+                    student=student,
+                    clan__faculty_id=student.faculty_id,
+                    status='مقبول'
+                ).exists()
+
+                if not is_scout:
+                    return Response({
+                        'status': 'error',
+                        'message': 'Student must be an approved scout member in their faculty'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+                if hasattr(event, 'clan_id') and event.clan_id:
+                    in_clan = ScoutMembers.objects.filter(
+                        student=student,
+                        clan_id=event.clan_id,
+                        status='مقبول'
+                    ).exists()
+
+                    if not in_clan:
+                        return Response({
+                            'status': 'error',
+                            'message': 'Student is not a member of the required clan'
+                        }, status=status.HTTP_400_BAD_REQUEST)
             existing_participation = Prtcps.objects.filter(
                 event=event, 
                 student=student
@@ -131,8 +158,6 @@ class StudentEventViewSet(viewsets.ViewSet):
                 student=student,
                 status='منتظر'
             )
-            
-
             
             return Response({
                 'status': 'success',

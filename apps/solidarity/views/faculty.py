@@ -310,7 +310,13 @@ class FacultyAdminSolidarityViewSet(AdminActionMixin, viewsets.GenericViewSet):
                 type=OpenApiTypes.STR,
                 location=OpenApiParameter.QUERY,
                 description='Select academic year',
-                enum=['الفرقة الأولى', 'الفرقة الثانية', 'الفرقة الثالثة', 'الفرقة الرابعة', 'الفرقة الخامسة'],
+                enum=[
+                    'الفرقة الأولى',
+                    'الفرقة الثانية',
+                    'الفرقة الثالثة',
+                    'الفرقة الرابعة',
+                    'الفرقة الخامسة',
+                ],
                 required=False
             ),
         ],
@@ -325,72 +331,106 @@ class FacultyAdminSolidarityViewSet(AdminActionMixin, viewsets.GenericViewSet):
     def export(self, request):
         admin = get_current_admin(request)
         selected_year = request.query_params.get('acd_year')
-        try: 
+        selected_year = selected_year.strip() if selected_year else None
+
+        try:
             query_filter = Q(faculty=admin.faculty) & Q(req_status="مقبول")
-            
+
             if selected_year:
                 query_filter &= Q(student__acd_year=selected_year)
 
-            data = Solidarities.objects.filter(query_filter).select_related('student').order_by('student__acd_year', 'student__name')
-            
-            if not data.exists():
-                return Response({'detail': 'No data available for report'}, status=422)     
+            data_qs = (
+                Solidarities.objects
+                .filter(query_filter)
+                .select_related('student')
+                .order_by('student__acd_year', 'student__name')
+            )
+
+            data_list = list(data_qs)
+
+            if not data_list:
+                return Response(
+                    {'detail': 'No data available for report'},
+                    status=422
+                )
+
         except DatabaseError:
-            return Response({'detail': 'Database error occurred'}, status=500)
-        
-        assets = get_report_assets()
-        total_amount = sum(item.total_discount or 0 for item in data)
-        data_list = list(data)
-        processed_data = []
-        for item in data_list:
-            item_dict = {
-                'student': item.student,
-                'father_status': item.father_status,
-                'mother_status': item.mother_status,
-                'father_income': item.father_income,
-                'family_numbers': item.family_numbers,
-                'total_discount': item.total_discount,
-                'discount_type': item.discount_type,
-                'reason': item.reason,
-            }
-            
-            if item.father_income and item.family_numbers and item.family_numbers > 0:
-                item_dict['average_income'] = item.father_income // item.family_numbers
-            else:
-                item_dict['average_income'] = None
-                
-            processed_data.append(item_dict)
-        pages = []
-        for i in range(0, len(processed_data), 15):
-            pages.append({
-                'items': processed_data[i:i + 15],
-                'start_index': i + 1
-            })
-        
-        report_context = {
-            'pages': pages, 
-            'selected_year': selected_year,
-            'faculty_name': admin.faculty.name if admin.faculty else "الكلية",
-            'logo_base64': assets.get('logo'),
-            'total_amount_spent': total_amount,  
-            'issue_date_ar': timezone.now().strftime('%Y/%m/%d'),
-        }
-        
-        html_content = render_to_string("api/solidarity-report.html", report_context)
-        
+            logger.exception("Database error while fetching solidarity report data")
+            return Response(
+                {'detail': 'Database error occurred'},
+                status=500
+            )
+
         try:
+            assets = get_report_assets()
+
+            total_amount = sum(item.total_discount or 0 for item in data_list)
+
+            processed_data = []
+
+            for item in data_list:
+                average_income = None
+
+                if item.father_income and item.family_numbers and item.family_numbers > 0:
+                    average_income = item.father_income // item.family_numbers
+
+                processed_data.append({
+                    'student': item.student,
+                    'father_status': item.father_status,
+                    'mother_status': item.mother_status,
+                    'father_income': item.father_income,
+                    'family_numbers': item.family_numbers,
+                    'total_discount': item.total_discount,
+                    'discount_type': item.discount_type or [],
+                    'reason': item.reason,
+                    'average_income': average_income,
+                })
+
+            pages = []
+
+            for i in range(0, len(processed_data), 15):
+                pages.append({
+                    'items': processed_data[i:i + 15],
+                    'start_index': i + 1
+                })
+
+            report_context = {
+                'pages': pages,
+                'selected_year': selected_year,
+                'faculty_name': admin.faculty.name if admin.faculty else "الكلية",
+                'logo_base64': assets.get('logo'),
+                'font_base64': assets.get('font'),
+                'total_amount_spent': total_amount,
+                'issue_date_ar': timezone.now().strftime('%Y/%m/%d'),
+            }
+
+            html_content = render_to_string(
+                "api/solidarity-report.html",
+                report_context
+            )
+
             pdf_bytes = generate_pdf_sync(
                 html_content,
-                margins={"top": "10mm", "right": "10mm", "bottom": "10mm", "left": "10mm"}
+                margins={
+                    "top": "10mm",
+                    "right": "10mm",
+                    "bottom": "10mm",
+                    "left": "10mm"
+                }
             )
-            buffer = BytesIO(pdf_bytes)
+
         except Exception as e:
-            logger.exception(f"PDF generation error: {e}")
-            return Response({'detail': 'Failed to generate PDF'}, status=500)
-            
+            logger.exception("PDF generation error: %s", e)
+            return Response(
+                {'detail': 'Failed to generate PDF'},
+                status=500
+            )
+
         year_suffix = f"_{selected_year}" if selected_year else "_all"
         filename = f"solidarity_report{year_suffix}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-        
+
+        buffer = BytesIO(pdf_bytes)
+
         response = FileResponse(
             buffer,
             as_attachment=True,
@@ -401,5 +441,6 @@ class FacultyAdminSolidarityViewSet(AdminActionMixin, viewsets.GenericViewSet):
         response['Access-Control-Expose-Headers'] = 'Content-Disposition'
         response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         response['Pragma'] = 'no-cache'
-        response['Expires'] = '0'   
+        response['Expires'] = '0'
+
         return response

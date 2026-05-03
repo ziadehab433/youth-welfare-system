@@ -23,7 +23,7 @@ from apps.accounts.mixins import AdminActionMixin
 from drf_spectacular.utils import OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 from apps.event.models import Prtcps
-from apps.event.export.utils import generate_pdf_sync
+from apps.event.export.utils import build_pdf_response, generate_pdf_sync, get_report_assets
 from apps.family.serializers import (
     EventDetailSerializer,
     FamiliesListSerializer,
@@ -353,56 +353,69 @@ class FamilyFacultyAdminViewSet(AdminActionMixin, viewsets.GenericViewSet):
             200: OpenApiResponse(description="PDF file download"),
             403: OpenApiResponse(description="Access denied"),
             404: OpenApiResponse(description="Family not found"),
-            500: OpenApiResponse(description="Server error")
-        }
+            500: OpenApiResponse(description="Server error"),
+        },
     )
-    @action(detail=False, methods=['get'], url_path=r'(?P<family_id>\d+)/export')
-    @require_permission('read')
+    @action(detail=False, methods=["get"], url_path=r"(?P<family_id>\d+)/export")
+    @require_permission("read")
     def export(self, request, family_id=None):
         admin = get_current_admin(request)
         try:
-            family = Families.objects.select_related('faculty').get(family_id=family_id)
+            family = Families.objects.select_related("faculty").get(family_id=family_id)
+
             if admin.faculty and family.faculty_id != admin.faculty.faculty_id:
-                return Response({'detail': 'Access denied to this family'}, status=403)
+                return Response({"detail": "Access denied to this family"}, status=403)
 
             distribution = self._calculate_gender_distribution(family_id)
 
             data = {
-                'distribution': distribution,
-                'family_admins': FamilyAdmins.objects.filter(family=family_id),
-                'family_members': FamilyMembers.objects.select_related('student').filter(family_id=family_id),
-                'family': family
+                "distribution": distribution,
+                "family_admins": FamilyAdmins.objects.filter(family=family_id),
+                "family_members": (
+                    FamilyMembers.objects
+                    .select_related("student")
+                    .filter(family_id=family_id)
+                ),
+                "family": family,
             }
 
         except Families.DoesNotExist:
-            return Response({'detail': 'Family not found'}, status=404)
+            return Response({"detail": "Family not found"}, status=404)
+
         except DatabaseError:
             logger.exception("Database error while fetching family data")
-            return Response({'detail': 'Database error while fetching data'}, status=500)
+            return Response({"detail": "Database error while fetching data"}, status=500)
 
         try:
-            html_content = render_to_string("api/family-report.html", {"data": data})
+            assets = get_report_assets()
+
+            html_content = render_to_string(
+                "api/family-report.html",
+                {
+                    "data": data,
+                    "logo_base64": assets.get("logo"),
+                    "font_base64": assets.get("font"),
+                },
+            )
+
             pdf_bytes = generate_pdf_sync(
                 html_content,
-                margins={"top": "10mm", "right": "10mm", "bottom": "10mm", "left": "10mm"}
+                margins={
+                    "top": "10mm",
+                    "right": "10mm",
+                    "bottom": "10mm",
+                    "left": "10mm",
+                },
             )
-            buffer = BytesIO(pdf_bytes)
         except Exception as e:
-            logger.exception(f"PDF generation error: {str(e)}")
-            return Response({'detail': 'Could not generate PDF'}, status=500)
-
+            logger.exception("PDF generation error: %s", str(e))
+            return Response({"detail": "Could not generate PDF"}, status=500)
         filename = f"family_report_{family_id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-        response = FileResponse(
-            buffer,
-            as_attachment=True,
-            filename=filename,
-            content_type='application/pdf'
-        )
-        response['Content-Length'] = len(pdf_bytes)
-        response['Access-Control-Expose-Headers'] = 'Content-Disposition'
-        response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-        response['Pragma'] = 'no-cache'
-        response['Expires'] = '0'
+        response = build_pdf_response(pdf_bytes, filename)
+        response["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response["Pragma"] = "no-cache"
+        response["Expires"] = "0"
+
         return response
 # ------------------------------------------------------------------
 # Events Approval (Faculty Admin)

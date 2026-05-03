@@ -1,0 +1,288 @@
+-- ============================================
+-- STEP 1: Create refresh_tokens table
+-- ============================================
+
+CREATE TABLE refresh_tokens (
+    id           SERIAL PRIMARY KEY,
+    user_id      INTEGER NOT NULL,
+    user_type    VARCHAR(10) NOT NULL CHECK (user_type IN ('student', 'admin')),
+    token_hash   VARCHAR(255) NOT NULL,
+    created_at   TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    expires_at   TIMESTAMP WITH TIME ZONE NOT NULL,
+    is_revoked   BOOLEAN DEFAULT FALSE,
+    ip_address   VARCHAR(45),
+    device_info  VARCHAR(255)
+);
+
+-- Index: fast lookup by user (for listing sessions / revoking all)
+CREATE INDEX idx_refresh_tokens_user 
+    ON refresh_tokens (user_type, user_id);
+
+-- Index: fast lookup by hash (for token validation)
+CREATE INDEX idx_refresh_tokens_hash 
+    ON refresh_tokens (token_hash) 
+    WHERE is_revoked = FALSE;
+
+-- Index: cleanup of expired tokens
+CREATE INDEX idx_refresh_tokens_expires 
+    ON refresh_tokens (expires_at) 
+    WHERE is_revoked = FALSE;
+
+-- Optional: Periodic cleanup of old tokens (run via cron or pg_cron)
+-- DELETE FROM refresh_tokens WHERE is_revoked = TRUE OR expires_at < NOW();
+
+
+--------------------------------------------------------------
+-------------------------------------------------------------
+
+--------------------------------scouts------------------------------
+
+
+CREATE TABLE clans (
+    clan_id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+
+    faculty_id INTEGER UNIQUE,
+    created_by INTEGER,
+
+    status VARCHAR(20) DEFAULT 'نشط',
+
+    min_members INTEGER DEFAULT 50,
+
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+
+    CONSTRAINT fk_clan_faculty
+        FOREIGN KEY (faculty_id)
+        REFERENCES faculties(faculty_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_clan_admin
+        FOREIGN KEY (created_by)
+        REFERENCES admins(admin_id)
+        ON DELETE SET NULL
+);
+
+CREATE TABLE clan_groups (
+    group_id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+
+    clan_id INTEGER NOT NULL,
+
+    display_order INTEGER DEFAULT 1,
+
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+
+    CONSTRAINT fk_group_clan
+        FOREIGN KEY (clan_id)
+        REFERENCES clans(clan_id)
+        ON DELETE CASCADE
+);
+
+
+CREATE TABLE scout_members (
+    scout_member_id SERIAL PRIMARY KEY,
+
+    student_id INTEGER NOT NULL,
+    clan_id INTEGER NOT NULL,
+    group_id INTEGER,
+
+    role VARCHAR(30) DEFAULT 'MEMBER',
+
+    status VARCHAR(20) DEFAULT 'منتظر',
+
+    reviewed_by INTEGER,
+
+    rejection_reason TEXT,
+    reviewed_at TIMESTAMP,
+    joined_at TIMESTAMP,
+
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+
+    CONSTRAINT fk_member_student
+        FOREIGN KEY (student_id)
+        REFERENCES students(student_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_member_clan
+        FOREIGN KEY (clan_id)
+        REFERENCES clans(clan_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_member_group
+        FOREIGN KEY (group_id)
+        REFERENCES clan_groups(group_id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_member_admin
+        FOREIGN KEY (reviewed_by)
+        REFERENCES admins(admin_id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT unique_student_clan
+        UNIQUE (student_id, clan_id)
+);
+
+ALTER TYPE target_type ADD VALUE 'جوالة';
+
+---------------------------------------------------------------------
+--------------------------------------------------------------
+--------------------------------event-teams------------------------------
+
+CREATE TABLE event_team_settings (
+    setting_id SERIAL PRIMARY KEY,
+
+    event_id INTEGER NOT NULL UNIQUE,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+
+    min_members INTEGER NOT NULL DEFAULT 2,
+    max_members INTEGER NOT NULL DEFAULT 5,
+
+    max_teams INTEGER NULL,
+
+    allow_individual_join BOOLEAN NOT NULL DEFAULT FALSE,
+    require_team_approval BOOLEAN NOT NULL DEFAULT TRUE,
+
+    created_by INTEGER NULL,
+
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_evt_team_settings_event
+        FOREIGN KEY (event_id) REFERENCES events(event_id) ON DELETE CASCADE,
+
+    CONSTRAINT fk_evt_team_settings_created_by
+        FOREIGN KEY (created_by) REFERENCES admins(admin_id) ON DELETE SET NULL,
+
+    CONSTRAINT chk_evt_team_min_gte_1
+        CHECK (min_members >= 1),
+
+    CONSTRAINT chk_evt_team_max_gte_min
+        CHECK (max_members >= min_members),
+
+    CONSTRAINT chk_evt_team_max_teams_null_or_gte_1
+        CHECK (max_teams IS NULL OR max_teams >= 1)
+);
+
+CREATE INDEX idx_evt_team_set_event ON event_team_settings(event_id);
+CREATE INDEX idx_evt_team_set_enabled ON event_team_settings(enabled);
+
+
+
+CREATE TABLE event_teams (
+    team_id SERIAL PRIMARY KEY,
+
+    event_id INTEGER NOT NULL,
+    name VARCHAR(150) NOT NULL,
+
+    captain_id INTEGER NOT NULL,
+
+    join_code VARCHAR(12) NOT NULL UNIQUE,
+
+    status VARCHAR(30) NOT NULL DEFAULT 'منتظر',
+
+    approved_by INTEGER NULL,
+    approved_at TIMESTAMP NULL,
+
+    rejected_by INTEGER NULL,
+    rejected_at TIMESTAMP NULL,
+    rejection_reason TEXT NULL,
+
+    created_by_admin INTEGER NULL,
+
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_evt_teams_event
+        FOREIGN KEY (event_id) REFERENCES events(event_id) ON DELETE CASCADE,
+
+    CONSTRAINT fk_evt_teams_captain
+        FOREIGN KEY (captain_id) REFERENCES students(student_id) ON DELETE CASCADE,
+
+    CONSTRAINT fk_evt_teams_approved_by
+        FOREIGN KEY (approved_by) REFERENCES admins(admin_id) ON DELETE SET NULL,
+
+    CONSTRAINT fk_evt_teams_rejected_by
+        FOREIGN KEY (rejected_by) REFERENCES admins(admin_id) ON DELETE SET NULL,
+
+    CONSTRAINT fk_evt_teams_created_by_admin
+        FOREIGN KEY (created_by_admin) REFERENCES admins(admin_id) ON DELETE SET NULL,
+
+    CONSTRAINT uniq_evt_team_name_per_event
+        UNIQUE (event_id, name)
+);
+
+CREATE INDEX idx_evt_teams_event ON event_teams(event_id);
+CREATE INDEX idx_evt_teams_status ON event_teams(status);
+CREATE INDEX idx_evt_teams_captain ON event_teams(captain_id);
+CREATE INDEX idx_evt_teams_join_code ON event_teams(join_code);
+CREATE INDEX idx_evt_teams_event_status ON event_teams(event_id, status);
+
+
+
+CREATE TABLE event_team_members (
+    member_id SERIAL PRIMARY KEY,
+
+    team_id INTEGER NOT NULL,
+    student_id INTEGER NOT NULL,
+
+    participation_id BIGINT NULL,
+
+    role VARCHAR(30) NOT NULL DEFAULT 'عضو',
+    status VARCHAR(30) NOT NULL DEFAULT 'نشط',
+
+    joined_at TIMESTAMP NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_evt_team_members_team
+        FOREIGN KEY (team_id) REFERENCES event_teams(team_id) ON DELETE CASCADE,
+
+    CONSTRAINT fk_evt_team_members_student
+        FOREIGN KEY (student_id) REFERENCES students(student_id) ON DELETE CASCADE,
+
+    CONSTRAINT fk_evt_team_members_prtcps
+        FOREIGN KEY (participation_id) REFERENCES prtcps(id) ON DELETE SET NULL,
+
+    CONSTRAINT uniq_evt_team_student_once
+        UNIQUE (team_id, student_id)
+);
+
+CREATE INDEX idx_evt_team_mem_team ON event_team_members(team_id);
+CREATE INDEX idx_evt_team_mem_student ON event_team_members(student_id);
+CREATE INDEX idx_evt_team_mem_prtcps ON event_team_members(participation_id);
+CREATE INDEX idx_evt_team_mem_status ON event_team_members(status);
+CREATE INDEX idx_evt_team_mem_team_status ON event_team_members(team_id, status);
+CREATE INDEX idx_evt_team_mem_student_status ON event_team_members(student_id, status);
+
+
+
+ALTER TABLE event_teams
+ADD COLUMN rank INTEGER NULL;
+
+ALTER TABLE event_teams
+ADD COLUMN is_winner BOOLEAN DEFAULT FALSE;
+
+ALTER TABLE event_teams
+ADD COLUMN result_assigned_by INTEGER NULL;
+
+ALTER TABLE event_teams
+ADD COLUMN result_assigned_at TIMESTAMP NULL;
+
+ALTER TABLE event_teams
+ADD CONSTRAINT fk_evt_team_result_admin
+FOREIGN KEY (result_assigned_by) REFERENCES admins(admin_id) ON DELETE SET NULL;
+
+CREATE UNIQUE INDEX uniq_one_winner_per_event
+ON event_teams(event_id)
+WHERE is_winner = TRUE;
+
+
+CREATE UNIQUE INDEX uniq_evt_team_rank_per_event
+ON event_teams(event_id, rank)
+WHERE rank IS NOT NULL;
+
+ALTER TABLE event_teams
+ADD CONSTRAINT chk_evt_team_rank_gte_1
+CHECK (rank IS NULL OR rank >= 1);
