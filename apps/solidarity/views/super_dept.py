@@ -116,14 +116,14 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
                     status=status.HTTP_404_NOT_FOUND
                 )
             # optional logging
-            # log_data_access(
-            #     actor_id=admin.admin_id,
-            #     actor_type=admin.role,
-            #     action='عرض مستندات الطلب',
-            #     target_type='تكافل',
-            #     solidarity_id=pk,
-            #     ip_address=client_ip
-            # )
+            log_data_access(
+                actor_id=admin.admin_id,
+                actor_type=admin.role,
+                action='عرض مستندات الطلب',
+                target_type='تكافل',
+                solidarity_id=pk,
+                ip_address=client_ip
+            )
 
             serializer = SolidarityDocsSerializer(
                 docs,

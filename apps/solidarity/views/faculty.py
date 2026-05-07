@@ -123,10 +123,22 @@ class FacultyAdminSolidarityViewSet(AdminActionMixin, viewsets.GenericViewSet):
         responses={200: OpenApiResponse(description="Application approved successfully")}
     )
     @action(detail=True, methods=['post'], url_path='approve')
-    @require_permission('update' )
+    @require_permission('update')
     def approve(self, request, pk=None):
         admin = get_current_admin(request)
-        result = SolidarityService.approve_application(pk, admin)
+        
+        def business_operation(admin_obj, ip):
+            # The core logic is moved here
+            return SolidarityService.approve_application(pk, admin_obj)
+
+        result = self.execute_admin_action(
+            request=request,
+            action_name='الموافقة على طلب التكافل',  # "Approve Solidarity Application"
+            target_type='تكافل',
+            business_operation=business_operation,
+            solidarity_id=pk
+        )
+        
         return Response({'message': result['message']})
 
     @extend_schema(
@@ -138,7 +150,19 @@ class FacultyAdminSolidarityViewSet(AdminActionMixin, viewsets.GenericViewSet):
     @require_permission('update')
     def pre_approve(self, request, pk=None):
         admin = get_current_admin(request)
-        result = SolidarityService.pre_approve_application(pk, admin)
+        
+        def business_operation(admin_obj, ip):
+            # The core logic is moved here
+            return SolidarityService.pre_approve_application(pk, admin_obj)
+
+        result = self.execute_admin_action(
+            request=request,
+            action_name='الموافقة المبدئية على طلب التكافل',  # "Pre-approve Solidarity Application"
+            target_type='تكافل',
+            business_operation=business_operation,
+            solidarity_id=pk
+        )
+        
         return Response({'message': result['message']})
 
     @extend_schema(
@@ -150,9 +174,20 @@ class FacultyAdminSolidarityViewSet(AdminActionMixin, viewsets.GenericViewSet):
     @require_permission('update')
     def reject(self, request, pk=None):
         admin = get_current_admin(request)
-        result = SolidarityService.reject_application(pk, admin)
-        return Response({'message': result['message']})
+        
+        def business_operation(admin_obj, ip):
+            # The core logic is moved here
+            return SolidarityService.reject_application(pk, admin_obj)
 
+        result = self.execute_admin_action(
+            request=request,
+            action_name='رفض طلب التكافل',  # "Reject Solidarity Application"
+            target_type='تكافل',
+            business_operation=business_operation,
+            solidarity_id=pk
+        )
+        
+        return Response({'message': result['message']})
 
 
 

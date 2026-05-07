@@ -286,3 +286,37 @@ WHERE rank IS NOT NULL;
 ALTER TABLE event_teams
 ADD CONSTRAINT chk_evt_team_rank_gte_1
 CHECK (rank IS NULL OR rank >= 1);
+
+
+--------------------------------------------------------------
+
+--logs
+
+--trg_log_event_insert
+
+DROP TRIGGER trg_log_event_insert ON events
+DROP FUNCTION public.log_event_insert();;
+
+
+--trg_log_family_insert
+
+DROP TRIGGER trg_log_family_insert ON families
+DROP FUNCTION public.log_family_insert();;
+
+
+--trg_log_solidarity_pre_approval
+
+DROP TRIGGER trg_log_solidarity_pre_approval ON solidarities
+DROP FUNCTION public.log_solidarity_pre_approval();;
+
+
+--trg_log_solidarity_rejection
+
+DROP TRIGGER trg_log_solidarity_rejection ON solidarities
+DROP FUNCTION public.log_solidarity_rejection();;
+
+
+--trg_log_solidarity_approval
+
+DROP TRIGGER trg_log_solidarity_approval ON solidarities
+DROP FUNCTION public.log_solidarity_approval();;
