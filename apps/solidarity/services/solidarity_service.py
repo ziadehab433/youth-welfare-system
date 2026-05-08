@@ -413,6 +413,10 @@ class SolidarityService:
             q_objects &= Q(mother_status__icontains=filters['mother_status'])
         if filters.get('disabilities'):
             q_objects &= Q(disabilities__icontains=filters['disabilities'])
+        if filters.get('date_from'):
+            q_objects &= Q(created_at__gte=filters['date_from'])
+        if filters.get('date_to'):
+            q_objects &= Q(created_at__lte=filters['date_to'])
             
         queryset = queryset.filter(**simple_filters)
         
