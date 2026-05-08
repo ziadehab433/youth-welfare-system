@@ -24,6 +24,7 @@ from apps.solidarity.serializers import (
     SolidarityListSerializer,
     SolidarityDetailSerializer,
     FacultyDiscountUpdateSerializer,
+    RejectionSerializer,
 )
 from drf_spectacular.utils import extend_schema
 from rest_framework.decorators import action
@@ -175,9 +176,14 @@ class FacultyAdminSolidarityViewSet(AdminActionMixin, viewsets.GenericViewSet):
     def reject(self, request, pk=None):
         admin = get_current_admin(request)
         
+        # Deserialize and validate request body
+        serializer = RejectionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        rejection_reason = serializer.validated_data.get('rejection_reason')
+        
         def business_operation(admin_obj, ip):
-            # The core logic is moved here
-            return SolidarityService.reject_application(pk, admin_obj)
+            # Pass rejection_reason to service
+            return SolidarityService.reject_application(pk, admin_obj, rejection_reason)
 
         result = self.execute_admin_action(
             request=request,

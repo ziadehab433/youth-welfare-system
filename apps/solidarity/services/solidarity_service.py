@@ -237,10 +237,9 @@ class SolidarityService:
         if solidarity.req_status.lower() == 'مقبول' :
             raise ValidationError(f"Cannot reject application with status: {solidarity.req_status}")
 
-
-
         solidarity.req_status = 'مرفوض'
         solidarity.approved_by = admin
+        solidarity.rejection_reason = rejection_reason
         solidarity.updated_at = timezone.now()
         solidarity.save()
 
