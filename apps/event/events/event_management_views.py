@@ -13,7 +13,8 @@ from .serializers import (
     EventListSerializer, 
     EventDetailSerializer,
     EventImageUploadSerializer,
-    EventDocsSerializer
+    EventDocsSerializer,
+    EventRejectionSerializer
 )
 from apps.accounts.models import AdminsUser
 from apps.accounts.permissions import require_permission, IsRole
@@ -722,8 +723,8 @@ class EventARViewSet(AdminActionMixin, viewsets.GenericViewSet):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @extend_schema(
-        description="Reject an event (update status to 'مرفوض')",
-        request=None,
+        description="Reject an event (update status to 'مرفوض') with rejection reason",
+        request=EventRejectionSerializer,
         responses={
             200: OpenApiResponse(response=EventDetailSerializer, description="Event rejected successfully"),
             403: OpenApiResponse(description="Permission denied"),
@@ -733,10 +734,10 @@ class EventARViewSet(AdminActionMixin, viewsets.GenericViewSet):
     @action(detail=True, methods=['patch'], url_path='reject')
     def reject_event(self, request, pk=None):
         """
-        Reject an event by updating its status to 'مرفوض'
+        Reject an event by updating its status to 'مرفوض' and saving rejection reason
         Only accessible by faculty heads and general admins
         """
-        event = self.get_object() 
+        event = self.get_object()
 
         if event.status == 'مرفوض':
             return Response(
@@ -750,9 +751,16 @@ class EventARViewSet(AdminActionMixin, viewsets.GenericViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # Deserialize and validate request body
+        from apps.event.events.serializers import EventRejectionSerializer
+        serializer = EventRejectionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        rejection_reason = serializer.validated_data.get('rejection_reason')
+        
         def business_operation(admin, ip):
             event.status = 'مرفوض'
-            event.save(update_fields=['status'])
+            event.rejection_reason = rejection_reason
+            event.save(update_fields=['status', 'rejection_reason'])
             return event
         
         event = self.execute_admin_action(
