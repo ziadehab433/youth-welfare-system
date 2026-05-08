@@ -55,13 +55,15 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
             OpenApiParameter('faculty', str),
             OpenApiParameter('status', str),
             OpenApiParameter('student_id', str),
+            OpenApiParameter('date_from', str),
+            OpenApiParameter('date_to', str),
             OpenApiParameter('housing_status', str),
             OpenApiParameter('grade', str),
-            OpenApiParameter('disabilities', str),
             OpenApiParameter('father_status', str),
             OpenApiParameter('mother_status', str),
             OpenApiParameter('total_income', str),
             OpenApiParameter('family_numbers', str),
+            OpenApiParameter('disabilities', str),
         ],
         responses={200: SolidarityListSerializer(many=True)}
     )
