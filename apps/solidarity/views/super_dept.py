@@ -22,6 +22,7 @@ from apps.solidarity.serializers import (
     DeptFacultySummarySerializer,
     SolidarityDocsSerializer,
     RejectionSerializer,
+    DiscountAssignSerializer,
 )
 from apps.solidarity.services.solidarity_service import SolidarityService
 logger = logging.getLogger(__name__)
@@ -136,9 +137,40 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
             return self.handle_exception(e)
 
     @extend_schema(
-        request=None,
         tags=["Solidarity Dept&Super Admin APIs"],
-        description="Change status of request to 'Approved'",
+        description="Get faculty discounts by solidarity_id",
+        responses={200: OpenApiResponse(description="Faculty discounts retrieved successfully")}
+    )
+    @action(detail=True, methods=['get'], url_path='faculty_discounts')
+    @require_permission('read')
+    def get_faculty_discounts_by_solidarity(self, request, pk=None):
+        try:
+            # Get solidarity to find the faculty
+            solidarity = get_object_or_404(Solidarities, solidarity_id=pk)
+            
+            if not solidarity.faculty:
+                raise NotFound("Faculty not found for this solidarity application")
+            
+            faculty = solidarity.faculty
+            data = {
+                "faculty_id": faculty.faculty_id,
+                "faculty_name": faculty.name,
+                "aff_discount": faculty.aff_discount or [],
+                "reg_discount": faculty.reg_discount or [],
+                "bk_discount": faculty.bk_discount or [],
+                "full_discount": faculty.full_discount or []
+            }
+            return Response({
+                "message": "تم جلب خصومات الكلية بنجاح",
+                "discounts": data
+            })
+        except Exception as e:
+            return self.handle_exception(e)
+
+    @extend_schema(
+        request=DiscountAssignSerializer,
+        tags=["Solidarity Dept&Super Admin APIs"],
+        description="Change status of request to 'Approved' with optional discount assignment",
         responses={200: OpenApiResponse(description="Application approved")}
     )
     @action(detail=True, methods=['post'], url_path='change_to_approve')
@@ -147,8 +179,13 @@ class SuperDeptSolidarityViewSet(viewsets.GenericViewSet):
         try:
             from apps.accounts.utils import execute_admin_action
             
+            # Deserialize and validate request body (discounts are optional)
+            serializer = DiscountAssignSerializer(data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            discount_data = serializer.validated_data.get('discounts')
+            
             def business_operation(admin, ip):
-                return SolidarityService.change_to_approve(pk, admin)
+                return SolidarityService.change_to_approve(pk, admin, discount_data)
             
             result = execute_admin_action(
                 request=request,

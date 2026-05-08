@@ -409,7 +409,7 @@ class SolidarityService:
 
 
     @staticmethod
-    def change_to_approve(solidarity_id, admin):
+    def change_to_approve(solidarity_id, admin, discount_data=None):
         solidarity = Solidarities.objects.select_for_update().get(solidarity_id=solidarity_id)
 
         if admin.role != 'مشرف النظام':
@@ -417,6 +417,35 @@ class SolidarityService:
 
         if solidarity.req_status == 'مقبول':
             raise ValidationError("Application is already approved.")
+
+        # Assign discounts if provided
+        if discount_data:
+            total_discount = 0
+            arabic_discount_types = []
+            
+            try:
+                for discount in discount_data:
+                    # Get discount_value
+                    value = float(discount.get('discount_value', 0))
+                    total_discount += value
+                    
+                    # Convert English type to Arabic
+                    english_type = discount.get('discount_type')
+                    arabic_type = get_arabic_discount_type(english_type)
+                    
+                    if arabic_type and arabic_type not in arabic_discount_types:
+                        arabic_discount_types.append(arabic_type)
+                
+                solidarity.total_discount = total_discount
+                solidarity.discount_type = arabic_discount_types
+                
+                logger.info(f"Assigned discounts to solidarity {solidarity_id}: "
+                        f"total_discount={total_discount}, "
+                        f"discount_type={arabic_discount_types}")
+                
+            except Exception as e:
+                logger.error(f"Error assigning discounts to solidarity {solidarity_id}: {str(e)}")
+                raise
 
         solidarity.req_status = 'مقبول'
         solidarity.approved_by = admin
