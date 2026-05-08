@@ -431,7 +431,7 @@ class SolidarityService:
 
 
     @staticmethod
-    def change_to_reject(solidarity_id, admin):
+    def change_to_reject(solidarity_id, admin, rejection_reason=None):
         solidarity = Solidarities.objects.select_for_update().get(solidarity_id=solidarity_id)
 
         if admin.role != 'مشرف النظام':
@@ -442,6 +442,7 @@ class SolidarityService:
 
         solidarity.req_status = 'مرفوض'
         solidarity.approved_by = admin
+        solidarity.rejection_reason = rejection_reason
         solidarity.updated_at = timezone.now()
         solidarity.save()
 
