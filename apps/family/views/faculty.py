@@ -439,12 +439,17 @@ class FacultyEventApprovalViewSet(AdminActionMixin, viewsets.GenericViewSet):
         )
 
     @extend_schema(
-        description="List pending events for families within this faculty.",
+        description="List pending events for families within this faculty, excluding events with start_date in the past.",
         responses={200: EventSerializer(many=True)}
     )
     @action(detail=False, methods=['get'], url_path='pending')
     def pending(self, request):
-        events = self.get_queryset().filter(status=STATUS_PENDING)
+        from django.utils import timezone
+        today = timezone.now().date()
+        events = self.get_queryset().filter(
+            status=STATUS_PENDING,
+            st_date__gte=today
+        )
         return Response(self.get_serializer(events, many=True).data)
     
     @extend_schema(
