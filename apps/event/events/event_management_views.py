@@ -53,7 +53,7 @@ class EventGetterViewSet(AdminActionMixin, viewsets.GenericViewSet):
         if queryset is None: 
             queryset = Events.objects.select_related(
                 'created_by', 'faculty', 'dept', 'family'
-            ).filter(family__isnull=True).exclude(status='ملغي')
+            ).filter(family__isnull=True).exclude(status='منتظر')
         
         if admin.role == 'مسؤول كلية':
             return queryset.filter(
@@ -61,13 +61,13 @@ class EventGetterViewSet(AdminActionMixin, viewsets.GenericViewSet):
                 dept_id__in=admin_payload.get('dept_ids', [])
             ).order_by('-created_at')
         elif admin.role == 'مدير كلية':
-            return queryset.filter(faculty_id=admin.faculty_id).order_by('-created_at').exclude(status="منتظر")
+            return queryset.filter(faculty_id=admin.faculty_id).order_by('-created_at')
         elif admin.role == 'مدير عام':
-            return queryset.filter(faculty_id__isnull=True).exclude(status="منتظر")
+            return queryset.filter(faculty_id__isnull=True).order_by('-created_at')
         elif admin.role == 'مشرف النظام': 
-            return queryset
+            return queryset.order_by('-created_at')
         elif admin.role == 'مدير ادارة': 
-            return queryset.filter(dept_id=admin.dept_id)
+            return queryset.filter(dept_id=admin.dept_id).order_by('-created_at')
         
         return queryset.none() 
 
@@ -82,7 +82,7 @@ class EventGetterViewSet(AdminActionMixin, viewsets.GenericViewSet):
         event = get_object_or_404(
             Events.objects.select_related('created_by', 'faculty', 'dept', 'family')
             .filter(family__isnull=True)
-            .exclude(status='ملغي')
+            .exclude(status='منتظر')
             .prefetch_related(
                 Prefetch(
                     'prtcps_set',
@@ -103,10 +103,10 @@ class EventGetterViewSet(AdminActionMixin, viewsets.GenericViewSet):
             if event.faculty_id == admin.faculty_id or event.faculty_id is None:
                 return event
         elif admin.role == 'مدير كلية':
-            if event.faculty_id == admin.faculty_id and event.status != "منتظر":
+            if event.faculty_id == admin.faculty_id:
                 return event
         elif admin.role == 'مدير عام':
-            if event.faculty_id is None and event.status != "منتظر":
+            if event.faculty_id is None:
                 return event
         elif admin.role == 'مشرف النظام':
             return event
