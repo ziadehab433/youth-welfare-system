@@ -121,6 +121,7 @@ class Events(models.Model):
         related_name='events'
     )
     active = models.BooleanField(default=True)
+    rejection_reason = models.TextField(blank=True, null=True)
 
 
     class Meta:

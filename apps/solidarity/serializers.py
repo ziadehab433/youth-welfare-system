@@ -227,7 +227,7 @@ class ApprovalSerializer(serializers.Serializer):
     notes = serializers.CharField(required=False, allow_blank=True)
 
 class RejectionSerializer(serializers.Serializer):
-    rejection_reason = serializers.CharField(required=False, allow_blank=True)
+    rejection_reason = serializers.IntegerField(required=True)
 
 
 class SolidarityDocsSerializer(serializers.ModelSerializer):

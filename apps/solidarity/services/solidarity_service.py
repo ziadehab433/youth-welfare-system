@@ -103,11 +103,10 @@ class SolidarityService:
 
     @staticmethod
     def get_student_applications(admin, status=None, filters=None):
-        solidarity = Solidarities.objects
         queryset = Solidarities.objects.select_related('student', 'faculty', 'approved_by')
 
         # Filter by faculty automatically if admin is faculty_admin
-        if admin.role.lower() == 'مسؤول كلية' :
+        if admin.role.lower() == 'مسؤول كلية':
             faculty_id = getattr(admin, 'faculty_id', None)
             if admin.faculty_id:
                 queryset = queryset.filter(faculty_id=admin.faculty_id)
@@ -115,17 +114,53 @@ class SolidarityService:
                 # In case faculty is not linked properly, return empty queryset
                 return Solidarities.objects.none()
 
-        # could rem
-        if status:
-            queryset = queryset.filter(req_status=status)
+        if not filters:
+            return queryset.order_by('-created_at')
 
-        if filters:
-            if filters.get('faculty_id'):
-                queryset = queryset.filter(faculty_id=filters['faculty_id'])
-            if filters.get('date_from'):
-                queryset = queryset.filter(created_at__gte=filters['date_from'])
-            if filters.get('date_to'):
-                queryset = queryset.filter(created_at__lte=filters['date_to'])
+        q_objects = Q()
+        simple_filters = {}
+        
+        if filters.get('status'):
+            simple_filters['req_status'] = filters['status']
+        if filters.get('student_id'):
+            simple_filters['student__student_id'] = filters['student_id']
+        if filters.get('housing_status'):
+            simple_filters['housing_status__iexact'] = filters['housing_status']
+        if filters.get('grade'):
+            q_objects &= Q(grade__icontains=filters['grade'])
+        if filters.get('father_status'):
+            q_objects &= Q(father_status__icontains=filters['father_status'])
+        if filters.get('mother_status'):
+            q_objects &= Q(mother_status__icontains=filters['mother_status'])
+        if filters.get('disabilities'):
+            q_objects &= Q(disabilities__icontains=filters['disabilities'])
+        if filters.get('date_from'):
+            q_objects &= Q(created_at__gte=filters['date_from'])
+        if filters.get('date_to'):
+            q_objects &= Q(created_at__lte=filters['date_to'])
+            
+        queryset = queryset.filter(**simple_filters)
+        
+        if filters.get('total_income'):
+            income = filters['total_income'].lower()
+            if income == 'low':
+                q_objects &= Q(total_income__lt=3000)
+            elif income == 'moderate':
+                q_objects &= Q(total_income__gte=3000, total_income__lte=5000)
+            elif income == 'high':
+                q_objects &= Q(total_income__gt=5000)
+
+        if filters.get('family_numbers'):
+            numbers = filters['family_numbers'].lower()
+            if numbers == 'few':
+                q_objects &= Q(family_numbers__lt=3)
+            elif numbers == 'moderate':
+                q_objects &= Q(family_numbers__gte=3, family_numbers__lte=4)
+            elif numbers == 'many':
+                q_objects &= Q(family_numbers__gt=4)
+                
+        if q_objects:
+            queryset = queryset.filter(q_objects)
 
         return queryset.order_by('-created_at')
 
@@ -237,10 +272,9 @@ class SolidarityService:
         if solidarity.req_status.lower() == 'مقبول' :
             raise ValidationError(f"Cannot reject application with status: {solidarity.req_status}")
 
-
-
         solidarity.req_status = 'مرفوض'
         solidarity.approved_by = admin
+        solidarity.rejection_reason = rejection_reason
         solidarity.updated_at = timezone.now()
         solidarity.save()
 
@@ -379,6 +413,10 @@ class SolidarityService:
             q_objects &= Q(mother_status__icontains=filters['mother_status'])
         if filters.get('disabilities'):
             q_objects &= Q(disabilities__icontains=filters['disabilities'])
+        if filters.get('date_from'):
+            q_objects &= Q(created_at__gte=filters['date_from'])
+        if filters.get('date_to'):
+            q_objects &= Q(created_at__lte=filters['date_to'])
             
         queryset = queryset.filter(**simple_filters)
         
@@ -410,7 +448,7 @@ class SolidarityService:
 
 
     @staticmethod
-    def change_to_approve(solidarity_id, admin):
+    def change_to_approve(solidarity_id, admin, discount_data=None):
         solidarity = Solidarities.objects.select_for_update().get(solidarity_id=solidarity_id)
 
         if admin.role != 'مشرف النظام':
@@ -418,6 +456,35 @@ class SolidarityService:
 
         if solidarity.req_status == 'مقبول':
             raise ValidationError("Application is already approved.")
+
+        # Assign discounts if provided
+        if discount_data:
+            total_discount = 0
+            arabic_discount_types = []
+            
+            try:
+                for discount in discount_data:
+                    # Get discount_value
+                    value = float(discount.get('discount_value', 0))
+                    total_discount += value
+                    
+                    # Convert English type to Arabic
+                    english_type = discount.get('discount_type')
+                    arabic_type = get_arabic_discount_type(english_type)
+                    
+                    if arabic_type and arabic_type not in arabic_discount_types:
+                        arabic_discount_types.append(arabic_type)
+                
+                solidarity.total_discount = total_discount
+                solidarity.discount_type = arabic_discount_types
+                
+                logger.info(f"Assigned discounts to solidarity {solidarity_id}: "
+                        f"total_discount={total_discount}, "
+                        f"discount_type={arabic_discount_types}")
+                
+            except Exception as e:
+                logger.error(f"Error assigning discounts to solidarity {solidarity_id}: {str(e)}")
+                raise
 
         solidarity.req_status = 'مقبول'
         solidarity.approved_by = admin
@@ -432,7 +499,7 @@ class SolidarityService:
 
 
     @staticmethod
-    def change_to_reject(solidarity_id, admin):
+    def change_to_reject(solidarity_id, admin, rejection_reason=None):
         solidarity = Solidarities.objects.select_for_update().get(solidarity_id=solidarity_id)
 
         if admin.role != 'مشرف النظام':
@@ -443,6 +510,7 @@ class SolidarityService:
 
         solidarity.req_status = 'مرفوض'
         solidarity.approved_by = admin
+        solidarity.rejection_reason = rejection_reason
         solidarity.updated_at = timezone.now()
         solidarity.save()
 

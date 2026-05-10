@@ -24,6 +24,7 @@ from apps.solidarity.serializers import (
     SolidarityListSerializer,
     SolidarityDetailSerializer,
     FacultyDiscountUpdateSerializer,
+    RejectionSerializer,
 )
 from drf_spectacular.utils import extend_schema
 from rest_framework.decorators import action
@@ -51,11 +52,35 @@ class FacultyAdminSolidarityViewSet(AdminActionMixin, viewsets.GenericViewSet):
         description="List all solidarity applications for the current faculty admin",
         responses={200: SolidarityListSerializer(many=True)}
     )
+    @extend_schema(
+        tags=["Solidarity Fac Admin APIs"],
+        description="List all solidarity applications for the current faculty with optional filters",
+        parameters=[
+            OpenApiParameter('status', str),
+            OpenApiParameter('student_id', str),
+            OpenApiParameter('date_from', str),
+            OpenApiParameter('date_to', str),
+            OpenApiParameter('housing_status', str),
+            OpenApiParameter('grade', str),
+            OpenApiParameter('father_status', str),
+            OpenApiParameter('mother_status', str),
+            OpenApiParameter('total_income', str),
+            OpenApiParameter('family_numbers', str),
+            OpenApiParameter('disabilities', str),
+        ],
+        responses={200: SolidarityListSerializer(many=True)}
+    )
     @action(detail=False, methods=['get'], url_path='applications')
     @require_permission('read')
     def list_applications(self, request):
         admin = get_current_admin(request)
-        qs = SolidarityService.get_applications_for_review(admin)
+        filter_keys = [
+            'status', 'student_id', 'date_from', 'date_to',
+            'housing_status', 'grade', 'father_status', 'mother_status',
+            'total_income', 'family_numbers', 'disabilities'
+        ]
+        filters = {k: v for k in filter_keys if (v := request.query_params.get(k)) is not None}
+        qs = SolidarityService.get_student_applications(admin, filters=filters)
         return Response(SolidarityListSerializer(qs, many=True).data)
 
     @extend_schema(
@@ -175,9 +200,14 @@ class FacultyAdminSolidarityViewSet(AdminActionMixin, viewsets.GenericViewSet):
     def reject(self, request, pk=None):
         admin = get_current_admin(request)
         
+        # Deserialize and validate request body
+        serializer = RejectionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        rejection_reason = serializer.validated_data.get('rejection_reason')
+        
         def business_operation(admin_obj, ip):
-            # The core logic is moved here
-            return SolidarityService.reject_application(pk, admin_obj)
+            # Pass rejection_reason to service
+            return SolidarityService.reject_application(pk, admin_obj, rejection_reason)
 
         result = self.execute_admin_action(
             request=request,
