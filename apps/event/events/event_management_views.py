@@ -9,6 +9,7 @@ from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from apps.event.models import Events, Prtcps, EventDocs, Plans
 from .serializers import (
+    AddMemberSerializer,
     EventCreateUpdateSerializer, 
     EventListSerializer, 
     EventDetailSerializer,
@@ -703,6 +704,110 @@ class EventManagementViewSet(AdminActionMixin, viewsets.GenericViewSet):
         
         serializer = EventDetailSerializer(updated_event)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        description="Add a member to an event by NID. Only allowed for faculty admins and department managers.",
+        request=AddMemberSerializer,
+        responses={
+            201: OpenApiResponse(description="Member added successfully"),
+            400: OpenApiResponse(description="Validation error - student not found, already a participant, or event is full"),
+            403: OpenApiResponse(description="Permission denied"),
+            404: OpenApiResponse(description="Event not found")
+        }
+    )
+    @action(detail=True, methods=['post'], url_path='add-member')
+    @require_permission('create')
+    def add_member(self, request, pk=None):
+        """
+        Add a member to an event by their NID
+        Validations:
+        - Student must exist in the system
+        - Student must not already be a participant in this event
+        - Event must not have reached its participant limit
+        Accessible by: faculty admins and department managers
+        """
+        from apps.accounts.models import Students
+        from apps.event.events.serializers import AddMemberSerializer
+        
+        admin = get_current_admin(request)
+        
+        # Permission check: only مسؤول كلية and مدير ادارة
+        if admin.role not in ['مسؤول كلية', 'مدير ادارة']:
+            raise PermissionDenied("Only faculty admins and department managers can add members to events")
+        
+        # Get event
+        event = get_object_or_404(
+            Events.objects.select_related('created_by', 'faculty', 'dept'),
+            pk=pk
+        )
+        
+        # Role-based access control
+        if admin.role == 'مسؤول كلية':
+            if event.faculty_id != admin.faculty_id:
+                raise PermissionDenied("You can only add members to events from your faculty")
+        elif admin.role == 'مدير ادارة':
+            if event.dept_id != admin.dept_id:
+                raise PermissionDenied("You can only add members to events from your department")
+        
+        # Deserialize and validate request body
+        serializer = AddMemberSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        nid = serializer.validated_data.get('nid')
+        
+        # Validation 1: Check if student exists by NID
+        try:
+            student = Students.objects.get(nid=nid)
+        except Students.DoesNotExist:
+            return Response(
+                {"detail": f"Student with NID '{nid}' not found in the system"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Validation 2: Check if student is already a participant
+        if Prtcps.objects.filter(event=event, student=student).exists():
+            return Response(
+                {"detail": f"Student with NID '{nid}' is already a participant in this event"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Validation 3: Check if event has reached participant limit
+        if event.s_limit is not None:
+            current_participants = Prtcps.objects.filter(event=event).count()
+            if current_participants >= event.s_limit:
+                return Response(
+                    {"detail": f"Event has reached its participant limit ({event.s_limit})"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        def business_operation(admin_obj, ip):
+            # Create new participant with status 'مقبول'
+            participant = Prtcps.objects.create(
+                event=event,
+                student=student,
+                status='مقبول'
+            )
+            return participant
+        
+        participant = self.execute_admin_action(
+            request=request,
+            action_name=f"إضافة عضو للنشاط: {event.title} - الطالب: {student.name}",
+            target_type='نشاط',
+            business_operation=business_operation,
+            event_id=event.event_id
+        )
+        
+        return Response(
+            {
+                "message": "Member added successfully",
+                "event_id": event.event_id,
+                "event_title": event.title,
+                "student_id": student.student_id,
+                "student_name": student.name,
+                "student_nid": student.nid,
+                "status": participant.status
+            },
+            status=status.HTTP_201_CREATED
+        )
 
 # faculty head & general admin
 @extend_schema(tags=["Event Management APIs"])
