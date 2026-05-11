@@ -644,6 +644,66 @@ class EventManagementViewSet(AdminActionMixin, viewsets.GenericViewSet):
         
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @extend_schema(
+        description="Mark an event as completed (change status to 'مكتمل'). Only allowed for events with status 'مقبول'.",
+        request=None,
+        responses={
+            200: EventDetailSerializer,
+            400: OpenApiResponse(description="Event is not in 'مقبول' status"),
+            403: OpenApiResponse(description="Permission denied"),
+            404: OpenApiResponse(description="Event not found")
+        }
+    )
+    @action(detail=True, methods=['patch'], url_path='mark-completed')
+    @require_permission('update')
+    def mark_completed(self, request, pk=None):
+        """
+        Mark an event as completed by changing its status to 'مكتمل'
+        Only allowed for events with status 'مقبول'
+        Accessible by: faculty admins, department managers, and system admins
+        """
+        admin = get_current_admin(request)
+        event = get_object_or_404(
+            Events.objects.select_related('created_by', 'faculty', 'dept'),
+            pk=pk
+        )
+        
+        # Permission check: only مسؤول كلية, مدير ادارة, مشرف النظام
+        if admin.role not in ['مسؤول كلية', 'مدير ادارة', 'مشرف النظام']:
+            raise PermissionDenied("You don't have permission to mark events as completed")
+        
+        # Role-based access control
+        if admin.role == 'مسؤول كلية':
+            if event.faculty_id != admin.faculty_id:
+                raise PermissionDenied("You can only mark events from your faculty as completed")
+        elif admin.role == 'مدير ادارة':
+            if event.dept_id != admin.dept_id:
+                raise PermissionDenied("You can only mark events from your department as completed")
+        # مشرف النظام has access to all events
+        
+        # Status validation: only allow marking as completed if status is 'مقبول'
+        if event.status != 'مقبول':
+            return Response(
+                {"detail": f"Event can only be marked as completed if status is 'مقبول'. Current status: {event.status}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        def business_operation(admin_obj, ip):
+            event.status = 'مكتمل'
+            event.save(update_fields=['status'])
+            return event
+        
+        updated_event = self.execute_admin_action(
+            request=request,
+            action_name=f"تحديد النشاط كمكتمل: {event.title}",
+            target_type='نشاط',
+            business_operation=business_operation,
+            event_id=event.event_id
+        )
+        
+        serializer = EventDetailSerializer(updated_event)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 # faculty head & general admin
 @extend_schema(tags=["Event Management APIs"])
 class EventARViewSet(AdminActionMixin, viewsets.GenericViewSet):
