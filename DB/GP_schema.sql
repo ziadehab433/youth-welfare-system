@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict T6QG7ShbuEibAZ2Zp0FEIzUFCmvCFbhkcnKgCP03OJPbqrTXmNO2R8vjOSkuRam
+\restrict LWplTnxFyGn7QXEMbjTxhvziOZKTwP8dglenT4BV5Ki9chfJJdItOgvCKjld9PY
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.6
@@ -36,8 +36,15 @@ ALTER TABLE IF EXISTS ONLY public.logs DROP CONSTRAINT IF EXISTS logs_event_fk;
 ALTER TABLE IF EXISTS ONLY public.logs DROP CONSTRAINT IF EXISTS logs_actor_fk;
 ALTER TABLE IF EXISTS ONLY public.posts DROP CONSTRAINT IF EXISTS fk_posts_family;
 ALTER TABLE IF EXISTS ONLY public.posts DROP CONSTRAINT IF EXISTS fk_posts_faculty;
+ALTER TABLE IF EXISTS ONLY public.scout_members DROP CONSTRAINT IF EXISTS fk_member_student;
+ALTER TABLE IF EXISTS ONLY public.scout_members DROP CONSTRAINT IF EXISTS fk_member_group;
+ALTER TABLE IF EXISTS ONLY public.scout_members DROP CONSTRAINT IF EXISTS fk_member_clan;
+ALTER TABLE IF EXISTS ONLY public.scout_members DROP CONSTRAINT IF EXISTS fk_member_admin;
+ALTER TABLE IF EXISTS ONLY public.clan_groups DROP CONSTRAINT IF EXISTS fk_group_clan;
 ALTER TABLE IF EXISTS ONLY public.family_members DROP CONSTRAINT IF EXISTS fk_family_members_dept;
 ALTER TABLE IF EXISTS ONLY public.events DROP CONSTRAINT IF EXISTS fk_events_family;
+ALTER TABLE IF EXISTS ONLY public.clans DROP CONSTRAINT IF EXISTS fk_clan_faculty;
+ALTER TABLE IF EXISTS ONLY public.clans DROP CONSTRAINT IF EXISTS fk_clan_admin;
 ALTER TABLE IF EXISTS ONLY public.family_admins DROP CONSTRAINT IF EXISTS fk_admin_family;
 ALTER TABLE IF EXISTS ONLY public.family_members DROP CONSTRAINT IF EXISTS family_members_student_fk;
 ALTER TABLE IF EXISTS ONLY public.family_members DROP CONSTRAINT IF EXISTS family_members_family_fk;
@@ -62,16 +69,14 @@ ALTER TABLE IF EXISTS ONLY public.auth_group_permissions DROP CONSTRAINT IF EXIS
 ALTER TABLE IF EXISTS ONLY public.admins DROP CONSTRAINT IF EXISTS admins_faculty_fk;
 ALTER TABLE IF EXISTS ONLY public.admins DROP CONSTRAINT IF EXISTS admins_dept_fk;
 DROP TRIGGER IF EXISTS trg_solidarities_touch ON public.solidarities;
-DROP TRIGGER IF EXISTS trg_log_solidarity_rejection ON public.solidarities;
-DROP TRIGGER IF EXISTS trg_log_solidarity_pre_approval ON public.solidarities;
-DROP TRIGGER IF EXISTS trg_log_solidarity_approval ON public.solidarities;
-DROP TRIGGER IF EXISTS trg_log_family_insert ON public.families;
-DROP TRIGGER IF EXISTS trg_log_event_insert ON public.events;
 DROP TRIGGER IF EXISTS trg_families_touch ON public.families;
 DROP TRIGGER IF EXISTS trg_events_touch ON public.events;
 DROP INDEX IF EXISTS public.idx_students_faculty_id;
 DROP INDEX IF EXISTS public.idx_solidarities_student;
 DROP INDEX IF EXISTS public.idx_solidarities_faculty;
+DROP INDEX IF EXISTS public.idx_refresh_tokens_user;
+DROP INDEX IF EXISTS public.idx_refresh_tokens_hash;
+DROP INDEX IF EXISTS public.idx_refresh_tokens_expires;
 DROP INDEX IF EXISTS public.idx_prtcps_student;
 DROP INDEX IF EXISTS public.idx_prtcps_event;
 DROP INDEX IF EXISTS public.idx_posts_family_id;
@@ -114,6 +119,7 @@ DROP INDEX IF EXISTS public.auth_permission_content_type_id_2f476e4b;
 DROP INDEX IF EXISTS public.auth_group_permissions_permission_id_84c5c92e;
 DROP INDEX IF EXISTS public.auth_group_permissions_group_id_b120cbf9;
 DROP INDEX IF EXISTS public.auth_group_name_a6ea08ec_like;
+ALTER TABLE IF EXISTS ONLY public.scout_members DROP CONSTRAINT IF EXISTS unique_student_clan;
 ALTER TABLE IF EXISTS ONLY public.students DROP CONSTRAINT IF EXISTS students_uid_key;
 ALTER TABLE IF EXISTS ONLY public.students DROP CONSTRAINT IF EXISTS students_pkey;
 ALTER TABLE IF EXISTS ONLY public.students DROP CONSTRAINT IF EXISTS students_phone_number_key;
@@ -123,6 +129,8 @@ ALTER TABLE IF EXISTS ONLY public.students DROP CONSTRAINT IF EXISTS students_em
 ALTER TABLE IF EXISTS ONLY public.solidarity_docs DROP CONSTRAINT IF EXISTS solidarity_docs_solidarity_id_doc_type_key;
 ALTER TABLE IF EXISTS ONLY public.solidarity_docs DROP CONSTRAINT IF EXISTS solidarity_docs_pkey;
 ALTER TABLE IF EXISTS ONLY public.solidarities DROP CONSTRAINT IF EXISTS solidarities_pkey;
+ALTER TABLE IF EXISTS ONLY public.scout_members DROP CONSTRAINT IF EXISTS scout_members_pkey;
+ALTER TABLE IF EXISTS ONLY public.refresh_tokens DROP CONSTRAINT IF EXISTS refresh_tokens_pkey;
 ALTER TABLE IF EXISTS ONLY public.prtcps DROP CONSTRAINT IF EXISTS prtcps_id_pkey;
 ALTER TABLE IF EXISTS ONLY public.prtcps DROP CONSTRAINT IF EXISTS prtcps_event_student_unique;
 ALTER TABLE IF EXISTS ONLY public.posts DROP CONSTRAINT IF EXISTS posts_pkey;
@@ -141,6 +149,9 @@ ALTER TABLE IF EXISTS ONLY public.django_content_type DROP CONSTRAINT IF EXISTS 
 ALTER TABLE IF EXISTS ONLY public.django_content_type DROP CONSTRAINT IF EXISTS django_content_type_app_label_model_76bd3d3b_uniq;
 ALTER TABLE IF EXISTS ONLY public.django_admin_log DROP CONSTRAINT IF EXISTS django_admin_log_pkey;
 ALTER TABLE IF EXISTS ONLY public.departments DROP CONSTRAINT IF EXISTS departments_pkey;
+ALTER TABLE IF EXISTS ONLY public.clans DROP CONSTRAINT IF EXISTS clans_pkey;
+ALTER TABLE IF EXISTS ONLY public.clans DROP CONSTRAINT IF EXISTS clans_faculty_id_key;
+ALTER TABLE IF EXISTS ONLY public.clan_groups DROP CONSTRAINT IF EXISTS clan_groups_pkey;
 ALTER TABLE IF EXISTS ONLY public.auth_user DROP CONSTRAINT IF EXISTS auth_user_username_key;
 ALTER TABLE IF EXISTS ONLY public.auth_user_user_permissions DROP CONSTRAINT IF EXISTS auth_user_user_permissions_user_id_permission_id_14a6b632_uniq;
 ALTER TABLE IF EXISTS ONLY public.auth_user_user_permissions DROP CONSTRAINT IF EXISTS auth_user_user_permissions_pkey;
@@ -158,14 +169,22 @@ ALTER TABLE IF EXISTS ONLY public.admins DROP CONSTRAINT IF EXISTS admins_phone_
 ALTER TABLE IF EXISTS ONLY public.admins DROP CONSTRAINT IF EXISTS admins_national_id_unique;
 ALTER TABLE IF EXISTS ONLY public.admins DROP CONSTRAINT IF EXISTS admins_email_key;
 ALTER TABLE IF EXISTS public.solidarity_docs ALTER COLUMN doc_id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.scout_members ALTER COLUMN scout_member_id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.refresh_tokens ALTER COLUMN id DROP DEFAULT;
 ALTER TABLE IF EXISTS public.prtcps ALTER COLUMN id DROP DEFAULT;
 ALTER TABLE IF EXISTS public.posts ALTER COLUMN post_id DROP DEFAULT;
 ALTER TABLE IF EXISTS public.family_admins ALTER COLUMN id DROP DEFAULT;
 ALTER TABLE IF EXISTS public.event_docs ALTER COLUMN doc_id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.clans ALTER COLUMN clan_id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.clan_groups ALTER COLUMN group_id DROP DEFAULT;
 DROP TABLE IF EXISTS public.students;
 DROP SEQUENCE IF EXISTS public.solidarity_docs_doc_id_seq;
 DROP TABLE IF EXISTS public.solidarity_docs;
 DROP TABLE IF EXISTS public.solidarities;
+DROP SEQUENCE IF EXISTS public.scout_members_scout_member_id_seq;
+DROP TABLE IF EXISTS public.scout_members;
+DROP SEQUENCE IF EXISTS public.refresh_tokens_id_seq;
+DROP TABLE IF EXISTS public.refresh_tokens;
 DROP SEQUENCE IF EXISTS public.prtcps_id_seq;
 DROP TABLE IF EXISTS public.prtcps;
 DROP SEQUENCE IF EXISTS public.posts_post_id_seq;
@@ -186,6 +205,10 @@ DROP TABLE IF EXISTS public.django_migrations;
 DROP TABLE IF EXISTS public.django_content_type;
 DROP TABLE IF EXISTS public.django_admin_log;
 DROP TABLE IF EXISTS public.departments;
+DROP SEQUENCE IF EXISTS public.clans_clan_id_seq;
+DROP TABLE IF EXISTS public.clans;
+DROP SEQUENCE IF EXISTS public.clan_groups_group_id_seq;
+DROP TABLE IF EXISTS public.clan_groups;
 DROP TABLE IF EXISTS public.auth_user_user_permissions;
 DROP TABLE IF EXISTS public.auth_user_groups;
 DROP TABLE IF EXISTS public.auth_user;
@@ -194,11 +217,6 @@ DROP TABLE IF EXISTS public.auth_group_permissions;
 DROP TABLE IF EXISTS public.auth_group;
 DROP TABLE IF EXISTS public.admins;
 DROP FUNCTION IF EXISTS public.set_updated_at();
-DROP FUNCTION IF EXISTS public.log_solidarity_rejection();
-DROP FUNCTION IF EXISTS public.log_solidarity_pre_approval();
-DROP FUNCTION IF EXISTS public.log_solidarity_approval();
-DROP FUNCTION IF EXISTS public.log_family_insert();
-DROP FUNCTION IF EXISTS public.log_event_insert();
 DROP FUNCTION IF EXISTS public.client_ip();
 DROP TYPE IF EXISTS public.target_type;
 DROP TYPE IF EXISTS public.sol_doc_type;
@@ -362,7 +380,8 @@ CREATE TYPE public.target_type AS ENUM (
     'تكافل',
     'اسر',
     'اخر',
-    'طالب'
+    'طالب',
+    'جوالة'
 );
 
 
@@ -373,153 +392,6 @@ CREATE TYPE public.target_type AS ENUM (
 CREATE FUNCTION public.client_ip() RETURNS inet
     LANGUAGE sql STABLE
     AS $$ SELECT COALESCE(inet_client_addr(), '0.0.0.0') $$;
-
-
---
--- Name: log_event_insert(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.log_event_insert() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    INSERT INTO logs (actor_id,
-                      action,
-                      target_type,
-                      event_id,
-                      ip_address)
-    VALUES (NEW.created_by,
-            'انشاء نشاط',
-            'نشاط',
-            NEW.event_id,
-            client_ip());
-    RETURN NEW;
-END;
-$$;
-
-
---
--- Name: log_family_insert(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.log_family_insert() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    INSERT INTO logs (actor_id, action, target_type, family_id, ip_address)
-    VALUES (NEW.created_by, 'انشاء اسر', 'اسر', 
-            NEW.family_id,    -- ← was NEW.event_id
-            client_ip());
-    RETURN NEW;
-END;$$;
-
-
---
--- Name: log_solidarity_approval(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.log_solidarity_approval() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-    admin_role actor_type ;
-BEGIN
-    -- Get the role of the admin who approved the solidarity
-    SELECT role INTO admin_role FROM admins WHERE admin_id = NEW.approved_by;
-
-    -- Insert log entry with correct field order
-    INSERT INTO logs (
-        actor_id,
-        actor_type,
-        action,
-        target_type,
-        solidarity_id,
-        ip_address
-    )
-    VALUES (
-        NEW.approved_by,
-        admin_role,          -- ✅ use the variable here
-        'موافقة طلب',       -- action
-        'تكافل',             
-        NEW.solidarity_id,
-        client_ip()
-    );
-
-    RETURN NEW;
-END;
-$$;
-
-
---
--- Name: log_solidarity_pre_approval(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.log_solidarity_pre_approval() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-    admin_role actor_type;
-BEGIN
-    -- Fetch the admin's role from the admins table
-    SELECT role INTO admin_role FROM admins WHERE admin_id = NEW.approved_by;
-
-    -- Insert log entry for pre-approval
-    INSERT INTO logs (
-        actor_id,
-        actor_type,
-        action,
-        target_type,
-        solidarity_id,
-        ip_address
-    )
-    VALUES (
-        NEW.approved_by,    
-        admin_role,         
-        'موافقة مبدئية',     
-        'تكافل',             
-        NEW.solidarity_id,
-        client_ip()          
-    );
-
-    RETURN NEW;
-END;
-$$;
-
-
---
--- Name: log_solidarity_rejection(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.log_solidarity_rejection() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-    admin_role actor_type;
-BEGIN
-    -- Fetch the admin's role from the admins table
-    SELECT role INTO admin_role FROM admins WHERE admin_id = NEW.approved_by;
-
-    -- Insert log entry for rejection
-    INSERT INTO logs (
-        actor_id,
-        actor_type,
-        action,
-        target_type,
-        solidarity_id,
-        ip_address
-    )
-    VALUES (
-        NEW.approved_by,     -- ID of the admin who rejected
-        admin_role,          -- ✅ store their role here
-        'رفض طلب',           -- action text (rejection)
-        'تكافل',             -- target type
-        NEW.solidarity_id,
-        client_ip()
-    );
-
-    RETURN NEW;
-END;
-$$;
 
 
 --
@@ -739,6 +611,77 @@ ALTER TABLE public.auth_user_user_permissions ALTER COLUMN id ADD GENERATED BY D
 
 
 --
+-- Name: clan_groups; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.clan_groups (
+    group_id integer NOT NULL,
+    name character varying(100) NOT NULL,
+    clan_id integer NOT NULL,
+    display_order integer DEFAULT 1,
+    created_at timestamp without time zone,
+    updated_at timestamp without time zone
+);
+
+
+--
+-- Name: clan_groups_group_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.clan_groups_group_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: clan_groups_group_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.clan_groups_group_id_seq OWNED BY public.clan_groups.group_id;
+
+
+--
+-- Name: clans; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.clans (
+    clan_id integer NOT NULL,
+    name character varying(100) NOT NULL,
+    description text,
+    faculty_id integer,
+    created_by integer,
+    status character varying(20) DEFAULT 'نشط'::character varying,
+    min_members integer DEFAULT 50,
+    created_at timestamp without time zone,
+    updated_at timestamp without time zone
+);
+
+
+--
+-- Name: clans_clan_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.clans_clan_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: clans_clan_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.clans_clan_id_seq OWNED BY public.clans.clan_id;
+
+
+--
 -- Name: departments; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -951,6 +894,7 @@ CREATE TABLE public.events (
     selected_facs integer[],
     plan_id integer,
     active boolean DEFAULT false,
+    rejection_reason text,
     CONSTRAINT events_check CHECK ((end_date >= st_date))
 );
 
@@ -1213,6 +1157,84 @@ ALTER SEQUENCE public.prtcps_id_seq OWNED BY public.prtcps.id;
 
 
 --
+-- Name: refresh_tokens; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.refresh_tokens (
+    id integer NOT NULL,
+    user_id integer NOT NULL,
+    user_type character varying(10) NOT NULL,
+    token_hash character varying(255) NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    expires_at timestamp with time zone NOT NULL,
+    is_revoked boolean DEFAULT false,
+    ip_address character varying(45),
+    device_info character varying(255),
+    CONSTRAINT refresh_tokens_user_type_check CHECK (((user_type)::text = ANY ((ARRAY['student'::character varying, 'admin'::character varying])::text[])))
+);
+
+
+--
+-- Name: refresh_tokens_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.refresh_tokens_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: refresh_tokens_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.refresh_tokens_id_seq OWNED BY public.refresh_tokens.id;
+
+
+--
+-- Name: scout_members; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.scout_members (
+    scout_member_id integer NOT NULL,
+    student_id integer NOT NULL,
+    clan_id integer NOT NULL,
+    group_id integer,
+    role character varying(30) DEFAULT 'MEMBER'::character varying,
+    status character varying(20) DEFAULT 'منتظر'::character varying,
+    reviewed_by integer,
+    rejection_reason text,
+    reviewed_at timestamp without time zone,
+    joined_at timestamp without time zone,
+    created_at timestamp without time zone,
+    updated_at timestamp without time zone
+);
+
+
+--
+-- Name: scout_members_scout_member_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.scout_members_scout_member_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: scout_members_scout_member_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.scout_members_scout_member_id_seq OWNED BY public.scout_members.scout_member_id;
+
+
+--
 -- Name: solidarities; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1345,6 +1367,20 @@ ALTER TABLE public.students ALTER COLUMN student_id ADD GENERATED ALWAYS AS IDEN
 
 
 --
+-- Name: clan_groups group_id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.clan_groups ALTER COLUMN group_id SET DEFAULT nextval('public.clan_groups_group_id_seq'::regclass);
+
+
+--
+-- Name: clans clan_id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.clans ALTER COLUMN clan_id SET DEFAULT nextval('public.clans_clan_id_seq'::regclass);
+
+
+--
 -- Name: event_docs doc_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1370,6 +1406,20 @@ ALTER TABLE ONLY public.posts ALTER COLUMN post_id SET DEFAULT nextval('public.p
 --
 
 ALTER TABLE ONLY public.prtcps ALTER COLUMN id SET DEFAULT nextval('public.prtcps_id_seq'::regclass);
+
+
+--
+-- Name: refresh_tokens id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.refresh_tokens ALTER COLUMN id SET DEFAULT nextval('public.refresh_tokens_id_seq'::regclass);
+
+
+--
+-- Name: scout_members scout_member_id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.scout_members ALTER COLUMN scout_member_id SET DEFAULT nextval('public.scout_members_scout_member_id_seq'::regclass);
 
 
 --
@@ -1505,6 +1555,30 @@ ALTER TABLE ONLY public.auth_user_user_permissions
 
 ALTER TABLE ONLY public.auth_user
     ADD CONSTRAINT auth_user_username_key UNIQUE (username);
+
+
+--
+-- Name: clan_groups clan_groups_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.clan_groups
+    ADD CONSTRAINT clan_groups_pkey PRIMARY KEY (group_id);
+
+
+--
+-- Name: clans clans_faculty_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.clans
+    ADD CONSTRAINT clans_faculty_id_key UNIQUE (faculty_id);
+
+
+--
+-- Name: clans clans_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.clans
+    ADD CONSTRAINT clans_pkey PRIMARY KEY (clan_id);
 
 
 --
@@ -1652,6 +1726,22 @@ ALTER TABLE ONLY public.prtcps
 
 
 --
+-- Name: refresh_tokens refresh_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.refresh_tokens
+    ADD CONSTRAINT refresh_tokens_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: scout_members scout_members_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.scout_members
+    ADD CONSTRAINT scout_members_pkey PRIMARY KEY (scout_member_id);
+
+
+--
 -- Name: solidarities solidarities_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1721,6 +1811,14 @@ ALTER TABLE ONLY public.students
 
 ALTER TABLE ONLY public.students
     ADD CONSTRAINT students_uid_key UNIQUE (uid);
+
+
+--
+-- Name: scout_members unique_student_clan; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.scout_members
+    ADD CONSTRAINT unique_student_clan UNIQUE (student_id, clan_id);
 
 
 --
@@ -2018,6 +2116,27 @@ CREATE INDEX idx_prtcps_student ON public.prtcps USING btree (student_id);
 
 
 --
+-- Name: idx_refresh_tokens_expires; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_refresh_tokens_expires ON public.refresh_tokens USING btree (expires_at) WHERE (is_revoked = false);
+
+
+--
+-- Name: idx_refresh_tokens_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_refresh_tokens_hash ON public.refresh_tokens USING btree (token_hash) WHERE (is_revoked = false);
+
+
+--
+-- Name: idx_refresh_tokens_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_refresh_tokens_user ON public.refresh_tokens USING btree (user_type, user_id);
+
+
+--
 -- Name: idx_solidarities_faculty; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2050,41 +2169,6 @@ CREATE TRIGGER trg_events_touch BEFORE UPDATE ON public.events FOR EACH ROW EXEC
 --
 
 CREATE TRIGGER trg_families_touch BEFORE UPDATE ON public.families FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
-
-
---
--- Name: events trg_log_event_insert; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER trg_log_event_insert AFTER INSERT ON public.events FOR EACH ROW EXECUTE FUNCTION public.log_event_insert();
-
-
---
--- Name: families trg_log_family_insert; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER trg_log_family_insert AFTER INSERT ON public.families FOR EACH ROW EXECUTE FUNCTION public.log_family_insert();
-
-
---
--- Name: solidarities trg_log_solidarity_approval; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER trg_log_solidarity_approval AFTER UPDATE ON public.solidarities FOR EACH ROW WHEN (((old.req_status IS DISTINCT FROM new.req_status) AND (new.req_status = 'مقبول'::public.general_status))) EXECUTE FUNCTION public.log_solidarity_approval();
-
-
---
--- Name: solidarities trg_log_solidarity_pre_approval; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER trg_log_solidarity_pre_approval AFTER UPDATE ON public.solidarities FOR EACH ROW WHEN (((old.req_status IS DISTINCT FROM new.req_status) AND (new.req_status = 'موافقة مبدئية'::public.general_status))) EXECUTE FUNCTION public.log_solidarity_pre_approval();
-
-
---
--- Name: solidarities trg_log_solidarity_rejection; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER trg_log_solidarity_rejection AFTER UPDATE ON public.solidarities FOR EACH ROW WHEN (((old.req_status IS DISTINCT FROM new.req_status) AND (new.req_status = 'مرفوض'::public.general_status))) EXECUTE FUNCTION public.log_solidarity_rejection();
 
 
 --
@@ -2279,6 +2363,22 @@ ALTER TABLE ONLY public.family_admins
 
 
 --
+-- Name: clans fk_clan_admin; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.clans
+    ADD CONSTRAINT fk_clan_admin FOREIGN KEY (created_by) REFERENCES public.admins(admin_id) ON DELETE SET NULL;
+
+
+--
+-- Name: clans fk_clan_faculty; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.clans
+    ADD CONSTRAINT fk_clan_faculty FOREIGN KEY (faculty_id) REFERENCES public.faculties(faculty_id) ON DELETE CASCADE;
+
+
+--
 -- Name: events fk_events_family; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2292,6 +2392,46 @@ ALTER TABLE ONLY public.events
 
 ALTER TABLE ONLY public.family_members
     ADD CONSTRAINT fk_family_members_dept FOREIGN KEY (dept_id) REFERENCES public.departments(dept_id);
+
+
+--
+-- Name: clan_groups fk_group_clan; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.clan_groups
+    ADD CONSTRAINT fk_group_clan FOREIGN KEY (clan_id) REFERENCES public.clans(clan_id) ON DELETE CASCADE;
+
+
+--
+-- Name: scout_members fk_member_admin; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.scout_members
+    ADD CONSTRAINT fk_member_admin FOREIGN KEY (reviewed_by) REFERENCES public.admins(admin_id) ON DELETE SET NULL;
+
+
+--
+-- Name: scout_members fk_member_clan; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.scout_members
+    ADD CONSTRAINT fk_member_clan FOREIGN KEY (clan_id) REFERENCES public.clans(clan_id) ON DELETE CASCADE;
+
+
+--
+-- Name: scout_members fk_member_group; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.scout_members
+    ADD CONSTRAINT fk_member_group FOREIGN KEY (group_id) REFERENCES public.clan_groups(group_id) ON DELETE SET NULL;
+
+
+--
+-- Name: scout_members fk_member_student; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.scout_members
+    ADD CONSTRAINT fk_member_student FOREIGN KEY (student_id) REFERENCES public.students(student_id) ON DELETE CASCADE;
 
 
 --
@@ -2434,5 +2574,5 @@ ALTER TABLE ONLY public.students
 -- PostgreSQL database dump complete
 --
 
-\unrestrict T6QG7ShbuEibAZ2Zp0FEIzUFCmvCFbhkcnKgCP03OJPbqrTXmNO2R8vjOSkuRam
+\unrestrict LWplTnxFyGn7QXEMbjTxhvziOZKTwP8dglenT4BV5Ki9chfJJdItOgvCKjld9PY
 
