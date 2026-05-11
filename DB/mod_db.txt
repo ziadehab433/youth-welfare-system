@@ -1,0 +1,11 @@
+ALTER TYPE family_type 
+ADD VALUE 'اتحاد';
+
+ALTER TYPE event_type 
+ADD VALUE 'اتحاد';
+
+ALTER TYPE family_members_roles 
+ADD VALUE 'رئيس اتحاد';
+
+ALTER TYPE family_members_roles 
+ADD VALUE 'نائب رئيس اتحاد';

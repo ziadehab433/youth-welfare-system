@@ -1232,3 +1232,351 @@ class DepartmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Departments
         fields = ['dept_id', 'name']
+
+
+# ========== UNION (اتحاد) SERIALIZERS ==========
+
+class UnionPresidentSerializer(serializers.Serializer):
+    """Serializer for union president/vice president by NID"""
+    nid = serializers.IntegerField(required=True)
+    
+    def validate_nid(self, value):
+        """Validate student exists by NID"""
+        if not Students.objects.filter(nid=value).exists():
+            raise ValidationError(f"الطالب برقم الهوية {value} غير موجود")
+        return value
+
+
+class UnionCommitteePersonSerializer(serializers.Serializer):
+    """Serializer for union committee head/assistant using UID"""
+    uid = serializers.IntegerField(required=True)
+    dept_id = serializers.IntegerField(required=True)
+    
+    def validate_uid(self, value):
+        """Validate student exists by UID"""
+        if not Students.objects.filter(uid=value).exists():
+            raise ValidationError(f"الطالب برقم الجامعة {value} غير موجود")
+        return value
+    
+    def validate_dept_id(self, value):
+        """Validate department exists"""
+        if not Departments.objects.filter(dept_id=value).exists():
+            raise ValidationError(f"القسم برقم {value} غير موجود")
+        return value
+
+
+class UnionCommitteeDataSerializer(serializers.Serializer):
+    """Serializer for union committee with head and assistant"""
+    committee_key = serializers.ChoiceField(
+        choices=[c['key'] for c in COMMITTEES],
+        required=True
+    )
+    head = UnionCommitteePersonSerializer(required=True)
+    assistant = UnionCommitteePersonSerializer(required=True)
+    
+    def validate(self, data):
+        """Validate head and assistant are different people"""
+        if data['head']['uid'] == data['assistant']['uid']:
+            raise ValidationError(
+                "رئيس اللجنة ونائب الرئيس يجب أن يكونا شخصين مختلفين"
+            )
+        
+        # Verify departments match
+        if data['head']['dept_id'] != data['assistant']['dept_id']:
+            raise ValidationError(
+                "رئيس اللجنة ونائب الرئيس يجب أن يكونا من نفس القسم"
+            )
+        
+        return data
+
+
+class CreateUnionSerializer(serializers.Serializer):
+    """Serializer for creating a new union (اتحاد)"""
+    
+    name = serializers.CharField(max_length=100, required=True)
+    description = serializers.CharField(max_length=1000, required=True)
+    faculty_id = serializers.IntegerField(required=False, allow_null=True)
+    
+    # Union leadership (16 persons total)
+    president_nid = serializers.IntegerField(required=True)  # رئيس اتحاد
+    vice_president_nid = serializers.IntegerField(required=True)  # نائب رئيس اتحاد
+    
+    # 7 committees with heads and assistants
+    committees = UnionCommitteeDataSerializer(
+        many=True,
+        required=True,
+        help_text="7 لجان مع رؤساء ونواب"
+    )
+    
+    def validate_faculty_id(self, value):
+        """Validate faculty exists if provided"""
+        if value is not None and not Faculties.objects.filter(faculty_id=value).exists():
+            raise ValidationError(f"الكلية برقم {value} غير موجودة")
+        return value
+    
+    def validate(self, data):
+        """Cross-field validation"""
+        president_nid = data['president_nid']
+        vice_president_nid = data['vice_president_nid']
+        
+        # Validate president and vice president are different
+        if president_nid == vice_president_nid:
+            raise ValidationError(
+                "رئيس الاتحاد ونائب الرئيس يجب أن يكونا شخصين مختلفين"
+            )
+        
+        # Validate president and vice president exist
+        try:
+            president = Students.objects.get(nid=president_nid)
+        except Students.DoesNotExist:
+            raise ValidationError(f"الطالب برقم الهوية {president_nid} غير موجود")
+        
+        try:
+            vice_president = Students.objects.get(nid=vice_president_nid)
+        except Students.DoesNotExist:
+            raise ValidationError(f"الطالب برقم الهوية {vice_president_nid} غير موجود")
+        
+        # Validate committees
+        committee_keys = [c['committee_key'] for c in data['committees']]
+        valid_keys = [com['key'] for com in COMMITTEES]
+        
+        for key in committee_keys:
+            if key not in valid_keys:
+                raise ValidationError(f"مفتاح اللجنة غير صحيح: {key}")
+        
+        if len(committee_keys) != len(set(committee_keys)):
+            raise ValidationError("تم العثور على لجان مكررة")
+        
+        if len(committee_keys) != 7:
+            raise ValidationError("يجب أن يكون هناك 7 لجان بالضبط")
+        
+        # Validate no person is assigned to multiple committee positions
+        all_committee_uids = []
+        for committee in data['committees']:
+            all_committee_uids.append(committee['head']['uid'])
+            all_committee_uids.append(committee['assistant']['uid'])
+        
+        if len(all_committee_uids) != len(set(all_committee_uids)):
+            raise ValidationError(
+                "كل طالب يمكن أن يكون مسؤولاً عن لجنة واحدة فقط"
+            )
+        
+        # Validate president and vice president are not in committees
+        president_uid = president.student_id
+        vice_president_uid = vice_president.student_id
+        
+        if president_uid in all_committee_uids or vice_president_uid in all_committee_uids:
+            raise ValidationError(
+                "رئيس الاتحاد ونائب الرئيس لا يمكن أن يكونا رؤساء أو نواب لجان"
+            )
+        
+        data['president'] = president
+        data['vice_president'] = vice_president
+        
+        return data
+
+
+class UpdateUnionSerializer(serializers.Serializer):
+    """Serializer for updating a union"""
+    
+    name = serializers.CharField(max_length=100, required=False)
+    description = serializers.CharField(max_length=1000, required=False)
+    
+    # Union leadership (optional for update)
+    president_nid = serializers.IntegerField(required=False)
+    vice_president_nid = serializers.IntegerField(required=False)
+    
+    # 7 committees (optional for update)
+    committees = UnionCommitteeDataSerializer(
+        many=True,
+        required=False,
+        help_text="7 لجان مع رؤساء ونواب"
+    )
+    
+    def validate(self, data):
+        """Cross-field validation"""
+        president_nid = data.get('president_nid')
+        vice_president_nid = data.get('vice_president_nid')
+        
+        # If both are provided, validate they're different
+        if president_nid and vice_president_nid:
+            if president_nid == vice_president_nid:
+                raise ValidationError(
+                    "رئيس الاتحاد ونائب الرئيس يجب أن يكونا شخصين مختلفين"
+                )
+            
+            # Validate they exist
+            try:
+                president = Students.objects.get(nid=president_nid)
+            except Students.DoesNotExist:
+                raise ValidationError(f"الطالب برقم الهوية {president_nid} غير موجود")
+            
+            try:
+                vice_president = Students.objects.get(nid=vice_president_nid)
+            except Students.DoesNotExist:
+                raise ValidationError(f"الطالب برقم الهوية {vice_president_nid} غير موجود")
+            
+            data['president'] = president
+            data['vice_president'] = vice_president
+        
+        # Validate committees if provided
+        if 'committees' in data and data['committees']:
+            committee_keys = [c['committee_key'] for c in data['committees']]
+            valid_keys = [com['key'] for com in COMMITTEES]
+            
+            for key in committee_keys:
+                if key not in valid_keys:
+                    raise ValidationError(f"مفتاح اللجنة غير صحيح: {key}")
+            
+            if len(committee_keys) != len(set(committee_keys)):
+                raise ValidationError("تم العثور على لجان مكررة")
+            
+            if len(committee_keys) != 7:
+                raise ValidationError("يجب أن يكون هناك 7 لجان بالضبط")
+            
+            # Validate no person is assigned to multiple committee positions
+            all_committee_uids = []
+            for committee in data['committees']:
+                all_committee_uids.append(committee['head']['uid'])
+                all_committee_uids.append(committee['assistant']['uid'])
+            
+            if len(all_committee_uids) != len(set(all_committee_uids)):
+                raise ValidationError(
+                    "كل طالب يمكن أن يكون مسؤولاً عن لجنة واحدة فقط"
+                )
+        
+        return data
+
+
+class UnionListSerializer(serializers.ModelSerializer):
+    """Serializer for listing unions"""
+    faculty_name = serializers.CharField(source='faculty.name', read_only=True, allow_null=True)
+    president_name = serializers.SerializerMethodField()
+    vice_president_name = serializers.SerializerMethodField()
+    member_count = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Families
+        fields = [
+            'family_id', 'name', 'description', 'faculty', 'faculty_name',
+            'type', 'status', 'created_at', 'updated_at',
+            'president_name', 'vice_president_name', 'member_count'
+        ]
+        read_only_fields = ['family_id', 'created_at', 'updated_at']
+    
+    def get_president_name(self, obj):
+        """Get president's name"""
+        from apps.family.models import FamilyAdmins
+        president = FamilyAdmins.objects.filter(
+            family=obj,
+            role='رئيس اتحاد'
+        ).first()
+        
+        return president.name if president else None
+    
+    def get_vice_president_name(self, obj):
+        """Get vice president's name"""
+        from apps.family.models import FamilyAdmins
+        vice_president = FamilyAdmins.objects.filter(
+            family=obj,
+            role='نائب رئيس اتحاد'
+        ).first()
+        
+        return vice_president.name if vice_president else None
+    
+    def get_member_count(self, obj):
+        """Get total members"""
+        from apps.family.models import FamilyAdmins
+        return FamilyAdmins.objects.filter(family=obj).count()
+
+
+class UnionDetailSerializer(serializers.ModelSerializer):
+    """Detailed serializer for union"""
+    faculty_name = serializers.CharField(source='faculty.name', read_only=True, allow_null=True)
+    president = serializers.SerializerMethodField()
+    vice_president = serializers.SerializerMethodField()
+    committee_heads = serializers.SerializerMethodField()
+    committee_assistants = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Families
+        fields = [
+            'family_id', 'name', 'description', 'faculty', 'faculty_name',
+            'type', 'status', 'created_at', 'updated_at',
+            'president', 'vice_president', 'committee_heads', 'committee_assistants'
+        ]
+        read_only_fields = ['family_id', 'created_at', 'updated_at']
+    
+    def get_president(self, obj):
+        """Get president details"""
+        from apps.family.models import FamilyAdmins
+        president = FamilyAdmins.objects.filter(
+            family=obj,
+            role='رئيس اتحاد'
+        ).first()
+        
+        if president:
+            return {
+                'name': president.name,
+                'nid': president.nid,
+                'phone': president.ph_no,
+                'role': president.role
+            }
+        return None
+    
+    def get_vice_president(self, obj):
+        """Get vice president details"""
+        from apps.family.models import FamilyAdmins
+        vice_president = FamilyAdmins.objects.filter(
+            family=obj,
+            role='نائب رئيس اتحاد'
+        ).first()
+        
+        if vice_president:
+            return {
+                'name': vice_president.name,
+                'nid': vice_president.nid,
+                'phone': vice_president.ph_no,
+                'role': vice_president.role
+            }
+        return None
+    
+    def get_committee_heads(self, obj):
+        """Get committee heads with departments"""
+        from apps.family.models import FamilyAdmins
+        heads = FamilyAdmins.objects.filter(
+            family=obj,
+            role='أمين لجنة'
+        ).select_related('dept')
+        
+        return [
+            {
+                'name': h.name,
+                'nid': h.nid,
+                'phone': h.ph_no,
+                'dept_id': h.dept.dept_id if h.dept else None,
+                'dept_name': h.dept.name if h.dept else None,
+                'role': h.role
+            }
+            for h in heads
+        ]
+    
+    def get_committee_assistants(self, obj):
+        """Get committee assistants with departments"""
+        from apps.family.models import FamilyAdmins
+        assistants = FamilyAdmins.objects.filter(
+            family=obj,
+            role='أمين مساعد لجنة'
+        ).select_related('dept')
+        
+        return [
+            {
+                'name': a.name,
+                'nid': a.nid,
+                'phone': a.ph_no,
+                'dept_id': a.dept.dept_id if a.dept else None,
+                'dept_name': a.dept.name if a.dept else None,
+                'role': a.role
+            }
+            for a in assistants
+        ]
