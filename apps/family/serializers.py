@@ -15,10 +15,11 @@ class FamilyMembersSerializer(serializers.ModelSerializer):
     national_id = serializers.IntegerField(source='student.nid' , read_only=True)
     u_id = serializers.IntegerField(source='student.uid',read_only=True)
     dept_name = serializers.CharField(source='dept.name', read_only=True, allow_null=True)
+    faculty_name = serializers.CharField(source='student.faculty.name', read_only=True, allow_null=True)
     
     class Meta:
         model = FamilyMembers
-        fields = ['student_id', 'student_name', 'national_id','u_id', 'role', 'status', 'joined_at', 'dept', 'dept_name']
+        fields = ['student_id', 'student_name', 'national_id','u_id', 'role', 'status', 'joined_at', 'dept', 'dept_name', 'faculty_name']
         read_only_fields = ['joined_at']
 
 class FamiliesListSerializer(serializers.ModelSerializer):
