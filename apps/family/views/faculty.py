@@ -639,6 +639,10 @@ class FacultyEventApprovalViewSet(AdminActionMixin, viewsets.GenericViewSet):
 
     @extend_schema(
         description="List pending events for families within this faculty, excluding events with start_date in the past.",
+        parameters=[
+            OpenApiParameter(name='date_from', description='Filter events from this date (YYYY-MM-DD)', required=False, type=str),
+            OpenApiParameter(name='date_to', description='Filter events until this date (YYYY-MM-DD)', required=False, type=str),
+        ],
         responses={200: EventSerializer(many=True)}
     )
     @action(detail=False, methods=['get'], url_path='pending')
@@ -649,6 +653,16 @@ class FacultyEventApprovalViewSet(AdminActionMixin, viewsets.GenericViewSet):
             status=STATUS_PENDING,
             st_date__gte=today
         )
+        
+        # Apply date filters if provided
+        date_from = request.query_params.get('date_from')
+        date_to = request.query_params.get('date_to')
+        
+        if date_from:
+            events = events.filter(st_date__gte=date_from)
+        if date_to:
+            events = events.filter(st_date__lte=date_to)
+        
         return Response(self.get_serializer(events, many=True).data)
     
     @extend_schema(

@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
-from drf_spectacular.utils import extend_schema, OpenApiResponse
+from drf_spectacular.utils import OpenApiParameter, extend_schema, OpenApiResponse
 from django.db import transaction
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
@@ -55,6 +55,15 @@ class EventGetterViewSet(AdminActionMixin, viewsets.GenericViewSet):
             queryset = Events.objects.select_related(
                 'created_by', 'faculty', 'dept', 'family'
             ).filter(family__isnull=True).exclude(status='منتظر')
+        
+        # Apply date filters if provided
+        date_from = self.request.query_params.get('date_from')
+        date_to = self.request.query_params.get('date_to')
+        
+        if date_from:
+            queryset = queryset.filter(st_date__gte=date_from)
+        if date_to:
+            queryset = queryset.filter(st_date__lte=date_to)
         
         if admin.role == 'مسؤول كلية':
             return queryset.filter(
@@ -119,6 +128,10 @@ class EventGetterViewSet(AdminActionMixin, viewsets.GenericViewSet):
 
     @extend_schema(
         description="List all events in the admin's faculty",
+        parameters=[
+            OpenApiParameter(name='date_from', description='Filter events from this date (YYYY-MM-DD)', required=False, type=str),
+            OpenApiParameter(name='date_to', description='Filter events until this date (YYYY-MM-DD)', required=False, type=str),
+        ],
         responses={200: EventListSerializer(many=True)}
     )
     def list(self, request):
