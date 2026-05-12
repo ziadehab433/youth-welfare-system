@@ -9,3 +9,10 @@ ADD VALUE 'رئيس اتحاد';
 
 ALTER TYPE family_members_roles 
 ADD VALUE 'نائب رئيس اتحاد';
+
+
+------------------------------------------
+
+ALTER TABLE families
+ADD COLUMN active BOOLEAN DEFAULT TRUE;
+

@@ -38,6 +38,7 @@ class Families(models.Model):
     closing_date = models.DateField(blank=True, null=True)
     min_limit = models.IntegerField(default=50)
     type = models.CharField(max_length=50)
+    active = models.BooleanField(default=True)
 
     class Meta:
         managed = False

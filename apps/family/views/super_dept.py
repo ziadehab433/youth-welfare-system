@@ -6,6 +6,9 @@ from rest_framework import viewsets, status
 from django.db.models import Count, F, Q
 from django.db import transaction
 from django.utils import timezone
+from apps.accounts.utils import get_current_admin
+from rest_framework.exceptions import PermissionDenied
+
 from apps.family.models import Families, FamilyMembers, Students, FamilyAdmins
 from apps.accounts.permissions import IsRole
 from apps.family.serializers import (
@@ -117,6 +120,59 @@ class SuperDeptFamilyViewSet(AdminActionMixin, viewsets.ReadOnlyModelViewSet):
             result = self.execute_admin_action(
                 request=request,
                 action_name='رفض الأسرة (إدارة مركزية)',
+                target_type='اسر',
+                business_operation=business_operation,
+                family_id=family.family_id
+            )
+            return Response(result, status=status.HTTP_200_OK)
+
+    # ----------------------------------------------------------------
+    # Deactivate Family
+    # ----------------------------------------------------------------
+    @extend_schema(
+        description="Deactivate a family (set active to false). Department managers and system admins can deactivate any family.",
+        request=None,
+        responses={
+            200: OpenApiResponse(description="Family deactivated successfully"),
+            400: OpenApiResponse(description="Family is already inactive"),
+            404: OpenApiResponse(description="Family not found"),
+        }
+    )
+    @action(detail=True, methods=['patch'], url_path='deactivate')
+    def deactivate_family(self, request, pk=None):
+        """
+        PATCH /api/family/super_dept/{family_id}/deactivate/
+        
+        Deactivate a family. Only department managers and system admins can use this.
+        """
+        admin = get_current_admin(request)
+        
+        # Check permissions
+        if admin.role not in ['مدير ادارة', 'مشرف النظام']:
+            raise PermissionDenied("فقط مدير الإدارة ومشرف النظام يمكنهم إلغاء تفعيل الأسرة")
+        
+        with transaction.atomic():
+            family = Families.objects.select_for_update().get(pk=pk)
+            
+            if not family.active:
+                return Response(
+                    {"error": "الأسرة غير مفعلة بالفعل"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            def business_operation(admin_user, ip):
+                family.active = False
+                family.save()
+                return {
+                    "message": "تم إلغاء تفعيل الأسرة بنجاح",
+                    "family_id": family.family_id,
+                    "family_name": family.name,
+                    "active": family.active
+                }
+            
+            result = self.execute_admin_action(
+                request=request,
+                action_name=f'إلغاء تفعيل الأسرة: {family.name}',
                 target_type='اسر',
                 business_operation=business_operation,
                 family_id=family.family_id

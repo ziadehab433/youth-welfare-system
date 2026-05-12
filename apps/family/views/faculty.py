@@ -619,6 +619,74 @@ class FamilyFacultyAdminViewSet(AdminActionMixin, viewsets.GenericViewSet):
             
             return Response(result, status=status.HTTP_200_OK)
 
+    # ----------------------------------------------------------------
+    # Deactivate Family
+    # ----------------------------------------------------------------
+    @extend_schema(
+        description="Deactivate a family (set active to false). Faculty admins can only deactivate families in their own faculty.",
+        request=None,
+        responses={
+            200: OpenApiResponse(description="Family deactivated successfully"),
+            400: OpenApiResponse(description="Family is already inactive"),
+            403: OpenApiResponse(description="Access denied - family not in your faculty"),
+            404: OpenApiResponse(description="Family not found"),
+        }
+    )
+    @action(detail=True, methods=['patch'], url_path='deactivate')
+    @require_permission('update')
+    def deactivate_family(self, request, pk=None):
+        """
+        PATCH /api/family/faculty/{family_id}/deactivate/
+        
+        Deactivate a family. Faculty admins can only deactivate families in their own faculty.
+        """
+        admin = get_current_admin(request)
+        
+        # Get family and verify it belongs to this faculty
+        try:
+            family = Families.objects.get(pk=pk)
+        except Families.DoesNotExist:
+            return Response(
+                {"error": "الأسرة غير موجودة"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Check if family belongs to faculty admin's faculty
+        if family.faculty_id != admin.faculty_id:
+            return Response(
+                {"error": "لا يمكنك إدارة أسرة من كلية أخرى"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        if not family.active:
+            return Response(
+                {"error": "الأسرة غير مفعلة بالفعل"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        with transaction.atomic():
+            # Lock the family for update
+            family = Families.objects.select_for_update().get(pk=pk)
+            
+            def business_operation(admin_user, ip):
+                family.active = False
+                family.save()
+                return {
+                    "message": "تم إلغاء تفعيل الأسرة بنجاح",
+                    "family_id": family.family_id,
+                    "family_name": family.name,
+                    "active": family.active
+                }
+            
+            result = self.execute_admin_action(
+                request=request,
+                action_name=f'إلغاء تفعيل الأسرة: {family.name}',
+                target_type='اسر',
+                business_operation=business_operation,
+                family_id=family.family_id
+            )
+            return Response(result, status=status.HTTP_200_OK)
+
 # ------------------------------------------------------------------
 # Events Approval (Faculty Admin)
 # ------------------------------------------------------------------
