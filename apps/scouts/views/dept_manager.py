@@ -548,11 +548,17 @@ class DeptManagerScoutViewSet(AdminActionMixin, ViewSet):
     @require_permission('create')
     def create_program(self, request):
 
+        serializer = CreateUniversityProgramSerializer(
+            data=request.data
+        )
+
+        serializer.is_valid(raise_exception=True)
+
         admin = self.current_admin
 
         result = self._safe(
             lambda: create_university_program(
-                request.data,
+                serializer.validated_data,
                 admin.admin_id
             )
         )
@@ -612,46 +618,13 @@ class DeptManagerScoutViewSet(AdminActionMixin, ViewSet):
             request.query_params
         )
 
-        serialized = []
-
-        for member in members:
-
-            serialized.append({
-                'university_member_id':
-                    member.university_member_id,
-
-                'scout_member_id':
-                    member.scout_member.scout_member_id,
-
-                'student_name':
-                    member.scout_member.student.name,
-
-                'faculty_name':
-                    member.scout_member.clan.faculty.name,
-
-                'clan_name':
-                    member.scout_member.clan.name,
-
-                'university_role':
-                    member.university_role,
-
-                'programs': [
-                    {
-                        'id': p.id,
-                        'program_id': p.program.program_id,
-                        'program_name': p.program.name,
-                    }
-                    for p in member.program_memberships.all()
-                ],
-
-                'created_at':
-                    member.created_at,
-            })
-
         return Response(
             success_response(
                 "تم جلب أعضاء المنتخب بنجاح",
-                data=serialized
+                data=UniversityScoutMemberSerializer(
+                    members,
+                    many=True
+                ).data
             ),
             status=status.HTTP_200_OK
         )
@@ -665,11 +638,17 @@ class DeptManagerScoutViewSet(AdminActionMixin, ViewSet):
     @require_permission('create')
     def add_to_university_scouts(self, request):
 
+        serializer = AddToUniversityScoutsSerializer(
+            data=request.data
+        )
+
+        serializer.is_valid(raise_exception=True)
+
         admin = self.current_admin
 
         result = self._safe(
             lambda: add_to_university_scouts(
-                scout_member_id=request.data.get(
+                scout_member_id=serializer.validated_data.get(
                     'scout_member_id'
                 ),
                 admin_id=admin.admin_id
@@ -700,12 +679,19 @@ class DeptManagerScoutViewSet(AdminActionMixin, ViewSet):
     @require_permission('update')
     def assign_university_role(self, request):
 
+        serializer = AssignUniversityRoleSerializer(
+            data=request.data
+        )
+
+        serializer.is_valid(raise_exception=True)
+
         result = self._safe(
             lambda: assign_university_role(
-                university_member_id=request.data.get(
+                university_member_id=serializer.validated_data.get(
                     'university_member_id'
                 ),
-                university_role=request.data.get(
+
+                university_role=serializer.validated_data.get(
                     'university_role'
                 ),
             )
@@ -735,12 +721,18 @@ class DeptManagerScoutViewSet(AdminActionMixin, ViewSet):
     @require_permission('create')
     def assign_member_to_program(self, request):
 
+        serializer = AssignMemberToProgramSerializer(
+            data=request.data
+        )
+
+        serializer.is_valid(raise_exception=True)
+
         result = self._safe(
             lambda: assign_member_to_program(
-                university_member_id=request.data.get(
+                university_member_id=serializer.validated_data.get(
                     'university_member_id'
                 ),
-                program_id=request.data.get(
+                program_id=serializer.validated_data.get(
                     'program_id'
                 ),
             )

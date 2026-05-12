@@ -206,9 +206,12 @@ class ScoutMembers(models.Model):
     @property
     def has_group(self):
         return self.group_id is not None
+    
 class UniversityScoutPrograms(models.Model):
 
-    program_id = models.AutoField(primary_key=True)
+    program_id = models.AutoField(
+        primary_key=True
+    )
 
     name = models.CharField(
         max_length=100,
@@ -220,7 +223,9 @@ class UniversityScoutPrograms(models.Model):
         null=True
     )
 
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(
+        default=True
+    )
 
     created_by = models.ForeignKey(
         AdminsUser,
@@ -242,8 +247,12 @@ class UniversityScoutPrograms(models.Model):
     )
 
     class Meta:
+
         managed = False
+
         db_table = 'university_scout_programs'
+
+        ordering = ['name']
 
     def __str__(self):
 
@@ -252,14 +261,14 @@ class UniversityScoutPrograms(models.Model):
 
 class UniversityScoutMembers(models.Model):
 
-    UNIVERSITY_ROLES = [
+    UNIVERSITY_ROLES = (
         ('قائد عشاير الجامعة', 'قائد عشاير الجامعة'),
         ('مساعد قائد العشاير', 'مساعد قائد العشاير'),
         ('منفذ برامج', 'منفذ برامج'),
         ('قائد الجوالات', 'قائد الجوالات'),
         ('سكرتير العشاير', 'سكرتير العشاير'),
         ('قائد السواعد', 'قائد السواعد'),
-    ]
+    )
 
     university_member_id = models.AutoField(
         primary_key=True
@@ -299,19 +308,32 @@ class UniversityScoutMembers(models.Model):
     )
 
     class Meta:
+
         managed = False
+
         db_table = 'university_scout_members'
+
+        ordering = ['-created_at']
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=['scout_member'],
+                name='uq_university_member'
+            )
+        ]
 
     def __str__(self):
 
         return (
-            f"{self.scout_member.student.name}"
+            self.scout_member.student.name
         )
 
 
 class UniversityScoutProgramMembers(models.Model):
 
-    id = models.AutoField(primary_key=True)
+    id = models.AutoField(
+        primary_key=True
+    )
 
     university_member = models.ForeignKey(
         UniversityScoutMembers,
@@ -333,8 +355,22 @@ class UniversityScoutProgramMembers(models.Model):
     )
 
     class Meta:
+
         managed = False
+
         db_table = 'university_scout_program_members'
+
+        ordering = ['-created_at']
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    'university_member',
+                    'program'
+                ],
+                name='uq_uni_member_program'
+            )
+        ]
 
     def __str__(self):
 
