@@ -46,6 +46,7 @@ class FamiliesDetailSerializer(serializers.ModelSerializer):
     approved_by_name = serializers.CharField(source='approved_by.full_name', read_only=True, allow_null=True)
     
     family_members = serializers.SerializerMethodField()
+    family_admins = serializers.SerializerMethodField()
     family_events = serializers.SerializerMethodField()
     
     class Meta:
@@ -53,7 +54,7 @@ class FamiliesDetailSerializer(serializers.ModelSerializer):
         fields = [
             'family_id', 'name', 'description', 'faculty', 'faculty_name', 'status', 
             'created_at', 'updated_at', 'min_limit', 'type', 'created_by_name', 
-            'approved_by_name', 'family_members', 'family_events'
+            'approved_by_name', 'family_members', 'family_admins', 'family_events'
         ]
         read_only_fields = ['family_id', 'created_at', 'updated_at']
     
@@ -64,6 +65,21 @@ class FamiliesDetailSerializer(serializers.ModelSerializer):
             members = FamilyMembers.objects.filter(family_id=obj.family_id).select_related('student', 'dept')
         
         return FamilyMembersSerializer(members, many=True).data
+    
+    def get_family_admins(self, obj):
+        """Get all family admins (used for unions and other family types)"""
+        from apps.family.models import FamilyAdmins
+        admins = FamilyAdmins.objects.filter(family_id=obj.family_id)
+        
+        return [
+            {
+                'name': admin.name,
+                'nid': admin.nid,
+                'phone': admin.ph_no,
+                'role': admin.role
+            }
+            for admin in admins
+        ]
 
     def get_family_events(self, obj):
         events = Events.objects.filter(family=obj).order_by('-st_date')
@@ -1580,3 +1596,56 @@ class UnionDetailSerializer(serializers.ModelSerializer):
             }
             for a in assistants
         ]
+
+
+# ========== Replace Family Members and Admins Serializers ==========
+
+class ReplaceFamilyMemberSerializer(serializers.Serializer):
+    """Serializer for replacing a family member"""
+    nid = serializers.IntegerField(required=True)  # New member's NID
+    role = serializers.CharField(max_length=30, required=False, default='عضو')
+    status = serializers.CharField(max_length=50, required=False, default='مقبول')
+    
+    def validate_nid(self, value):
+        """Validate NID is positive"""
+        if value <= 0:
+            raise ValidationError("رقم الهوية يجب أن يكون رقماً موجباً")
+        return value
+
+
+class ReplaceFamilyAdminSerializer(serializers.Serializer):
+    """Serializer for replacing a family admin"""
+    nid = serializers.IntegerField(required=True)  # New admin's NID
+    name = serializers.CharField(max_length=255, required=True)
+    phone = serializers.IntegerField(required=True)
+    role = serializers.CharField(max_length=100, required=True)
+    replace_role = serializers.CharField(
+        max_length=100, 
+        required=False, 
+        allow_null=True,
+        help_text="If provided, will replace the admin with this role. If not provided, will update/create based on NID."
+    )
+    
+    def validate_nid(self, value):
+        """Validate NID is positive"""
+        if value <= 0:
+            raise ValidationError("رقم الهوية يجب أن يكون رقماً موجباً")
+        return value
+    
+    def validate_phone(self, value):
+        """Validate phone number is positive"""
+        if value <= 0:
+            raise ValidationError("رقم الهاتف يجب أن يكون رقماً موجباً")
+        return value
+
+
+class ReplaceFamilyMembersAndAdminsSerializer(serializers.Serializer):
+    """Serializer for replacing multiple family members and admins"""
+    members = ReplaceFamilyMemberSerializer(many=True, required=False)
+    admins = ReplaceFamilyAdminSerializer(many=True, required=False)
+    
+    def validate(self, data):
+        """Ensure at least one of members or admins is provided"""
+        if not data.get('members') and not data.get('admins'):
+            raise ValidationError("يجب توفير أعضاء أو مسؤولين للاستبدال")
+        return data

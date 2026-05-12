@@ -6,9 +6,13 @@ from rest_framework import viewsets, status
 from django.db.models import Count, F, Q
 from django.db import transaction
 from django.utils import timezone
-from apps.family.models import Families, FamilyMembers, Students
+from apps.family.models import Families, FamilyMembers, Students, FamilyAdmins
 from apps.accounts.permissions import IsRole
-from apps.family.serializers import FamiliesListSerializer, FamiliesDetailSerializer
+from apps.family.serializers import (
+    FamiliesListSerializer, 
+    FamiliesDetailSerializer,
+    ReplaceFamilyMembersAndAdminsSerializer
+)
 from apps.accounts.mixins import AdminActionMixin
 
 
@@ -393,3 +397,393 @@ class SuperDeptFamilyViewSet(AdminActionMixin, viewsets.ReadOnlyModelViewSet):
                 error_message="Cannot undo rejection. Member is not in 'Rejected' status.",
                 family=family
             )
+
+    # ----------------------------------------------------------------
+    # Replace Family Members and Admins (Complete Replacement)
+    # ----------------------------------------------------------------
+    @extend_schema(
+        description="Complete replacement of all family members and/or admins. Pass the full new data structure and it will replace everything.",
+        request=ReplaceFamilyMembersAndAdminsSerializer,
+        responses={
+            200: OpenApiResponse(description="Members/Admins replaced successfully"),
+            400: OpenApiResponse(description="Validation error"),
+        }
+    )
+    @action(detail=True, methods=['patch'], url_path='replace-members-and-admins')
+    def replace_members_and_admins(self, request, pk=None):
+        """
+        PATCH /api/family/super_dept/{family_id}/replace-members-and-admins/
+        
+        Replace specific family members and/or family admins.
+        
+        Two modes:
+        1. Replace by NID (if admin with NID exists, update; if not, create)
+        2. Replace by Role (delete admin with that role, create new one)
+        
+        Request body example (replace president by role):
+        {
+            "admins": [
+                {
+                    "nid": 567,
+                    "name": "سارة أحمد",
+                    "phone": 1234567890,
+                    "role": "رئيس اتحاد",
+                    "replace_role": "رئيس اتحاد"
+                }
+            ]
+        }
+        
+        Request body example (update/create by NID):
+        {
+            "admins": [
+                {
+                    "nid": 567,
+                    "name": "سارة أحمد",
+                    "phone": 1234567890,
+                    "role": "رئيس اتحاد"
+                }
+            ]
+        }
+        """
+        with transaction.atomic():
+            family = Families.objects.select_for_update().get(pk=pk)
+            
+            # Validate request
+            serializer = ReplaceFamilyMembersAndAdminsSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            
+            validated_data = serializer.validated_data
+            replaced_members = []
+            replaced_admins = []
+            errors = []
+            
+            # Replace family members (only the ones specified)
+            if validated_data.get('members'):
+                for member_data in validated_data['members']:
+                    nid = member_data['nid']
+                    
+                    try:
+                        # Find student by NID
+                        student = Students.objects.get(nid=nid)
+                        
+                        # Check if student already in family
+                        existing_member = FamilyMembers.objects.filter(
+                            family=family, 
+                            student=student
+                        ).first()
+                        
+                        if existing_member:
+                            # Update existing member
+                            existing_member.role = member_data.get('role', existing_member.role)
+                            existing_member.status = member_data.get('status', existing_member.status)
+                            existing_member.save()
+                            
+                            replaced_members.append({
+                                'nid': nid,
+                                'name': student.name,
+                                'role': existing_member.role,
+                                'status': existing_member.status,
+                                'action': 'updated'
+                            })
+                        else:
+                            # Create new member
+                            new_member = FamilyMembers.objects.create(
+                                family=family,
+                                student=student,
+                                role=member_data.get('role', 'عضو'),
+                                status=member_data.get('status', 'مقبول')
+                            )
+                            
+                            replaced_members.append({
+                                'nid': nid,
+                                'name': student.name,
+                                'role': new_member.role,
+                                'status': new_member.status,
+                                'action': 'created'
+                            })
+                    
+                    except Students.DoesNotExist:
+                        errors.append(f"طالب برقم هوية {nid} غير موجود في النظام")
+                    except Exception as e:
+                        errors.append(f"خطأ في معالجة العضو برقم هوية {nid}: {str(e)}")
+            
+            # Replace family admins (only the ones specified)
+            if validated_data.get('admins'):
+                for admin_data in validated_data['admins']:
+                    nid = admin_data['nid']
+                    replace_role = admin_data.get('replace_role')
+                    
+                    try:
+                        # Mode 1: Replace by role (delete old, create new)
+                        if replace_role:
+                            # Find and delete admin with that role
+                            old_admin = FamilyAdmins.objects.filter(
+                                family=family,
+                                role=replace_role
+                            ).first()
+                            
+                            if old_admin:
+                                old_nid = old_admin.nid
+                                old_admin.delete()
+                                
+                                # Create new admin with new NID
+                                new_admin = FamilyAdmins.objects.create(
+                                    family=family,
+                                    nid=nid,
+                                    name=admin_data['name'],
+                                    ph_no=admin_data['phone'],
+                                    role=admin_data['role']
+                                )
+                                
+                                replaced_admins.append({
+                                    'old_nid': old_nid,
+                                    'new_nid': nid,
+                                    'name': new_admin.name,
+                                    'phone': new_admin.ph_no,
+                                    'role': new_admin.role,
+                                    'action': 'replaced_by_role'
+                                })
+                            else:
+                                # Role doesn't exist, create new admin
+                                new_admin = FamilyAdmins.objects.create(
+                                    family=family,
+                                    nid=nid,
+                                    name=admin_data['name'],
+                                    ph_no=admin_data['phone'],
+                                    role=admin_data['role']
+                                )
+                                
+                                replaced_admins.append({
+                                    'new_nid': nid,
+                                    'name': new_admin.name,
+                                    'phone': new_admin.ph_no,
+                                    'role': new_admin.role,
+                                    'action': 'created'
+                                })
+                        
+                        # Mode 2: Replace by NID (update if exists, create if not)
+                        else:
+                            existing_admin = FamilyAdmins.objects.filter(
+                                family=family,
+                                nid=nid
+                            ).first()
+                            
+                            if existing_admin:
+                                # Update existing admin
+                                existing_admin.name = admin_data['name']
+                                existing_admin.ph_no = admin_data['phone']
+                                existing_admin.role = admin_data['role']
+                                existing_admin.save()
+                                
+                                replaced_admins.append({
+                                    'nid': nid,
+                                    'name': existing_admin.name,
+                                    'phone': existing_admin.ph_no,
+                                    'role': existing_admin.role,
+                                    'action': 'updated'
+                                })
+                            else:
+                                # Create new admin
+                                new_admin = FamilyAdmins.objects.create(
+                                    family=family,
+                                    nid=nid,
+                                    name=admin_data['name'],
+                                    ph_no=admin_data['phone'],
+                                    role=admin_data['role']
+                                )
+                                
+                                replaced_admins.append({
+                                    'nid': nid,
+                                    'name': new_admin.name,
+                                    'phone': new_admin.ph_no,
+                                    'role': new_admin.role,
+                                    'action': 'created'
+                                })
+                    
+                    except Exception as e:
+                        errors.append(f"خطأ في معالجة المسؤول برقم هوية {nid}: {str(e)}")
+            
+            def business_operation(admin, ip):
+                return {
+                    "message": "تم معالجة الأعضاء والمسؤولين بنجاح",
+                    "replaced_members": replaced_members,
+                    "replaced_admins": replaced_admins,
+                    "errors": errors if errors else None
+                }
+            
+            result = self.execute_admin_action(
+                request=request,
+                action_name=f'استبدال أعضاء ومسؤولي الأسرة: {family.name}',
+                target_type='اسر',
+                business_operation=business_operation,
+                family_id=family.family_id
+            )
+            
+            # Return 200 even if there are errors, but include them in response
+            if errors:
+                result['errors'] = errors
+            
+            return Response(result, status=status.HTTP_200_OK)
+
+    # ----------------------------------------------------------------
+    # Update Family Members and Admins (Complete Replacement via POST)
+    # ----------------------------------------------------------------
+    @extend_schema(
+        description="Complete replacement of all family members and admins. Pass the full updated data structure and it will replace everything completely.",
+        request=ReplaceFamilyMembersAndAdminsSerializer,
+        responses={
+            200: OpenApiResponse(description="Members/Admins replaced successfully"),
+            400: OpenApiResponse(description="Validation error"),
+        }
+    )
+    @action(detail=True, methods=['post'], url_path='update-members-and-admins')
+    def update_members_and_admins(self, request, pk=None):
+        """
+        POST /api/family/super_dept/{family_id}/update-members-and-admins/
+        
+        Complete replacement of all family members and admins.
+        Pass the FULL new data structure - it will DELETE all old data and CREATE new ones.
+        
+        Workflow:
+        1. Frontend calls GET /api/family/super_dept/{family_id}/ to fetch current data
+        2. Frontend modifies the data as needed
+        3. Frontend calls this POST with the complete updated structure
+        4. API deletes all old members/admins and creates new ones
+        
+        Request body example:
+        {
+            "members": [
+                {
+                    "nid": 111111111,
+                    "role": "أخ أكبر",
+                    "status": "مقبول"
+                },
+                {
+                    "nid": 222222222,
+                    "role": "عضو",
+                    "status": "مقبول"
+                }
+            ],
+            "admins": [
+                {
+                    "nid": 567,
+                    "name": "سارة أحمد",
+                    "phone": 1234567890,
+                    "role": "رئيس اتحاد"
+                },
+                {
+                    "nid": 789,
+                    "name": "محمد حسن",
+                    "phone": 9876543210,
+                    "role": "نائب رئيس اتحاد"
+                }
+            ]
+        }
+        """
+        with transaction.atomic():
+            family = Families.objects.select_for_update().get(pk=pk)
+            
+            # Validate request
+            serializer = ReplaceFamilyMembersAndAdminsSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            
+            validated_data = serializer.validated_data
+            created_members = []
+            created_admins = []
+            errors = []
+            
+            # Delete all existing members and create new ones
+            if validated_data.get('members'):
+                # Delete all existing members
+                FamilyMembers.objects.filter(family=family).delete()
+                
+                # Create new members
+                for member_data in validated_data['members']:
+                    nid = member_data['nid']
+                    
+                    try:
+                        # Find student by NID
+                        student = Students.objects.get(nid=nid)
+                        
+                        # Check if student already in family (shouldn't happen after delete)
+                        if FamilyMembers.objects.filter(family=family, student=student).exists():
+                            errors.append(f"الطالب برقم هوية {nid} موجود بالفعل في هذه الأسرة")
+                            continue
+                        
+                        # Create new member
+                        new_member = FamilyMembers.objects.create(
+                            family=family,
+                            student=student,
+                            role=member_data.get('role', 'عضو'),
+                            status=member_data.get('status', 'مقبول')
+                        )
+                        
+                        created_members.append({
+                            'nid': nid,
+                            'name': student.name,
+                            'role': new_member.role,
+                            'status': new_member.status
+                        })
+                    
+                    except Students.DoesNotExist:
+                        errors.append(f"طالب برقم هوية {nid} غير موجود في النظام")
+                    except Exception as e:
+                        errors.append(f"خطأ في إضافة العضو برقم هوية {nid}: {str(e)}")
+            
+            # Delete all existing admins and create new ones
+            if validated_data.get('admins'):
+                # Delete all existing admins
+                FamilyAdmins.objects.filter(family=family).delete()
+                
+                # Create new admins
+                for admin_data in validated_data['admins']:
+                    nid = admin_data['nid']
+                    
+                    try:
+                        # Check if NID already exists (shouldn't happen after delete)
+                        if FamilyAdmins.objects.filter(family=family, nid=nid).exists():
+                            errors.append(f"مسؤول برقم هوية {nid} موجود بالفعل في هذه الأسرة")
+                            continue
+                        
+                        # Create new admin
+                        new_admin = FamilyAdmins.objects.create(
+                            family=family,
+                            nid=nid,
+                            name=admin_data['name'],
+                            ph_no=admin_data['phone'],
+                            role=admin_data['role']
+                        )
+                        
+                        created_admins.append({
+                            'nid': nid,
+                            'name': new_admin.name,
+                            'phone': new_admin.ph_no,
+                            'role': new_admin.role
+                        })
+                    
+                    except Exception as e:
+                        errors.append(f"خطأ في إضافة المسؤول برقم هوية {nid}: {str(e)}")
+            
+            def business_operation(admin, ip):
+                return {
+                    "message": "تم استبدال جميع الأعضاء والمسؤولين بنجاح",
+                    "created_members": created_members,
+                    "created_admins": created_admins,
+                    "total_members": len(created_members),
+                    "total_admins": len(created_admins),
+                    "errors": errors if errors else None
+                }
+            
+            result = self.execute_admin_action(
+                request=request,
+                action_name=f'استبدال كامل أعضاء ومسؤولي الأسرة: {family.name}',
+                target_type='اسر',
+                business_operation=business_operation,
+                family_id=family.family_id
+            )
+            
+            # Return 200 even if there are errors, but include them in response
+            if errors:
+                result['errors'] = errors
+            
+            return Response(result, status=status.HTTP_200_OK)
