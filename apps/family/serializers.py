@@ -1605,11 +1605,19 @@ class ReplaceFamilyMemberSerializer(serializers.Serializer):
     nid = serializers.IntegerField(required=True)  # New member's NID
     role = serializers.CharField(max_length=30, required=False, default='عضو')
     status = serializers.CharField(max_length=50, required=False, default='مقبول')
+    dept_id = serializers.IntegerField(required=False, allow_null=True)  # Optional department
     
     def validate_nid(self, value):
         """Validate NID is positive"""
         if value <= 0:
             raise ValidationError("رقم الهوية يجب أن يكون رقماً موجباً")
+        return value
+    
+    def validate_dept_id(self, value):
+        """Validate department exists if provided"""
+        if value is not None and value > 0:
+            if not Departments.objects.filter(dept_id=value).exists():
+                raise ValidationError(f"القسم برقم {value} غير موجود في النظام")
         return value
 
 

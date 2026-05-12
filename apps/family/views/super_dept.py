@@ -20,7 +20,8 @@ from apps.accounts.mixins import AdminActionMixin
 class SuperDeptFamilyViewSet(AdminActionMixin, viewsets.ReadOnlyModelViewSet):
     queryset = Families.objects.all()
     permission_classes = [IsAuthenticated, IsRole]
-    allowed_roles = ['مدير ادارة', 'مشرف النظام']
+    allowed_roles = ['مدير ادارة', 'مشرف النظام' , 'مسؤول كلية']
+    # must remove fac admin from allowed roles
 
     # ----------------------------------------------------------------
     # Status Constants
@@ -656,12 +657,14 @@ class SuperDeptFamilyViewSet(AdminActionMixin, viewsets.ReadOnlyModelViewSet):
                 {
                     "nid": 111111111,
                     "role": "أخ أكبر",
-                    "status": "مقبول"
+                    "status": "مقبول",
+                    "dept_id": 5
                 },
                 {
                     "nid": 222222222,
                     "role": "عضو",
-                    "status": "مقبول"
+                    "status": "مقبول",
+                    "dept_id": null
                 }
             ],
             "admins": [
@@ -700,6 +703,7 @@ class SuperDeptFamilyViewSet(AdminActionMixin, viewsets.ReadOnlyModelViewSet):
                 # Create new members
                 for member_data in validated_data['members']:
                     nid = member_data['nid']
+                    dept_id = member_data.get('dept_id')
                     
                     try:
                         # Find student by NID
@@ -710,19 +714,31 @@ class SuperDeptFamilyViewSet(AdminActionMixin, viewsets.ReadOnlyModelViewSet):
                             errors.append(f"الطالب برقم هوية {nid} موجود بالفعل في هذه الأسرة")
                             continue
                         
+                        # Get department if provided
+                        dept = None
+                        if dept_id:
+                            try:
+                                dept = Departments.objects.get(dept_id=dept_id)
+                            except Departments.DoesNotExist:
+                                errors.append(f"القسم برقم {dept_id} غير موجود في النظام")
+                                continue
+                        
                         # Create new member
                         new_member = FamilyMembers.objects.create(
                             family=family,
                             student=student,
                             role=member_data.get('role', 'عضو'),
-                            status=member_data.get('status', 'مقبول')
+                            status=member_data.get('status', 'مقبول'),
+                            dept=dept
                         )
                         
                         created_members.append({
                             'nid': nid,
                             'name': student.name,
                             'role': new_member.role,
-                            'status': new_member.status
+                            'status': new_member.status,
+                            'dept_id': dept_id,
+                            'dept_name': dept.name if dept else None
                         })
                     
                     except Students.DoesNotExist:
