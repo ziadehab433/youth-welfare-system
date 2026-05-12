@@ -14,6 +14,7 @@ from apps.family.serializers import (
     ReplaceFamilyMembersAndAdminsSerializer
 )
 from apps.accounts.mixins import AdminActionMixin
+from apps.solidarity.models import Departments
 
 
 @extend_schema(tags=["Family Super_Dept"])
