@@ -481,9 +481,9 @@ class FamilyFacultyAdminViewSet(AdminActionMixin, viewsets.GenericViewSet):
         """
         admin = get_current_admin(request)
         
-        # Get family and verify it belongs to this faculty
+        # Get family and verify it belongs to this faculty (without select_for_update yet)
         try:
-            family = Families.objects.select_for_update().get(pk=pk)
+            family = Families.objects.get(pk=pk)
         except Families.DoesNotExist:
             return Response(
                 {"error": "الأسرة غير موجودة"},
@@ -498,6 +498,9 @@ class FamilyFacultyAdminViewSet(AdminActionMixin, viewsets.GenericViewSet):
             )
         
         with transaction.atomic():
+            # Now get the family with select_for_update inside the transaction
+            family = Families.objects.select_for_update().get(pk=pk)
+            
             # Validate request
             serializer = ReplaceFamilyMembersAndAdminsSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
