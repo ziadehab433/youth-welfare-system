@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
-from ..models import ScoutMembers
+from ..models import ScoutMembers, UniversityScoutMembers
 from ..serializers import (
     AddToUniversityScoutsSerializer,
     AssignMemberToProgramSerializer,
@@ -520,6 +520,7 @@ class DeptManagerScoutViewSet(AdminActionMixin, ViewSet):
 
     @extend_schema(
         tags=["Dept Manager Scouts"],
+        description="جلب جميع برامج الكشافة الجامعية",
         request=None,
     )
     @action(detail=False, methods=['get'])
@@ -542,6 +543,7 @@ class DeptManagerScoutViewSet(AdminActionMixin, ViewSet):
 
     @extend_schema(
         tags=["Dept Manager Scouts"],
+        description="إنشاء برنامج كشافة جامعي جديد",
         request=CreateUniversityProgramSerializer,
     )
     @action(detail=False, methods=['post'])
@@ -585,6 +587,7 @@ class DeptManagerScoutViewSet(AdminActionMixin, ViewSet):
 
     @extend_schema(
         tags=["Dept Manager Scouts"],
+        description="جلب أعضاء منتخب الجامعة مع إمكانية فلترة الأعضاء حسب البرنامج، الكلية، أو الدور الجامعي",
         parameters=[
             OpenApiParameter(
                 name='program_id',
@@ -632,6 +635,7 @@ class DeptManagerScoutViewSet(AdminActionMixin, ViewSet):
 
     @extend_schema(
         tags=["Dept Manager Scouts"],
+        description="إضافة عضو من أحد العشائر لمنتخب الجامعة",
         request=AddToUniversityScoutsSerializer,
     )
     @action(detail=False, methods=['post'])
@@ -671,27 +675,46 @@ class DeptManagerScoutViewSet(AdminActionMixin, ViewSet):
         )
 
 
+    UNIVERSITY_ROLES_ENUM = [
+        role[0]
+        for role in UniversityScoutMembers.UNIVERSITY_ROLES
+    ]
+
+
     @extend_schema(
         tags=["Dept Manager Scouts"],
-        request=AssignUniversityRoleSerializer,
+        description="تعيين دور جامعي لعضو في منتخب الجامعة",
+        parameters=[
+            OpenApiParameter(
+                name='university_member_id',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description='رقم عضو المنتخب',
+            ),
+
+            OpenApiParameter(
+                name='university_role',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                enum=UNIVERSITY_ROLES_ENUM,
+                description='الدور الجامعي',
+            ),
+        ],
+        request=None,
     )
     @action(detail=False, methods=['post'])
     @require_permission('update')
     def assign_university_role(self, request):
 
-        serializer = AssignUniversityRoleSerializer(
-            data=request.data
-        )
-
-        serializer.is_valid(raise_exception=True)
-
         result = self._safe(
             lambda: assign_university_role(
-                university_member_id=serializer.validated_data.get(
+                university_member_id=request.query_params.get(
                     'university_member_id'
                 ),
 
-                university_role=serializer.validated_data.get(
+                university_role=request.query_params.get(
                     'university_role'
                 ),
             )
@@ -716,6 +739,7 @@ class DeptManagerScoutViewSet(AdminActionMixin, ViewSet):
     @extend_schema(
         tags=["Dept Manager Scouts"],
         request=AssignMemberToProgramSerializer,
+        description="تعيين عضو لبرنامج كشافة جامعي"
     )
     @action(detail=False, methods=['post'])
     @require_permission('create')
@@ -756,6 +780,7 @@ class DeptManagerScoutViewSet(AdminActionMixin, ViewSet):
 
     @extend_schema(
         tags=["Dept Manager Scouts"],
+        description="إزالة عضو من منتخب الجامعة"
     )
     @action(detail=True, methods=['delete'])
     @require_permission('delete')

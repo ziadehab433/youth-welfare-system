@@ -1,0 +1,99 @@
+-- ============================================
+-- University Scout Programs
+-- ============================================
+
+CREATE TABLE university_scout_programs (
+
+program_id SERIAL PRIMARY KEY,
+
+name VARCHAR(100) NOT NULL UNIQUE,
+
+description TEXT,
+
+is_active BOOLEAN NOT NULL DEFAULT TRUE,
+
+created_by INTEGER NULL,
+
+created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+CONSTRAINT fk_university_program_created_by
+    FOREIGN KEY (created_by)
+    REFERENCES admins(admin_id)
+    ON DELETE SET NULL
+
+);
+
+-- ============================================
+-- University Scout Members
+-- ============================================
+
+CREATE TABLE university_scout_members (
+
+university_member_id SERIAL PRIMARY KEY,
+
+scout_member_id INTEGER NOT NULL,
+
+university_role VARCHAR(100) NULL,
+
+selected_by INTEGER NULL,
+
+created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+CONSTRAINT fk_university_member_scout_member
+    FOREIGN KEY (scout_member_id)
+    REFERENCES scout_members(scout_member_id)
+    ON DELETE CASCADE,
+
+CONSTRAINT fk_university_member_selected_by
+    FOREIGN KEY (selected_by)
+    REFERENCES admins(admin_id)
+    ON DELETE SET NULL,
+
+CONSTRAINT uq_university_member
+    UNIQUE (scout_member_id)
+
+);
+
+
+-- ============================================
+-- Prevent duplicate university roles
+-- ============================================
+
+CREATE UNIQUE INDEX uq_university_role_active
+ON university_scout_members (university_role)
+WHERE university_role IS NOT NULL;
+
+-- ============================================
+-- University Scout Program Members
+-- ============================================
+
+CREATE TABLE university_scout_program_members (
+
+
+id SERIAL PRIMARY KEY,
+
+university_member_id INTEGER NOT NULL,
+
+program_id INTEGER NOT NULL,
+
+created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+CONSTRAINT fk_uni_program_member
+    FOREIGN KEY (university_member_id)
+    REFERENCES university_scout_members(university_member_id)
+    ON DELETE CASCADE,
+
+CONSTRAINT fk_uni_program
+    FOREIGN KEY (program_id)
+    REFERENCES university_scout_programs(program_id)
+    ON DELETE CASCADE,
+
+CONSTRAINT uq_uni_member_program
+    UNIQUE (university_member_id, program_id)
+
+
+);
