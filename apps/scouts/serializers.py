@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Clans, ClanGroups, ScoutMembers
+from .models import Clans, ClanGroups, ScoutMembers, UniversityScoutMembers, UniversityScoutProgramMembers, UniversityScoutPrograms
 
 
 # ============================================
@@ -476,3 +476,110 @@ class ScoutMemberListSerializer(serializers.ModelSerializer):
             'joined_at',
             'created_at',
         ]
+class UniversityScoutProgramSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = UniversityScoutPrograms
+
+        fields = [
+            'program_id',
+            'name',
+            'description',
+            'is_active',
+            'created_at',
+        ]
+
+        read_only_fields = [
+            'program_id',
+            'is_active',
+            'created_at',
+        ]
+
+
+class UniversityScoutMemberSerializer(serializers.ModelSerializer):
+
+    student_name = serializers.CharField(
+        source='scout_member.student.name',
+        read_only=True
+    )
+
+    faculty_name = serializers.CharField(
+        source='scout_member.clan.faculty.name',
+        read_only=True
+    )
+
+    clan_name = serializers.CharField(
+        source='scout_member.clan.name',
+        read_only=True
+    )
+
+    class Meta:
+        model = UniversityScoutMembers
+
+        fields = [
+            'university_member_id',
+            'scout_member',
+            'student_name',
+            'faculty_name',
+            'clan_name',
+            'university_role',
+            'created_at',
+        ]
+
+
+class UniversityScoutProgramMemberSerializer(
+    serializers.ModelSerializer
+):
+
+    program_name = serializers.CharField(
+        source='program.name',
+        read_only=True
+    )
+
+    class Meta:
+
+        model = UniversityScoutProgramMembers
+
+        fields = [
+            'id',
+            'university_member',
+            'program',
+            'program_name',
+            'created_at',
+        ]
+
+
+class CreateUniversityProgramSerializer(serializers.Serializer):
+
+    name = serializers.CharField(max_length=100)
+
+    description = serializers.CharField(
+        required=False,
+        allow_blank=True
+    )
+
+
+class AddToUniversityScoutsSerializer(serializers.Serializer):
+
+    scout_member_id = serializers.IntegerField()
+
+
+class AssignUniversityRoleSerializer(serializers.Serializer):
+
+    university_member_id = serializers.IntegerField()
+
+    university_role = serializers.ChoiceField(
+        choices=UniversityScoutMembers.UNIVERSITY_ROLES
+    )
+
+
+class AssignMemberToProgramSerializer(serializers.Serializer):
+
+    university_member_id = serializers.IntegerField()
+
+    program_id = serializers.IntegerField()
+
+
+class RemoveUniversityTeamMemberSerializer(serializers.Serializer):
+
+    university_member_id = serializers.IntegerField()
