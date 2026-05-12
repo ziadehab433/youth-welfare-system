@@ -21,7 +21,7 @@ from apps.solidarity.models import Departments
 class SuperDeptFamilyViewSet(AdminActionMixin, viewsets.ReadOnlyModelViewSet):
     queryset = Families.objects.all()
     permission_classes = [IsAuthenticated, IsRole]
-    allowed_roles = ['مدير ادارة', 'مشرف النظام' , 'مسؤول كلية']
+    allowed_roles = ['مدير ادارة', 'مشرف النظام' ]
     # must remove fac admin from allowed roles
 
     # ----------------------------------------------------------------

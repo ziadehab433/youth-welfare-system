@@ -7,13 +7,12 @@ from django.utils import timezone
 from django.template.loader import render_to_string
 from io import BytesIO
 from django.db import DatabaseError, transaction
-from apps.family.models import Students, FamilyAdmins
+from apps.family.models import Students, FamilyAdmins, Families, FamilyMembers
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.openapi import OpenApiResponse
-from apps.family.models import Families, FamilyMembers
 from apps.family.services.family_service import FamilyService
 from apps.event.models import Events
 from apps.event.serializers import EventSerializer
@@ -33,8 +32,10 @@ from apps.family.serializers import (
     FamilyFounderSerializer,
     CreateFamilyRequestSerializer,
     CreateEnvFamilyRequestSerializer,
-    FamilyRequestDetailSerializer
+    FamilyRequestDetailSerializer,
+    ReplaceFamilyMembersAndAdminsSerializer
 )
+from apps.solidarity.models import Departments
 
 logger = logging.getLogger(__name__)
 
@@ -417,6 +418,204 @@ class FamilyFacultyAdminViewSet(AdminActionMixin, viewsets.GenericViewSet):
         response["Expires"] = "0"
 
         return response
+
+    # ----------------------------------------------------------------
+    # Update Family Members and Admins (Complete Replacement via POST)
+    # ----------------------------------------------------------------
+    @extend_schema(
+        description="Complete replacement of all family members and admins for faculty's families. Pass the full updated data structure and it will replace everything completely.",
+        request=ReplaceFamilyMembersAndAdminsSerializer,
+        responses={
+            200: OpenApiResponse(description="Members/Admins replaced successfully"),
+            400: OpenApiResponse(description="Validation error"),
+            403: OpenApiResponse(description="Access denied - family not in your faculty"),
+        }
+    )
+    @action(detail=True, methods=['post'], url_path='update-members-and-admins')
+    @require_permission('update')
+    def update_members_and_admins(self, request, pk=None):
+        """
+        POST /api/family/faculty/{family_id}/update-members-and-admins/
+        
+        Complete replacement of all family members and admins for faculty's families.
+        Faculty admin can only manage families in their own faculty.
+        Pass the FULL new data structure - it will DELETE all old data and CREATE new ones.
+        
+        Workflow:
+        1. Frontend calls GET /api/family/faculty/{family_id}/details to fetch current data
+        2. Frontend modifies the data as needed
+        3. Frontend calls this POST with the complete updated structure
+        4. API deletes all old members/admins and creates new ones
+        
+        Request body example:
+        {
+            "members": [
+                {
+                    "nid": 111111111,
+                    "role": "أخ أكبر",
+                    "status": "مقبول",
+                    "dept_id": 5
+                },
+                {
+                    "nid": 222222222,
+                    "role": "عضو",
+                    "status": "مقبول",
+                    "dept_id": null
+                }
+            ],
+            "admins": [
+                {
+                    "nid": 567,
+                    "name": "سارة أحمد",
+                    "phone": 1234567890,
+                    "role": "رئيس اتحاد"
+                },
+                {
+                    "nid": 789,
+                    "name": "محمد حسن",
+                    "phone": 9876543210,
+                    "role": "نائب رئيس اتحاد"
+                }
+            ]
+        }
+        """
+        admin = get_current_admin(request)
+        
+        # Get family and verify it belongs to this faculty
+        try:
+            family = Families.objects.select_for_update().get(pk=pk)
+        except Families.DoesNotExist:
+            return Response(
+                {"error": "الأسرة غير موجودة"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Check if family belongs to faculty admin's faculty
+        if family.faculty_id != admin.faculty_id:
+            return Response(
+                {"error": "لا يمكنك إدارة أسرة من كلية أخرى"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        with transaction.atomic():
+            # Validate request
+            serializer = ReplaceFamilyMembersAndAdminsSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            
+            validated_data = serializer.validated_data
+            created_members = []
+            created_admins = []
+            errors = []
+            
+            # Delete all existing members and create new ones
+            if validated_data.get('members'):
+                # Delete all existing members
+                FamilyMembers.objects.filter(family=family).delete()
+                
+                # Create new members
+                for member_data in validated_data['members']:
+                    nid = member_data['nid']
+                    dept_id = member_data.get('dept_id')
+                    
+                    try:
+                        # Find student by NID
+                        student = Students.objects.get(nid=nid)
+                        
+                        # Check if student already in family (shouldn't happen after delete)
+                        if FamilyMembers.objects.filter(family=family, student=student).exists():
+                            errors.append(f"الطالب برقم هوية {nid} موجود بالفعل في هذه الأسرة")
+                            continue
+                        
+                        # Get department if provided
+                        dept = None
+                        if dept_id:
+                            try:
+                                dept = Departments.objects.get(dept_id=dept_id)
+                            except Departments.DoesNotExist:
+                                errors.append(f"القسم برقم {dept_id} غير موجود في النظام")
+                                continue
+                        
+                        # Create new member
+                        new_member = FamilyMembers.objects.create(
+                            family=family,
+                            student=student,
+                            role=member_data.get('role', 'عضو'),
+                            status=member_data.get('status', 'مقبول'),
+                            dept=dept
+                        )
+                        
+                        created_members.append({
+                            'nid': nid,
+                            'name': student.name,
+                            'role': new_member.role,
+                            'status': new_member.status,
+                            'dept_id': dept_id,
+                            'dept_name': dept.name if dept else None
+                        })
+                    
+                    except Students.DoesNotExist:
+                        errors.append(f"طالب برقم هوية {nid} غير موجود في النظام")
+                    except Exception as e:
+                        errors.append(f"خطأ في إضافة العضو برقم هوية {nid}: {str(e)}")
+            
+            # Delete all existing admins and create new ones
+            if validated_data.get('admins'):
+                # Delete all existing admins
+                FamilyAdmins.objects.filter(family=family).delete()
+                
+                # Create new admins
+                for admin_data in validated_data['admins']:
+                    nid = admin_data['nid']
+                    
+                    try:
+                        # Check if NID already exists (shouldn't happen after delete)
+                        if FamilyAdmins.objects.filter(family=family, nid=nid).exists():
+                            errors.append(f"مسؤول برقم هوية {nid} موجود بالفعل في هذه الأسرة")
+                            continue
+                        
+                        # Create new admin
+                        new_admin = FamilyAdmins.objects.create(
+                            family=family,
+                            nid=nid,
+                            name=admin_data['name'],
+                            ph_no=admin_data['phone'],
+                            role=admin_data['role']
+                        )
+                        
+                        created_admins.append({
+                            'nid': nid,
+                            'name': new_admin.name,
+                            'phone': new_admin.ph_no,
+                            'role': new_admin.role
+                        })
+                    
+                    except Exception as e:
+                        errors.append(f"خطأ في إضافة المسؤول برقم هوية {nid}: {str(e)}")
+            
+            def business_operation(admin_user, ip):
+                return {
+                    "message": "تم استبدال جميع الأعضاء والمسؤولين بنجاح",
+                    "created_members": created_members,
+                    "created_admins": created_admins,
+                    "total_members": len(created_members),
+                    "total_admins": len(created_admins),
+                    "errors": errors if errors else None
+                }
+            
+            result = self.execute_admin_action(
+                request=request,
+                action_name=f'استبدال كامل أعضاء ومسؤولي الأسرة: {family.name}',
+                target_type='اسر',
+                business_operation=business_operation,
+                family_id=family.family_id
+            )
+            
+            # Return 200 even if there are errors, but include them in response
+            if errors:
+                result['errors'] = errors
+            
+            return Response(result, status=status.HTTP_200_OK)
+
 # ------------------------------------------------------------------
 # Events Approval (Faculty Admin)
 # ------------------------------------------------------------------
