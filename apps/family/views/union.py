@@ -129,7 +129,7 @@ class UnionViewSet(viewsets.GenericViewSet):
                     description=serializer.validated_data['description'],
                     faculty_id=faculty_id,
                     type=UNION_TYPE,
-                    status='منتظر',
+                    status='مقبول',
                     min_limit=16,  # 16 persons for union
                     created_by=admin
                 )
