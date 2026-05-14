@@ -127,6 +127,13 @@ class FamilyAdmins(models.Model):
         db_column='family_id',
         on_delete=models.CASCADE
     )
+    dept = models.ForeignKey(
+        Departments,
+        db_column='dept_id',
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True
+    )
 
     class Meta:
         managed = False

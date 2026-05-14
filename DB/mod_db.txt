@@ -16,3 +16,14 @@ ADD VALUE 'نائب رئيس اتحاد';
 ALTER TABLE families
 ADD COLUMN active BOOLEAN DEFAULT TRUE;
 
+
+ALTER TABLE family_admins
+ADD COLUMN dept_id INTEGER;
+
+ALTER TABLE family_admins
+ADD CONSTRAINT fk_family_admins_dept 
+FOREIGN KEY (dept_id) REFERENCES departments(dept_id);
+
+
+
+
