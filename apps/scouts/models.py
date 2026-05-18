@@ -206,3 +206,176 @@ class ScoutMembers(models.Model):
     @property
     def has_group(self):
         return self.group_id is not None
+    
+class UniversityScoutPrograms(models.Model):
+
+    program_id = models.AutoField(
+        primary_key=True
+    )
+
+    name = models.CharField(
+        max_length=100,
+        unique=True
+    )
+
+    description = models.TextField(
+        blank=True,
+        null=True
+    )
+
+    is_active = models.BooleanField(
+        default=True
+    )
+
+    created_by = models.ForeignKey(
+        AdminsUser,
+        on_delete=models.DO_NOTHING,
+        db_column='created_by',
+        blank=True,
+        null=True,
+        related_name='created_university_programs'
+    )
+
+    created_at = models.DateTimeField(
+        blank=True,
+        null=True
+    )
+
+    updated_at = models.DateTimeField(
+        blank=True,
+        null=True
+    )
+
+    class Meta:
+
+        managed = False
+
+        db_table = 'university_scout_programs'
+
+        ordering = ['name']
+
+    def __str__(self):
+
+        return self.name
+
+
+class UniversityScoutMembers(models.Model):
+
+    UNIVERSITY_ROLES = (
+        ('قائد عشاير الجامعة', 'قائد عشاير الجامعة'),
+        ('مساعد قائد العشاير', 'مساعد قائد العشاير'),
+        ('منفذ برامج', 'منفذ برامج'),
+        ('قائد الجوالات', 'قائد الجوالات'),
+        ('سكرتير العشاير', 'سكرتير العشاير'),
+        ('قائد السواعد', 'قائد السواعد'),
+    )
+
+    university_member_id = models.AutoField(
+        primary_key=True
+    )
+
+    scout_member = models.ForeignKey(
+        ScoutMembers,
+        on_delete=models.DO_NOTHING,
+        db_column='scout_member_id',
+        related_name='university_memberships'
+    )
+
+    university_role = models.CharField(
+        max_length=100,
+        choices=UNIVERSITY_ROLES,
+        blank=True,
+        null=True
+    )
+
+    selected_by = models.ForeignKey(
+        AdminsUser,
+        on_delete=models.DO_NOTHING,
+        db_column='selected_by',
+        blank=True,
+        null=True,
+        related_name='selected_university_members'
+    )
+
+    created_at = models.DateTimeField(
+        blank=True,
+        null=True
+    )
+
+    updated_at = models.DateTimeField(
+        blank=True,
+        null=True
+    )
+
+    class Meta:
+
+        managed = False
+
+        db_table = 'university_scout_members'
+
+        ordering = ['-created_at']
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=['scout_member'],
+                name='uq_university_member'
+            )
+        ]
+
+    def __str__(self):
+
+        return (
+            self.scout_member.student.name
+        )
+
+
+class UniversityScoutProgramMembers(models.Model):
+
+    id = models.AutoField(
+        primary_key=True
+    )
+
+    university_member = models.ForeignKey(
+        UniversityScoutMembers,
+        on_delete=models.DO_NOTHING,
+        db_column='university_member_id',
+        related_name='program_memberships'
+    )
+
+    program = models.ForeignKey(
+        UniversityScoutPrograms,
+        on_delete=models.DO_NOTHING,
+        db_column='program_id',
+        related_name='program_members'
+    )
+
+    created_at = models.DateTimeField(
+        blank=True,
+        null=True
+    )
+
+    class Meta:
+
+        managed = False
+
+        db_table = 'university_scout_program_members'
+
+        ordering = ['-created_at']
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    'university_member',
+                    'program'
+                ],
+                name='uq_uni_member_program'
+            )
+        ]
+
+    def __str__(self):
+
+        return (
+            f"{self.university_member.scout_member.student.name}"
+            f" - "
+            f"{self.program.name}"
+        )

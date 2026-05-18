@@ -1,9 +1,7 @@
 from django.utils import timezone
 from django.db import transaction
 from rest_framework import status as http_status
-from ..models import Clans, ClanGroups, ScoutMembers
-
-
+from ..models import Clans, ClanGroups, ScoutMembers, UniversityScoutProgramMembers,UniversityScoutPrograms,UniversityScoutMembers
 # ============================================
 # Shared Constants
 # ============================================
@@ -40,6 +38,23 @@ class Roles:
     MALE_ONLY = [ASSISTANT_MALE, GROUP_LEADER_MALE, GROUP_ASSISTANT_MALE]
     FEMALE_ONLY = [ASSISTANT_FEMALE, GROUP_LEADER_FEMALE, GROUP_ASSISTANT_FEMALE]
 
+class UniversityRoles:
+
+    LEADER = 'قائد عشاير الجامعة'
+    ASSISTANT = 'مساعد قائد العشاير'
+    PROGRAM_EXECUTOR = 'منفذ برامج'
+    FEMALE_LEADER = 'قائد الجوالات'
+    SECRETARY = 'سكرتير العشاير'
+    VETERAN = 'قائد السواعد'
+
+    ALL = [
+        LEADER,
+        ASSISTANT,
+        PROGRAM_EXECUTOR,
+        FEMALE_LEADER,
+        SECRETARY,
+        VETERAN,
+    ]
 
 class Status:
     """All member statuses"""
@@ -322,3 +337,265 @@ def remove_member(member):
         )
         locked.delete()
     return info
+# ============================================
+# University Scout Programs
+# ============================================
+
+def get_all_university_programs():
+
+    return UniversityScoutPrograms.objects.all().order_by(
+        'name'
+    )
+
+
+def create_university_program(data, admin_id):
+
+    name = data.get('name')
+
+    if not name:
+        raise ScoutValidationError(
+            "يجب تحديد اسم البرنامج"
+        )
+
+    exists = UniversityScoutPrograms.objects.filter(
+        name=name
+    ).exists()
+
+    if exists:
+        raise ScoutValidationError(
+            "هذا البرنامج موجود بالفعل"
+        )
+
+    return UniversityScoutPrograms.objects.create(
+        name=name,
+        description=data.get('description'),
+        created_by_id=admin_id,
+        created_at=timezone.now(),
+        updated_at=timezone.now(),
+    )
+
+
+# ============================================
+# University Team Members
+# ============================================
+
+def get_university_team_members(query_params):
+
+    members = (
+        UniversityScoutMembers.objects
+        .select_related(
+            'scout_member__student',
+            'scout_member__clan__faculty',
+        )
+        .prefetch_related(
+            'program_memberships__program'
+        )
+    )
+
+    role = query_params.get('role')
+
+    if role:
+        members = members.filter(
+            university_role=role
+        )
+
+    faculty_id = query_params.get('faculty_id')
+
+    if faculty_id:
+        members = members.filter(
+            scout_member__clan__faculty_id=faculty_id
+        )
+
+    program_id = query_params.get('program_id')
+
+    if program_id:
+        members = members.filter(
+            program_memberships__program_id=program_id
+        )
+
+    return members.order_by(
+        '-created_at'
+    ).distinct()
+
+
+def add_to_university_scouts(
+    scout_member_id,
+    admin_id
+):
+
+    with transaction.atomic():
+
+        try:
+
+            member = (
+                ScoutMembers.objects
+                .select_for_update()
+                .get(
+                    scout_member_id=scout_member_id,
+                    status=Status.ACCEPTED
+                )
+            )
+
+        except ScoutMembers.DoesNotExist:
+
+            raise ScoutValidationError(
+                "العضو غير موجود أو غير مقبول"
+            )
+
+        exists = UniversityScoutMembers.objects.filter(
+            scout_member=member
+        ).exists()
+
+        if exists:
+            raise ScoutValidationError(
+                "العضو موجود بالفعل في منتخب الجامعة"
+            )
+
+        now = timezone.now()
+
+        return UniversityScoutMembers.objects.create(
+            scout_member=member,
+            university_role=None,
+            selected_by_id=admin_id,
+            created_at=now,
+            updated_at=now,
+        )
+
+
+def assign_university_role(
+    university_member_id,
+    university_role
+):
+
+    with transaction.atomic():
+
+        if not university_role:
+            raise ScoutValidationError(
+                "يجب تحديد الدور الجامعي"
+            )
+
+        try:
+
+            membership = (
+                UniversityScoutMembers.objects
+                .select_for_update()
+                .get(
+                    university_member_id=university_member_id
+                )
+            )
+
+        except UniversityScoutMembers.DoesNotExist:
+
+            raise ScoutValidationError(
+                "عضو المنتخب غير موجود"
+            )
+
+        role_exists = (
+            UniversityScoutMembers.objects
+            .filter(
+                university_role=university_role
+            )
+            .exclude(
+                university_member_id=(
+                    membership.university_member_id
+                )
+            )
+            .exists()
+        )
+
+        if role_exists:
+            raise ScoutValidationError(
+                "هذا المنصب الجامعي مشغول بالفعل"
+            )
+
+        membership.university_role = university_role
+        membership.updated_at = timezone.now()
+
+        membership.save()
+
+        return membership
+
+
+def assign_member_to_program(
+    university_member_id,
+    program_id
+):
+
+    with transaction.atomic():
+
+        try:
+
+            membership = (
+                UniversityScoutMembers.objects
+                .select_for_update()
+                .get(
+                    university_member_id=university_member_id
+                )
+            )
+
+        except UniversityScoutMembers.DoesNotExist:
+
+            raise ScoutValidationError(
+                "عضو المنتخب غير موجود"
+            )
+
+        try:
+
+            program = (
+                UniversityScoutPrograms.objects
+                .get(
+                    program_id=program_id,
+                    is_active=True
+                )
+            )
+
+        except UniversityScoutPrograms.DoesNotExist:
+
+            raise ScoutValidationError(
+                "البرنامج غير موجود أو غير نشط"
+            )
+
+        exists = (
+            UniversityScoutProgramMembers.objects
+            .filter(
+                university_member=membership,
+                program=program
+            )
+            .exists()
+        )
+
+        if exists:
+            raise ScoutValidationError(
+                "العضو موجود بالفعل في هذا البرنامج"
+            )
+
+        return (
+            UniversityScoutProgramMembers.objects
+            .create(
+                university_member=membership,
+                program=program,
+                created_at=timezone.now(),
+            )
+        )
+
+
+def remove_university_team_member(
+    university_member_id
+):
+
+    try:
+
+        member = (
+            UniversityScoutMembers.objects
+            .get(
+                university_member_id=university_member_id
+            )
+        )
+
+    except UniversityScoutMembers.DoesNotExist:
+
+        raise ScoutValidationError(
+            "عضو المنتخب غير موجود"
+        )
+
+    member.delete()
