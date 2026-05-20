@@ -8,6 +8,7 @@ from apps.family.views.faculty import (
 )
 from apps.family.views.super_dept import SuperDeptFamilyViewSet
 from apps.family.views.student import StudentFamilyViewSet
+from apps.family.views.union import UnionViewSet
 
 router = DefaultRouter()
 
@@ -17,6 +18,7 @@ router.register(r'faculty_members', FamilyMembersViewSet, basename='faculty_memb
 
 router.register(r'student', StudentFamilyViewSet, basename='student')
 router.register(r'super_dept', SuperDeptFamilyViewSet, basename='family_super_dept')
+router.register(r'unions', UnionViewSet, basename='unions')
 router.register(r'departments', DepartmentViewSet, basename='departments')
 router.register(r'faculties', FacultyViewSet)
 urlpatterns = [

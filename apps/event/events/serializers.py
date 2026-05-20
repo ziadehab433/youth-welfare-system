@@ -8,6 +8,9 @@ from drf_spectacular.utils import extend_schema_field
 class EventRejectionSerializer(serializers.Serializer):
     rejection_reason = serializers.CharField(required=True, allow_blank=False)
 
+class AddMemberSerializer(serializers.Serializer):
+    nid = serializers.CharField(required=True, allow_blank=False)
+
 class EventDocsSerializer(serializers.ModelSerializer):
     """Serializer for event documents/images"""
     file_url = serializers.SerializerMethodField()

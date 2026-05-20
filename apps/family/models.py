@@ -38,6 +38,7 @@ class Families(models.Model):
     closing_date = models.DateField(blank=True, null=True)
     min_limit = models.IntegerField(default=50)
     type = models.CharField(max_length=50)
+    active = models.BooleanField(default=True)
 
     class Meta:
         managed = False
@@ -125,6 +126,13 @@ class FamilyAdmins(models.Model):
         Families,
         db_column='family_id',
         on_delete=models.CASCADE
+    )
+    dept = models.ForeignKey(
+        Departments,
+        db_column='dept_id',
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True
     )
 
     class Meta:
