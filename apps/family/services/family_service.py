@@ -78,7 +78,8 @@ class FamilyService:
         available_families = Families.objects.annotate(
             current_members=Count('family_members')
         ).filter(
-            status__in=['موافقة مبدئية', 'مقبول']
+            status__in=['موافقة مبدئية', 'مقبول'],
+            active=True  # Exclude inactive families
         ).exclude(
             family_id__in=student_family_ids
         ).filter(
