@@ -756,17 +756,7 @@ class FamilyService:
                 faculty=family.faculty
             )
             
-            # Log the post creation
-            # from apps.accounts.utils import log_data_access
-            # log_data_access(
-            #     actor_id=None,
-            #     actor_type='طالب',
-            #     action=f'إنشاء منشور في أسرة: {family.name}',
-            #     target_type='اسر',
-            #     family_id=family.family_id,
-            #     student_id=student.student_id,
-            #     ip_address=None
-            # )
+
             
             return post
         except Exception as e:
