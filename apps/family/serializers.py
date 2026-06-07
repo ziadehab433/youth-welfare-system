@@ -459,6 +459,7 @@ class EventRequestResponseSerializer(serializers.ModelSerializer):
     created_by_admin_info = serializers.SerializerMethodField()
     created_by_student_info = serializers.SerializerMethodField()
     dept_id = serializers.IntegerField(source='department.dept_id', read_only=True)
+    current_student_participation = serializers.SerializerMethodField()
 
     class Meta:
         model = Events
@@ -467,7 +468,7 @@ class EventRequestResponseSerializer(serializers.ModelSerializer):
             'location', 's_limit', 'cost', 'restrictions', 'reward', 'status',
             'family', 'family_name', 'faculty', 'faculty_name','dept_id',
             'created_by', 'created_by_admin_info','created_by_student_info',
-            'created_at', 'updated_at'
+            'current_student_participation', 'created_at', 'updated_at'
         ]
         read_only_fields = [
             'event_id', 'status', 'created_at', 'updated_at', 'created_by' 
@@ -500,20 +501,6 @@ class EventRequestResponseSerializer(serializers.ModelSerializer):
         return None
     
     def get_created_by_student_info(self, obj):
-        """Get student creator info from context"""
-        student = self.context.get('created_by_student')
-        if student:
-            return {
-                'student_id': student.student_id,
-                'name': student.name,
-                'email': student.email,
-                'faculty_id': student.faculty_id if student.faculty else None,
-                'role': 'Family President/Vice President'
-            }
-        return None
-
-    
-    def get_created_by_student_info(self, obj):
         """
         Get student creator info from context
         This is passed when creating the event
@@ -526,6 +513,33 @@ class EventRequestResponseSerializer(serializers.ModelSerializer):
                 'email': student.email,
                 'faculty_id': student.faculty_id if student.faculty else None
             }
+        return None
+    
+    def get_current_student_participation(self, obj):
+        """
+        Get current student's participation status for this event
+        """
+        student = self.context.get('created_by_student')
+        if student:
+            try:
+                participation = Prtcps.objects.get(
+                    event=obj,
+                    student=student
+                )
+                return {
+                    'is_registered': True,
+                    'status': participation.status,
+                    'rank': participation.rank,
+                    'reward': participation.reward,
+                }
+            except Prtcps.DoesNotExist:
+                return {
+                    'is_registered': False,
+                    'status': None,
+                    'rank': None,
+                    'reward': None,
+                    'joined_at': None
+                }
         return None
     
 
