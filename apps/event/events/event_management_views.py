@@ -50,11 +50,17 @@ class EventGetterViewSet(AdminActionMixin, viewsets.GenericViewSet):
     def get_queryset(self, queryset=None):
         admin = get_current_admin(self.request)
         admin_payload = get_current_user_token_payload(self.request)
-        
-        if queryset is None: 
+                
+        if queryset is None:
             queryset = Events.objects.select_related(
                 'created_by', 'faculty', 'dept', 'family'
-            ).filter(family__isnull=True).exclude(status='منتظر')
+            ).filter(
+                family__isnull=True
+            )
+
+            # Show pending events only for Faculty Admin and Department Manager
+            if admin.role not in ['مسؤول كلية', 'مدير ادارة']:
+                queryset = queryset.exclude(status='منتظر')
         
         # Apply date filters if provided
         date_from = self.request.query_params.get('date_from')
@@ -89,11 +95,16 @@ class EventGetterViewSet(AdminActionMixin, viewsets.GenericViewSet):
         3. For other actions, applies role-based filtering
         """
         admin = get_current_admin(self.request)
+        event_queryset = Events.objects.select_related(
+            'created_by', 'faculty', 'dept', 'family'
+        ).filter(
+            family__isnull=True
+        )
+        if admin.role not in ['مسؤول كلية', 'مدير ادارة']:
+            event_queryset = event_queryset.exclude(status='منتظر')
+
         event = get_object_or_404(
-            Events.objects.select_related('created_by', 'faculty', 'dept', 'family')
-            .filter(family__isnull=True)
-            .exclude(status='منتظر')
-            .prefetch_related(
+            event_queryset.prefetch_related(
                 Prefetch(
                     'prtcps_set',
                     queryset=Prtcps.objects.select_related('student'),
@@ -102,7 +113,6 @@ class EventGetterViewSet(AdminActionMixin, viewsets.GenericViewSet):
             ),
             pk=self.kwargs['pk']
         )
-        
         # For destroy action, if admin is the event creator, allow access immediately
         if self.action == 'destroy':
             if event.created_by and event.created_by.admin_id == admin.admin_id:
