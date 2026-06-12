@@ -19,6 +19,9 @@ from decimal import Decimal
 from django.db.models import Count, Sum, Case, When, Value, DecimalField, F, IntegerField
 from django.db.models.functions import Coalesce
 from ..utils import get_arabic_discount_type
+import json
+import google.generativeai as genai
+from django.conf import settings
 
     
 logger = logging.getLogger(__name__)
@@ -624,3 +627,95 @@ class SolidarityService:
             totals['total_pending_count'] += pc
 
         return rows, totals
+    
+class AISummaryService:
+
+    @classmethod
+    def generate(cls, solidarity):
+
+        genai.configure(
+            api_key=settings.GEMINI_API_KEY
+        )
+
+        model = genai.GenerativeModel(
+            "gemini-2.5-flash"
+        )
+
+        prompt = f"""
+You are an AI assistant specialized in evaluating university solidarity and financial aid applications.
+
+Analyze the following application.
+
+IMPORTANT:
+
+- The response language must be Arabic.
+- Use Modern Standard Arabic.
+- Return valid JSON only.
+- Do not use Markdown.
+- Do not add explanations outside JSON.
+- Keep each field concise and professional.
+
+Application Information:
+
+Family Members: {solidarity.family_numbers}
+
+Father Status: {solidarity.father_status}
+
+Mother Status: {solidarity.mother_status}
+
+Father Income: {solidarity.father_income}
+
+Mother Income: {solidarity.mother_income}
+
+Total Income: {solidarity.total_income}
+
+Housing Status: {solidarity.housing_status}
+
+Disabilities: {solidarity.disabilities}
+
+Reason:
+{solidarity.reason}
+
+Return exactly this structure:
+
+{{
+    "summary": "",
+    "financial_assessment": "",
+    "need_level": "",
+    "recommendation": ""
+}}
+
+Field Requirements:
+
+summary:
+- Short summary of the student's situation.
+- Maximum 2 sentences.
+
+financial_assessment:
+- Professional financial assessment.
+- Maximum 2 sentences.
+
+need_level:
+- Must be one of:
+  "منخفض"
+  "متوسط"
+  "مرتفع"
+
+recommendation:
+- Short recommendation for the reviewing committee.
+- Maximum 1 sentence.
+"""
+
+        response = model.generate_content(prompt)
+
+        text = response.text.strip()
+
+        if text.startswith("```json"):
+            text = text.replace("```json", "")
+
+        if text.startswith("```"):
+            text = text.replace("```", "")
+
+        text = text.strip()
+
+        return json.loads(text)

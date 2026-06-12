@@ -303,3 +303,8 @@ class DeptFacultySummarySerializer(serializers.Serializer):
     total_approved_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
     approved_count = serializers.IntegerField()
     pending_count = serializers.IntegerField()
+
+class AISummarySerializer(serializers.Serializer):
+    summary = serializers.CharField()
+    financial_assessment = serializers.CharField()
+    recommendation = serializers.CharField()

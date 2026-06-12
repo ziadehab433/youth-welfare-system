@@ -372,3 +372,5 @@ sentry_sdk.init(
     # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
     send_default_pii=True,
 )
+
+GEMINI_API_KEY = config("GEMINI_API_KEY", default=None)

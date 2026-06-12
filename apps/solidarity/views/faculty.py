@@ -41,7 +41,10 @@ from apps.accounts.mixins import AdminActionMixin
 from apps.solidarity.services.solidarity_service import SolidarityService
 from ..utils import get_arabic_discount_type
 from apps.accounts.utils import log_data_access
-
+from apps.solidarity.services.solidarity_service import AISummaryService
+from apps.solidarity.serializers import (
+    AISummarySerializer
+)
 class FacultyAdminSolidarityViewSet(AdminActionMixin, viewsets.GenericViewSet):
     permission_classes = [ IsRole]
     allowed_roles = ['مسؤول كلية']
@@ -365,6 +368,43 @@ class FacultyAdminSolidarityViewSet(AdminActionMixin, viewsets.GenericViewSet):
             'total_discount': totals['total_discount'],
             'results': serializer.data
         })
+
+    @extend_schema(
+        tags=["Solidarity Fac Admin APIs"],
+        description="Generate AI summary for solidarity application",
+        responses={200: AISummarySerializer}
+    )
+    @action(
+        detail=True,
+        methods=['get'],
+        url_path='ai-summary'
+    )
+    @require_permission('read')
+    def ai_summary(self, request, pk=None):
+
+        admin = get_current_admin(request)
+
+        try:
+            solidarity = SolidarityService.get_application_detail(
+                pk,
+                admin
+            )
+
+        except ValidationError as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        result = AISummaryService.generate(
+            solidarity
+        )
+
+        return Response(
+            result,
+            status=status.HTTP_200_OK
+        )
+
 
     @extend_schema(
         tags=["Solidarity Fac Admin APIs"],
